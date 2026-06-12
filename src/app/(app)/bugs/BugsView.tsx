@@ -1,6 +1,5 @@
 import { BugBoard } from "@/components/BugBoard";
 import { Hero } from "@/components/Hero";
-import { StatCard } from "@/components/StatCard";
 import { getBugsSnapshot, type BugKind } from "@/lib/bugs";
 import { env } from "@/lib/env";
 import { requireAccess } from "@/lib/viewer";
@@ -28,21 +27,6 @@ export async function BugsView({ kind }: { kind: BugKind }) {
               LINEAR_API_KEY
             </code>{" "}
             to list bugs.
-          </div>
-        )}
-
-        {!snapshot.isSample && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <StatCard
-              label="Open bugs"
-              value={snapshot.openBugs}
-              hint="Backlog, todo or in progress"
-            />
-            <StatCard
-              label="Total tracked"
-              value={snapshot.totalBugs}
-              hint={`Tickets labeled "${label}"`}
-            />
           </div>
         )}
 

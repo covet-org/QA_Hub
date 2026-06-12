@@ -129,15 +129,15 @@ function CollapsibleGroup({
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 bg-white px-5 py-3.5 text-left hover:bg-slate-50"
       >
-        <h2 className="font-display text-base font-semibold text-slate-800">
-          {group.name}
-        </h2>
-        <span className="flex items-center gap-3">
-          <span className="text-xs text-slate-500">
-            {group.openCount} open / {group.tickets.length} total
+        <span className="flex items-baseline gap-2.5">
+          <h2 className="font-display text-base font-semibold text-slate-800">
+            {group.name}
+          </h2>
+          <span className="text-xs text-slate-400">
+            {group.openCount} open · {group.tickets.length} total
           </span>
-          <Chevron open={open} />
         </span>
+        <Chevron open={open} />
       </button>
       {open && (
         <ul className="divide-y divide-slate-100 border-t border-slate-100">
