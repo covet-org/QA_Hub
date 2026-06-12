@@ -36,8 +36,10 @@ function asArray<T>(value: T | T[] | undefined | null): T[] {
 
 function summarizeRun(
   run: TestinyTestRun,
-  results: TestinyRunResultValues[],
+  allResults: TestinyRunResultValues[],
 ): RunSummary {
+  // Rows with deleted_at were removed from the run — don't count them.
+  const results = allResults.filter((r) => !r.deleted_at);
   const counts = { passed: 0, failed: 0, blocked: 0, skipped: 0, notRun: 0 };
   for (const r of results) {
     switch (r.result_status?.toUpperCase()) {
@@ -151,9 +153,11 @@ export async function getManualTestingSnapshot(): Promise<ManualTestingSnapshot>
       .sort((a, b) => Number(a.is_closed) - Number(b.is_closed) || b.id - a.id)
       .slice(0, 8);
 
+    // includeDeleted: runs keep results for test cases that were later
+    // deleted from the library; without it those runs show 0 results.
     const joinRows = await findAllEntities<TestinyTestRun>("testrun", {
       ids: recentRuns.map((r) => r.id),
-      map: { entities: ["testcase", "testrun"] },
+      map: { entities: ["testcase", "testrun"], includeDeleted: true },
     });
 
     const resultsByRun = new Map<number, TestinyRunResultValues[]>();

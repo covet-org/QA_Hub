@@ -38,6 +38,8 @@ export interface TestinyRunResultValues {
   testcase_id: number;
   testrun_id: number;
   result_status: string | null; // PASSED | FAILED | BLOCKED | SKIPPED | NOTRUN
+  /** Set when the case was removed from the run (don't count those). */
+  deleted_at?: string | null;
 }
 
 export interface TestinyTestRun {

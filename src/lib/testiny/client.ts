@@ -26,6 +26,8 @@ export interface MapJoin {
   entity?: string;
   idOnly?: boolean;
   result?: string;
+  /** Include mapping rows whose member entities were soft-deleted. */
+  includeDeleted?: boolean;
 }
 
 interface FindOptions {
