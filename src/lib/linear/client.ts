@@ -101,8 +101,16 @@ export async function fetchRoadmapIssues(): Promise<RoadmapTicket[]> {
     const issues = page.data?.issues;
     if (!issues) throw new LinearError("Linear returned no data");
 
+    const excluded = env.roadmapExcludeLabels;
+    // QA's own process tickets follow the "QA <phase> | COV-x" title
+    // convention but aren't always labeled "qa" consistently.
+    const qaProcessTitle = /^QA\b/i;
     for (const node of issues.nodes) {
       const allLabels = node.labels.nodes.map((l) => l.name);
+      // Skip QA's own process tickets even when someone puts a
+      // roadmap label on them.
+      if (allLabels.some((l) => excluded.includes(l))) continue;
+      if (qaProcessTitle.test(node.title)) continue;
       tickets.push({
         id: node.identifier,
         title: node.title,

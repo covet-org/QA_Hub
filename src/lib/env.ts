@@ -49,6 +49,14 @@ export const env = {
       .map((l) => l.trim())
       .filter(Boolean);
   },
+  /** Tickets carrying any of these labels never appear on the roadmap
+   *  (QA's own process tickets, e.g. "QA Test Design | COV-x"). */
+  get roadmapExcludeLabels(): string[] {
+    return (process.env.QA_ROADMAP_EXCLUDE_LABELS ?? "qa")
+      .split(",")
+      .map((l) => l.trim())
+      .filter(Boolean);
+  },
   /** Where access-request notifications are sent. */
   get notifyEmail(): string {
     return process.env.NOTIFY_EMAIL ?? "clezama@co.vet";
