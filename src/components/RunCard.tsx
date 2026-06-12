@@ -30,17 +30,17 @@ function CaseList({
       </p>
       <ul className="mt-1.5 space-y-1">
         {cases.map((tc) => (
-          <li key={tc.id} className="flex items-baseline gap-3">
+          <li key={tc.id} className="flex items-baseline gap-2.5 text-sm">
             <a
               href={tc.url}
               target="_blank"
               rel="noreferrer"
-              className="shrink-0 font-mono text-xs font-semibold text-brand-700 hover:underline"
+              className="shrink-0 font-semibold text-brand-700 hover:underline"
             >
               TC-{tc.id}
             </a>
             <span
-              className="min-w-0 truncate text-sm text-slate-800"
+              className="min-w-0 truncate text-slate-800"
               title={tc.title}
             >
               {tc.title}
