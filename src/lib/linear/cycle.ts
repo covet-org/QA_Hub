@@ -35,18 +35,31 @@ export interface StatusCycle {
   byPriority: PriorityCycle[];
 }
 
-/** Cycle time within one release, features and bugs separated. */
+/** One bug's working time per status (for the per-release lists). */
+export interface ReleaseBugCycle {
+  id: string;
+  title: string;
+  url: string;
+  totalHours: number;
+  stays: { status: string; statusType: string; hours: number }[];
+}
+
+/** Bug cycle time for one status within one release. */
 export interface ReleaseCycleStatus {
   status: string;
   statusType: string;
-  feature?: { avgHours: number; samples: number };
-  bug?: { avgHours: number; samples: number };
+  /** Median of the per-bug total time spent in this status. */
+  medianHours: number;
+  /** Number of bugs contributing. */
+  samples: number;
 }
 
 export interface ReleaseCycle {
   release: string; // "3.32"
   rank: number;
   statuses: ReleaseCycleStatus[];
+  /** Every bug with history in this release, longest cycle first. */
+  bugs: ReleaseBugCycle[];
 }
 
 const HISTORY_QUERY = /* GraphQL */ `
@@ -138,9 +151,9 @@ export const CYCLE_WINDOW_DAYS = 90;
 const MAX_PAGES = 8; // up to 400 tickets
 
 /**
- * One shared fetch: every bug and feature ticket updated in the
- * window, with its state-change history. Both dashboards aggregate
- * from this (the underlying requests are cached for 5 minutes).
+ * One shared fetch: every bug updated in the window, with its
+ * state-change history. Both cycle dashboards aggregate from this
+ * (the underlying requests are cached for 5 minutes).
  */
 async function fetchHistoryIssues(): Promise<HistoryIssue[]> {
   const apiKey = env.linearApiKey;
@@ -149,7 +162,7 @@ async function fetchHistoryIssues(): Promise<HistoryIssue[]> {
   const since = new Date(
     Date.now() - CYCLE_WINDOW_DAYS * 86_400_000,
   ).toISOString();
-  const labels = [env.bugLabel, env.csBugLabel, ...env.roadmapLabels];
+  const labels = [env.bugLabel, env.csBugLabel];
 
   const issues: HistoryIssue[] = [];
   let after: string | null = null;
@@ -215,15 +228,6 @@ function labelNames(issue: HistoryIssue): string[] {
 function isBugTicket(issue: HistoryIssue): boolean {
   const names = labelNames(issue);
   return names.includes(env.bugLabel) || names.includes(env.csBugLabel);
-}
-
-function isFeatureTicket(issue: HistoryIssue): boolean {
-  const names = labelNames(issue);
-  return (
-    env.roadmapLabels.some((l) => names.includes(l)) &&
-    !names.some((l) => env.roadmapExcludeLabels.includes(l)) &&
-    !/^QA\b/i.test(issue.title)
-  );
 }
 
 const sampleCycles: StatusCycle[] = [
@@ -334,9 +338,18 @@ export async function getBugCycleStats(): Promise<{
   }
 }
 
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
 /**
- * Cycle time by status, one entry per release, with features and bugs
- * kept apart. A ticket belongs to a release via its Linear project.
+ * Bug cycle time per release: for each release, the median working
+ * time bugs spend in each status, plus every bug's individual time
+ * per status. A bug belongs to a release via its Linear project.
  */
 export async function getReleaseCycleStats(): Promise<{
   isSample: boolean;
@@ -347,19 +360,20 @@ export async function getReleaseCycleStats(): Promise<{
   }
 
   try {
-    const issues = await fetchHistoryIssues();
+    const issues = (await fetchHistoryIssues()).filter(isBugTicket);
 
-    // release rank → status name → kind → sums
+    // release rank → bug id → per-status totals
     const releases = new Map<
       number,
       {
         release: string;
-        statuses: Map<
+        bugs: Map<
           string,
           {
-            statusType: string;
-            feature: { hours: number; samples: number };
-            bug: { hours: number; samples: number };
+            id: string;
+            title: string;
+            url: string;
+            perStatus: Map<string, { statusType: string; hours: number }>;
           }
         >;
       }
@@ -369,16 +383,12 @@ export async function getReleaseCycleStats(): Promise<{
       const project = issue.project?.name;
       if (!project || !RELEASE_NAME.test(project)) continue;
 
-      const bug = isBugTicket(issue);
-      const feature = !bug && isFeatureTicket(issue);
-      if (!bug && !feature) continue;
-
       const rank = releaseRank(project);
       let entry = releases.get(rank);
       if (!entry) {
         entry = {
           release: project.match(/(\d+\.\d+)/)?.[1] ?? project,
-          statuses: new Map(),
+          bugs: new Map(),
         };
         releases.set(rank, entry);
       }
@@ -386,52 +396,86 @@ export async function getReleaseCycleStats(): Promise<{
       forEachStay(issue, (state, startIso, endIso) => {
         if (!ACTIVE_PIPELINE.has(state.type)) return;
         const hours = workingHoursBetween(startIso, endIso);
-        let status = entry!.statuses.get(state.name);
-        if (!status) {
-          status = {
-            statusType: state.type,
-            feature: { hours: 0, samples: 0 },
-            bug: { hours: 0, samples: 0 },
+
+        let bug = entry!.bugs.get(issue.identifier);
+        if (!bug) {
+          bug = {
+            id: issue.identifier,
+            title: issue.title,
+            url: issue.url,
+            perStatus: new Map(),
           };
-          entry!.statuses.set(state.name, status);
+          entry!.bugs.set(issue.identifier, bug);
         }
-        const side = bug ? status.bug : status.feature;
-        side.hours += hours;
-        side.samples += 1;
+        const stay = bug.perStatus.get(state.name) ?? {
+          statusType: state.type,
+          hours: 0,
+        };
+        stay.hours += hours;
+        bug.perStatus.set(state.name, stay);
       });
     }
 
     const result: ReleaseCycle[] = [...releases.entries()]
-      .map(([rank, entry]) => ({
-        release: entry.release,
-        rank,
-        statuses: [...entry.statuses.entries()]
-          .map(([status, s]) => ({
-            status,
-            statusType: s.statusType,
-            feature:
-              s.feature.samples > 0
-                ? {
-                    avgHours: s.feature.hours / s.feature.samples,
-                    samples: s.feature.samples,
-                  }
-                : undefined,
-            bug:
-              s.bug.samples > 0
-                ? {
-                    avgHours: s.bug.hours / s.bug.samples,
-                    samples: s.bug.samples,
-                  }
-                : undefined,
-          }))
-          .filter((s) => s.feature || s.bug)
-          .sort(
-            (a, b) =>
-              (STATUS_TYPE_ORDER[a.statusType] ?? 9) -
-              (STATUS_TYPE_ORDER[b.statusType] ?? 9),
-          ),
-      }))
-      .filter((r) => r.statuses.length > 0)
+      .map(([rank, entry]) => {
+        // status → per-bug totals, for the medians.
+        const perStatusTotals = new Map<
+          string,
+          { statusType: string; totals: number[] }
+        >();
+        const bugs: ReleaseBugCycle[] = [];
+
+        for (const bug of entry.bugs.values()) {
+          const stays = [...bug.perStatus.entries()]
+            .map(([status, s]) => ({
+              status,
+              statusType: s.statusType,
+              hours: s.hours,
+            }))
+            .sort(
+              (a, b) =>
+                (STATUS_TYPE_ORDER[a.statusType] ?? 9) -
+                (STATUS_TYPE_ORDER[b.statusType] ?? 9),
+            );
+          if (stays.length === 0) continue;
+
+          for (const stay of stays) {
+            const bucket = perStatusTotals.get(stay.status) ?? {
+              statusType: stay.statusType,
+              totals: [],
+            };
+            bucket.totals.push(stay.hours);
+            perStatusTotals.set(stay.status, bucket);
+          }
+
+          bugs.push({
+            id: bug.id,
+            title: bug.title,
+            url: bug.url,
+            totalHours: stays.reduce((sum, s) => sum + s.hours, 0),
+            stays,
+          });
+        }
+
+        return {
+          release: entry.release,
+          rank,
+          statuses: [...perStatusTotals.entries()]
+            .map(([status, bucket]) => ({
+              status,
+              statusType: bucket.statusType,
+              medianHours: median(bucket.totals),
+              samples: bucket.totals.length,
+            }))
+            .sort(
+              (a, b) =>
+                (STATUS_TYPE_ORDER[a.statusType] ?? 9) -
+                (STATUS_TYPE_ORDER[b.statusType] ?? 9),
+            ),
+          bugs: bugs.sort((a, b) => b.totalHours - a.totalHours),
+        };
+      })
+      .filter((r) => r.bugs.length > 0)
       .sort((a, b) => b.rank - a.rank)
       .slice(0, 4);
 
