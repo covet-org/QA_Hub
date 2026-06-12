@@ -19,7 +19,7 @@ allocation, release readiness and testing visibility. Modeled on the
 | Page | Route | Minimum role |
 | --- | --- | --- |
 | Home | `/` | viewer |
-| Roadmap (effort allocation) | `/roadmap` | viewer |
+| Roadmap (Linear releases × Testiny coverage) | `/roadmap` | viewer |
 | Releases (Testiny runs) | `/releases` | viewer |
 | Manual Testing (Testiny inventory) | `/manual` | qa |
 | Automation (phase 2) | `/automation` | qa |
@@ -88,11 +88,24 @@ Required env vars (see [.env.example](.env.example)):
 4. Deploy. Role changes later only require editing the env vars — they are
    read on every request, so no redeploy or re-login is needed.
 
+### QA Roadmap (Linear × Testiny)
+
+The Roadmap pulls every Linear ticket labeled with `QA_ROADMAP_LABELS`
+(default: *Medium to Big Size Features*, *Quick wins*), groups them by
+their release project ("3.32 Release", …), and checks each against
+Testiny: a ticket **has test cases** when a Testiny folder whose title
+mentions its id (e.g. "Cov-2230") contains test cases in its subtree.
+Filter between covered and uncovered tickets to see where test design
+is still needed. Requires `LINEAR_API_KEY` (Linear → Settings →
+Security & access → Personal API keys); until set, a bundled workspace
+snapshot is shown — coverage is checked live against Testiny either way.
+
 ## Maintaining the content
 
 | What | Where |
 | --- | --- |
-| Roadmap initiatives + manual/automation split | [src/content/initiatives.ts](src/content/initiatives.ts) |
+| Effort allocation initiatives (Home / Automation) | [src/content/initiatives.ts](src/content/initiatives.ts) |
+| Roadmap labels | `QA_ROADMAP_LABELS` env var |
 | Sidebar sections & page access levels | [src/config/navigation.ts](src/config/navigation.ts) |
 | Who is admin / QA team | `QA_ADMIN_EMAILS` / `QA_TEAM_EMAILS` env vars |
 | Testiny project to read | `TESTINY_PROJECT_ID` env var |

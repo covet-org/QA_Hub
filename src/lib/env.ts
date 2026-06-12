@@ -37,6 +37,18 @@ export const env = {
   get testinyProjectId(): number {
     return Number(process.env.TESTINY_PROJECT_ID ?? "1");
   },
+  get linearApiKey(): string | undefined {
+    return process.env.LINEAR_API_KEY || undefined;
+  },
+  /** Linear labels that put a ticket on the QA roadmap. */
+  get roadmapLabels(): string[] {
+    return (
+      process.env.QA_ROADMAP_LABELS ?? "Medium to Big Size Features,Quick wins"
+    )
+      .split(",")
+      .map((l) => l.trim())
+      .filter(Boolean);
+  },
   /** Where access-request notifications are sent. */
   get notifyEmail(): string {
     return process.env.NOTIFY_EMAIL ?? "clezama@co.vet";
