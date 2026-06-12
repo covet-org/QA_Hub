@@ -29,3 +29,6 @@ next-env.d.ts
 
 # local tool settings
 .claude/settings.local.json
+
+# local dev KV store (access requests / share links without Upstash)
+/.data/

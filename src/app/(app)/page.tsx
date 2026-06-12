@@ -4,15 +4,15 @@ import { StatCard } from "@/components/StatCard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { initiatives, overallEffortSplit } from "@/content/initiatives";
 import { getManualTestingSnapshot } from "@/lib/testiny/queries";
-import { requireSession } from "@/lib/session";
+import { requireAccess } from "@/lib/viewer";
 
 interface HomePageProps {
   searchParams: Promise<{ denied?: string }>;
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const [session, snapshot, { denied }] = await Promise.all([
-    requireSession(),
+  const [viewer, snapshot, { denied }] = await Promise.all([
+    requireAccess("/"),
     getManualTestingSnapshot(),
     searchParams,
   ]);
@@ -20,7 +20,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const split = overallEffortSplit();
   const inProgress = initiatives.filter((i) => i.status === "in-progress").length;
   const activeRuns = snapshot.runs.filter((r) => !r.isClosed).length;
-  const firstName = session.user.name?.split(" ")[0] ?? "there";
+  const firstName =
+    viewer.kind === "member" ? (viewer.name.split(" ")[0] ?? "there") : "there";
 
   return (
     <div>

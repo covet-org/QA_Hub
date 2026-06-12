@@ -37,6 +37,19 @@ export const env = {
   get testinyProjectId(): number {
     return Number(process.env.TESTINY_PROJECT_ID ?? "1");
   },
+  /** Where access-request notifications are sent. */
+  get notifyEmail(): string {
+    return process.env.NOTIFY_EMAIL ?? "clezama@co.vet";
+  },
+  /** Public base URL, used in email links. */
+  get appUrl(): string {
+    return (
+      process.env.APP_URL ??
+      (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000")
+    );
+  },
   /** Only call at runtime inside auth — required() throws if unset. */
   get authGoogleId(): string {
     return required("AUTH_GOOGLE_ID");

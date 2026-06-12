@@ -1,4 +1,7 @@
-/** Subset of Testiny REST API entities used by this app. */
+/**
+ * Subset of Testiny REST API entities used by this app.
+ * Field names verified against the live API (api/v1/swagger.json).
+ */
 
 export interface TestinyProject {
   id: number;
@@ -9,17 +12,32 @@ export interface TestinyProject {
 export interface TestinyFolder {
   id: number;
   title: string;
-  parent_id: number | null;
+  /** 0 for root folders. */
+  testcase_folder_parent_id: number | null;
   project_id: number;
+}
+
+/** Mapping row linking a test case to its folder. */
+export interface TestinyCaseFolderValues {
+  testcase_id: number;
+  testcase_folder_id: number;
 }
 
 export interface TestinyTestCase {
   id: number;
   title: string;
-  folder_id: number | null;
   project_id: number;
   priority?: number | null; // 0 Critical … 3 Low
   testcase_type?: string | null; // FUNCTIONAL, REGRESSION, …
+  /** Present when queried with map {entities:["testcase","testcase_folder"]}. */
+  testcase_folder_testcase_values?: TestinyCaseFolderValues | TestinyCaseFolderValues[];
+}
+
+/** Mapping row carrying the execution result of a case within a run. */
+export interface TestinyRunResultValues {
+  testcase_id: number;
+  testrun_id: number;
+  result_status: string | null; // PASSED | FAILED | BLOCKED | SKIPPED | NOTRUN
 }
 
 export interface TestinyTestRun {
@@ -28,17 +46,12 @@ export interface TestinyTestRun {
   project_id: number;
   is_closed: boolean;
   created_at?: string;
-}
-
-/** testcase↔testrun mapping row; carries the execution result. */
-export interface TestinyRunResult {
-  testcase_id: number;
-  testrun_id: number;
-  result_status: string; // PASSED | FAILED | BLOCKED | SKIPPED | NOTRUN …
+  /** Present when queried with map {entities:["testcase","testrun"]}. */
+  testrun_testcase_values?: TestinyRunResultValues | TestinyRunResultValues[];
 }
 
 export interface TestinyFindResponse<T> {
-  meta: { count?: number };
+  meta: { count?: number; offset?: number; limit?: number };
   data: T[];
 }
 

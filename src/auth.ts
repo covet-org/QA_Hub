@@ -1,44 +1,32 @@
-import NextAuth, { type DefaultSession } from "next-auth";
-import Google from "next-auth/providers/google";
-import { isAllowedEmail, roleForEmail, type Role } from "@/lib/roles";
+import NextAuth from "next-auth";
+import { authConfig } from "@/auth.config";
+import { ensureAccessRequest } from "@/lib/access/requests";
+import { isAllowedEmail } from "@/lib/roles";
 
-declare module "next-auth" {
-  interface Session {
-    user: {
-      role: Role;
-    } & DefaultSession["user"];
-  }
-}
-
+/**
+ * Full Auth.js instance (node runtime). Extends the edge-safe base
+ * config with the approval flow: every sign-in attempt registers an
+ * access request and notifies the QA lead until approved; denied
+ * accounts are blocked outright. Pending users get a session but are
+ * routed to /pending by requireAccess().
+ */
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [
-    Google({
-      authorization: {
-        params: {
-          // Hint Google to only offer accounts on the workspace domain.
-          // This is UX only — the real enforcement is in signIn below.
-          hd: process.env.ALLOWED_EMAIL_DOMAIN ?? "co.vet",
-          prompt: "select_account",
-        },
-      },
-    }),
-  ],
+  ...authConfig,
   callbacks: {
-    // Hard gate: reject any account outside the allowed domain.
-    signIn({ profile }) {
-      return isAllowedEmail(profile?.email) && profile?.email_verified === true;
+    ...authConfig.callbacks,
+    async signIn({ profile }) {
+      if (
+        !isAllowedEmail(profile?.email) ||
+        profile?.email_verified !== true ||
+        !profile?.email
+      ) {
+        return false;
+      }
+      const record = await ensureAccessRequest(
+        profile.email,
+        typeof profile.name === "string" ? profile.name : "",
+      );
+      return record.status !== "denied";
     },
-    // Role is resolved from env config on every request, so changing
-    // QA_ADMIN_EMAILS / QA_TEAM_EMAILS takes effect without re-login.
-    session({ session }) {
-      session.user.role = roleForEmail(session.user.email);
-      return session;
-    },
-    authorized({ auth }) {
-      return !!auth?.user;
-    },
-  },
-  pages: {
-    signIn: "/sign-in",
   },
 });

@@ -12,7 +12,7 @@ import type {
   RunSummary,
   TestinyFolder,
   TestinyProject,
-  TestinyRunResult,
+  TestinyRunResultValues,
   TestinyTestCase,
   TestinyTestRun,
 } from "@/lib/testiny/types";
@@ -28,7 +28,16 @@ function titleCase(value: string): string {
   return value.charAt(0) + value.slice(1).toLowerCase();
 }
 
-function summarizeRun(run: TestinyTestRun, results: TestinyRunResult[]): RunSummary {
+/** Testiny returns a single object instead of an array for 1-row mappings. */
+function asArray<T>(value: T | T[] | undefined | null): T[] {
+  if (value === undefined || value === null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function summarizeRun(
+  run: TestinyTestRun,
+  results: TestinyRunResultValues[],
+): RunSummary {
   const counts = { passed: 0, failed: 0, blocked: 0, skipped: 0, notRun: 0 };
   for (const r of results) {
     switch (r.result_status?.toUpperCase()) {
@@ -73,22 +82,33 @@ export async function getManualTestingSnapshot(): Promise<ManualTestingSnapshot>
 
     const [projects, folders, cases, runs] = await Promise.all([
       findAllEntities<TestinyProject>("project"),
-      findAllEntities<TestinyFolder>("testcase-folder", { project_id: projectId }),
-      findAllEntities<TestinyTestCase>("testcase", { project_id: projectId }),
-      findAllEntities<TestinyTestRun>("testrun", { project_id: projectId }),
+      findAllEntities<TestinyFolder>("testcase-folder", {
+        filter: { project_id: projectId },
+      }),
+      // Folder membership is a mapping table; expand it per case.
+      findAllEntities<TestinyTestCase>("testcase", {
+        filter: { project_id: projectId },
+        map: { entities: ["testcase", "testcase_folder"], idOnly: true },
+      }),
+      findAllEntities<TestinyTestRun>("testrun", {
+        filter: { project_id: projectId },
+      }),
     ]);
 
     const project = projects.find((p) => p.id === projectId);
 
-    // Count test cases per top-level folder (folders form a tree via parent_id).
+    // Count test cases per top-level folder (folders form a tree).
     const folderById = new Map(folders.map((f) => [f.id, f]));
     const rootOf = (folderId: number): TestinyFolder | undefined => {
       let current = folderById.get(folderId);
       const seen = new Set<number>();
-      while (current?.parent_id && folderById.has(current.parent_id)) {
+      while (
+        current?.testcase_folder_parent_id &&
+        folderById.has(current.testcase_folder_parent_id)
+      ) {
         if (seen.has(current.id)) break; // defensive: cycle guard
         seen.add(current.id);
-        current = folderById.get(current.parent_id);
+        current = folderById.get(current.testcase_folder_parent_id);
       }
       return current;
     };
@@ -97,8 +117,10 @@ export async function getManualTestingSnapshot(): Promise<ManualTestingSnapshot>
     const casesByType: Record<string, number> = {};
     const casesByPriority: Record<string, number> = {};
     for (const tc of cases) {
-      if (tc.folder_id) {
-        const root = rootOf(tc.folder_id);
+      const folderId = asArray(tc.testcase_folder_testcase_values)[0]
+        ?.testcase_folder_id;
+      if (folderId) {
+        const root = rootOf(folderId);
         if (root) {
           casesByRootFolder.set(root.id, (casesByRootFolder.get(root.id) ?? 0) + 1);
         }
@@ -122,19 +144,27 @@ export async function getManualTestingSnapshot(): Promise<ManualTestingSnapshot>
       .sort((a, b) => b.caseCount - a.caseCount)
       .slice(0, 8);
 
-    // Summarize the most recent runs (open runs first, then latest closed).
+    // Summarize the most recent runs (open runs first, then latest
+    // closed). The mapping join flattens to one row per (run, case)
+    // pair, so fetch all rows and aggregate per run.
     const recentRuns = [...runs]
       .sort((a, b) => Number(a.is_closed) - Number(b.is_closed) || b.id - a.id)
       .slice(0, 8);
 
-    const runSummaries = await Promise.all(
-      recentRuns.map(async (run) => {
-        const results = await findAllEntities<TestinyRunResult>(
-          "testcase-testrun",
-          { testrun_id: run.id },
-        );
-        return summarizeRun(run, results);
-      }),
+    const joinRows = await findAllEntities<TestinyTestRun>("testrun", {
+      ids: recentRuns.map((r) => r.id),
+      map: { entities: ["testcase", "testrun"] },
+    });
+
+    const resultsByRun = new Map<number, TestinyRunResultValues[]>();
+    for (const row of joinRows) {
+      const bucket = resultsByRun.get(row.id) ?? [];
+      bucket.push(...asArray(row.testrun_testcase_values));
+      resultsByRun.set(row.id, bucket);
+    }
+
+    const runSummaries = recentRuns.map((run) =>
+      summarizeRun(run, resultsByRun.get(run.id) ?? []),
     );
 
     return {

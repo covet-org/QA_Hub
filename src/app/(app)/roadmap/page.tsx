@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import { Hero } from "@/components/Hero";
 import { InitiativeList } from "@/components/InitiativeList";
 import { initiatives } from "@/content/initiatives";
-import { requireSession } from "@/lib/session";
+import { requireAccess } from "@/lib/viewer";
 
 export const metadata: Metadata = { title: "Roadmap" };
 
 export default async function RoadmapPage() {
-  await requireSession();
+  await requireAccess("/roadmap");
 
   return (
     <div>

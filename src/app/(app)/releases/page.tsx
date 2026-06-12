@@ -3,12 +3,12 @@ import { Hero } from "@/components/Hero";
 import { RunCard } from "@/components/RunCard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { getManualTestingSnapshot } from "@/lib/testiny/queries";
-import { requireSession } from "@/lib/session";
+import { requireAccess } from "@/lib/viewer";
 
 export const metadata: Metadata = { title: "Releases" };
 
 export default async function ReleasesPage() {
-  await requireSession();
+  await requireAccess("/releases");
   const snapshot = await getManualTestingSnapshot();
 
   const active = snapshot.runs.filter((r) => !r.isClosed);

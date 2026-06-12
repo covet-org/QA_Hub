@@ -23,11 +23,31 @@ allocation, release readiness and testing visibility. Modeled on the
 | Releases (Testiny runs) | `/releases` | viewer |
 | Manual Testing (Testiny inventory) | `/manual` | qa |
 | Automation (phase 2) | `/automation` | qa |
-| Access (role config) | `/access` | admin |
+| Access (approvals, links, roles) | `/access` | admin |
 
-Roles: `admin ⊃ qa ⊃ viewer`. Everyone signing in with an allowed-domain
-Google account is at least a viewer. Locked pages show a lock icon in the
-sidebar and are enforced **server-side** (`requireRole`), not just hidden.
+Roles: `admin ⊃ qa ⊃ viewer`. Locked pages show a lock icon in the
+sidebar and are enforced **server-side** (`requireAccess`), not just
+hidden.
+
+### Sign-in approval flow
+
+Google SSO is restricted to the allowed domain, and on top of that every
+account (except admins in `QA_ADMIN_EMAILS`) must be **approved**:
+
+1. Someone signs in → an access request is stored and an email goes to
+   `NOTIFY_EMAIL` with one-click **Approve as Viewer / Approve as QA /
+   Deny** links (re-sent at most once per hour while pending).
+2. Until approved, the user only sees the "Waiting for approval" screen.
+3. Admins can also decide (and later revoke/re-approve, or change roles)
+   on the **/access** page. Decisions apply immediately — no redeploy.
+
+### Share links (guest access)
+
+Admins create links on **/access**, choosing exactly which sections each
+link unlocks (admin pages are never shareable) and an optional expiry.
+Anyone opening `/share/<id>` browses those sections as a guest — no
+Google account needed. Revoking a link locks out existing visitors
+immediately, because every request re-validates the link server-side.
 
 ## Local development
 
@@ -49,6 +69,14 @@ Required env vars (see [.env.example](.env.example)):
 3. `TESTINY_API_KEY` — Testiny → Account Settings → API Keys. Until set,
    the app shows clearly-labelled sample data, so the UI is fully demoable
    without credentials.
+4. `RESEND_API_KEY` — sign up at [resend.com](https://resend.com) (free
+   tier) to send the approval emails. Without it, the emails are logged
+   to the server console instead.
+5. `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` — **required in
+   production** (stores access requests and share links). Provision
+   Upstash Redis from the Vercel Marketplace; locally a `.data/store.json`
+   file is used automatically.
+6. `APP_URL` — the public URL, used inside email links.
 
 ## Deploying to Vercel
 
@@ -85,10 +113,18 @@ durations as soon as `available: true` — no UI changes required.
 ## Architecture notes
 
 - `src/lib/env.ts` — single validated entry point for environment config
-- `src/lib/roles.ts` — role model; `src/lib/session.ts` — server-side
-  guards (`requireSession`, `requireRole`)
-- `src/middleware.ts` — redirects all unauthenticated traffic to `/sign-in`
+- `src/lib/viewer.ts` — unified viewer model (member or link guest) and
+  the `requireAccess` server-side gate every page uses
+- `src/lib/access/` — approval requests (`requests.ts`), share links
+  (`links.ts`), HMAC-signed tokens for email links & guest cookies
+  (`token.ts`)
+- `src/lib/store.ts` — tiny KV abstraction: Upstash Redis in production,
+  local JSON file in dev
+- `src/lib/email.ts` — Resend sender with console fallback
+- `src/auth.config.ts` (edge-safe) + `src/auth.ts` (node, approval side
+  effects); `src/proxy.ts` is the first gate for all routes
 - `src/lib/testiny/` — typed client (`client.ts`), aggregation queries
-  (`queries.ts`), graceful sample-data fallback (`sample-data.ts`)
+  (`queries.ts`, field names verified against the live API), graceful
+  sample-data fallback (`sample-data.ts`)
 - UI building blocks in `src/components/` are intentionally small and
   prop-driven; pages are server components that fetch and compose

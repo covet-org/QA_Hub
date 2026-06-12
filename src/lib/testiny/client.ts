@@ -20,8 +20,19 @@ export function testinyConfigured(): boolean {
   return Boolean(env.testinyApiKey);
 }
 
+/** A `map` join expression — expands mapping relationships in /find results. */
+export interface MapJoin {
+  entities?: string[];
+  entity?: string;
+  idOnly?: boolean;
+  result?: string;
+}
+
 interface FindOptions {
   filter?: Record<string, unknown>;
+  ids?: number[];
+  map?: MapJoin | MapJoin[];
+  omitLargeValues?: boolean;
   pagination?: { offset: number; limit: number };
   includeTotalCount?: boolean;
 }
@@ -46,6 +57,7 @@ export async function findEntities<T>(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
+      omitLargeValues: true,
       pagination: { offset: 0, limit: 500 },
       includeTotalCount: true,
       ...options,
@@ -62,16 +74,16 @@ export async function findEntities<T>(
   return (await res.json()) as TestinyFindResponse<T>;
 }
 
-/** Fetch every page of a /find query (Testiny caps pages at 500 rows). */
+/** Fetch every page of a /find query. */
 export async function findAllEntities<T>(
   entity: string,
-  filter?: Record<string, unknown>,
+  options: Omit<FindOptions, "pagination"> = {},
 ): Promise<T[]> {
   const pageSize = 500;
   const all: T[] = [];
   for (let offset = 0; ; offset += pageSize) {
     const page = await findEntities<T>(entity, {
-      filter,
+      ...options,
       pagination: { offset, limit: pageSize },
     });
     all.push(...page.data);

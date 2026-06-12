@@ -4,12 +4,12 @@ import { InitiativeList } from "@/components/InitiativeList";
 import { Tag } from "@/components/Tag";
 import { initiatives } from "@/content/initiatives";
 import { getAutomationStatus } from "@/lib/automation/provider";
-import { requireRole } from "@/lib/session";
+import { requireAccess } from "@/lib/viewer";
 
 export const metadata: Metadata = { title: "Automation" };
 
 export default async function AutomationPage() {
-  await requireRole("qa");
+  await requireAccess("/automation");
   const status = await getAutomationStatus();
 
   const automationInitiatives = initiatives.filter(

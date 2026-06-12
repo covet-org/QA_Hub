@@ -3,7 +3,7 @@ import { Hero } from "@/components/Hero";
 import { StatCard } from "@/components/StatCard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { getManualTestingSnapshot } from "@/lib/testiny/queries";
-import { requireRole } from "@/lib/session";
+import { requireAccess } from "@/lib/viewer";
 
 export const metadata: Metadata = { title: "Manual Testing" };
 
@@ -46,7 +46,7 @@ function DistributionCard({
 }
 
 export default async function ManualTestingPage() {
-  await requireRole("qa");
+  await requireAccess("/manual");
   const snapshot = await getManualTestingSnapshot();
 
   return (
