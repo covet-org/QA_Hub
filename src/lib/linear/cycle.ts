@@ -8,12 +8,30 @@ import {
 } from "@/lib/linear/client";
 import { workingHoursBetween } from "@/lib/worktime";
 
+/** One bug's total working time spent in a status. */
+export interface BugStay {
+  id: string;
+  title: string;
+  url: string;
+  hours: number;
+}
+
+/** Per-priority slice of a status's cycle time. */
+export interface PriorityCycle {
+  priority: string; // Urgent | High | Medium | Low | No priority
+  avgHours: number;
+  samples: number;
+  /** Individual bugs, longest stay first. */
+  bugs: BugStay[];
+}
+
 /** Average working time bugs spend in one workflow status. */
 export interface StatusCycle {
   status: string;
   statusType: string;
   avgHours: number;
   samples: number;
+  byPriority: PriorityCycle[];
 }
 
 const HISTORY_QUERY = /* GraphQL */ `
@@ -29,7 +47,11 @@ const HISTORY_QUERY = /* GraphQL */ `
       }
       nodes {
         identifier
+        title
+        url
         createdAt
+        priority
+        priorityLabel
         history(first: 100) {
           nodes {
             createdAt
@@ -54,7 +76,11 @@ interface HistoryPage {
       pageInfo: { hasNextPage: boolean; endCursor: string | null };
       nodes: {
         identifier: string;
+        title: string;
+        url: string;
         createdAt: string;
+        priority: number;
+        priorityLabel: string;
         history: {
           nodes: {
             createdAt: string;
@@ -77,22 +103,34 @@ const STATUS_TYPE_ORDER: Record<string, number> = {
   canceled: 5,
 };
 
+const PRIORITY_ORDER = ["Urgent", "High", "Medium", "Low", "No priority"];
+
 /** Days of bug history considered. */
 export const CYCLE_WINDOW_DAYS = 90;
 const MAX_PAGES = 6; // up to 300 bugs
 
 const sampleCycles: StatusCycle[] = [
-  { status: "Todo", statusType: "unstarted", avgHours: 22, samples: 38 },
-  { status: "In Progress", statusType: "started", avgHours: 14, samples: 41 },
-  { status: "Ready for QA", statusType: "started", avgHours: 9, samples: 35 },
-  { status: "Merged to dev", statusType: "started", avgHours: 6, samples: 29 },
+  { status: "Todo", statusType: "unstarted", avgHours: 22, samples: 38, byPriority: [] },
+  { status: "In Progress", statusType: "started", avgHours: 14, samples: 41, byPriority: [] },
+  { status: "Ready for QA", statusType: "started", avgHours: 9, samples: 35, byPriority: [] },
+  { status: "Merged to dev", statusType: "started", avgHours: 6, samples: 29, byPriority: [] },
 ];
+
+interface StatusBucket {
+  statusType: string;
+  hours: number;
+  samples: number;
+  /** key: priority → (key: bug id → stay) */
+  byPriority: Map<string, Map<string, BugStay>>;
+  samplesByPriority: Map<string, number>;
+}
 
 /**
  * Average working time (8h days, weekends excluded) that bugs spend in
  * each workflow status, from Linear's state-change history over the
- * last CYCLE_WINDOW_DAYS. Only completed stays count — the time a bug
- * is still sitting in its current status is not.
+ * last CYCLE_WINDOW_DAYS — broken down by priority and by bug. Only
+ * completed stays count; time still sitting in the current status is
+ * not.
  */
 export async function getBugCycleStats(): Promise<{
   isSample: boolean;
@@ -109,10 +147,7 @@ export async function getBugCycleStats(): Promise<{
     ).toISOString();
     const labels = [env.bugLabel, env.csBugLabel];
 
-    const sums = new Map<
-      string,
-      { statusType: string; hours: number; samples: number }
-    >();
+    const buckets = new Map<string, StatusBucket>();
 
     let after: string | null = null;
     for (let page = 0; page < MAX_PAGES; page++) {
@@ -144,23 +179,47 @@ export async function getBugCycleStats(): Promise<{
           .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
         if (changes.length === 0) continue;
 
-        // Stay in the initial status: creation → first transition.
+        const priority =
+          issue.priority > 0 ? issue.priorityLabel : "No priority";
+
         const record = (
           state: { name: string; type: string },
           startIso: string,
           endIso: string,
         ) => {
           const hours = workingHoursBetween(startIso, endIso);
-          const entry = sums.get(state.name) ?? {
-            statusType: state.type,
+          let bucket = buckets.get(state.name);
+          if (!bucket) {
+            bucket = {
+              statusType: state.type,
+              hours: 0,
+              samples: 0,
+              byPriority: new Map(),
+              samplesByPriority: new Map(),
+            };
+            buckets.set(state.name, bucket);
+          }
+          bucket.hours += hours;
+          bucket.samples += 1;
+          bucket.samplesByPriority.set(
+            priority,
+            (bucket.samplesByPriority.get(priority) ?? 0) + 1,
+          );
+
+          // Aggregate multiple stays of the same bug in one status.
+          const bugs = bucket.byPriority.get(priority) ?? new Map();
+          const stay = bugs.get(issue.identifier) ?? {
+            id: issue.identifier,
+            title: issue.title,
+            url: issue.url,
             hours: 0,
-            samples: 0,
           };
-          entry.hours += hours;
-          entry.samples += 1;
-          sums.set(state.name, entry);
+          stay.hours += hours;
+          bugs.set(issue.identifier, stay);
+          bucket.byPriority.set(priority, bugs);
         };
 
+        // Stay in the initial status: creation → first transition.
         if (changes[0].fromState) {
           record(changes[0].fromState, issue.createdAt, changes[0].createdAt);
         }
@@ -179,12 +238,27 @@ export async function getBugCycleStats(): Promise<{
       after = issues.pageInfo.endCursor;
     }
 
-    const cycles = [...sums.entries()]
-      .map(([status, s]) => ({
+    const cycles: StatusCycle[] = [...buckets.entries()]
+      .map(([status, bucket]) => ({
         status,
-        statusType: s.statusType,
-        avgHours: s.hours / s.samples,
-        samples: s.samples,
+        statusType: bucket.statusType,
+        avgHours: bucket.hours / bucket.samples,
+        samples: bucket.samples,
+        byPriority: PRIORITY_ORDER.filter((p) => bucket.byPriority.has(p)).map(
+          (priority) => {
+            const bugs = [...bucket.byPriority.get(priority)!.values()].sort(
+              (a, b) => b.hours - a.hours,
+            );
+            const totalHours = bugs.reduce((sum, b) => sum + b.hours, 0);
+            const samples = bucket.samplesByPriority.get(priority) ?? bugs.length;
+            return {
+              priority,
+              avgHours: totalHours / Math.max(1, samples),
+              samples,
+              bugs,
+            };
+          },
+        ),
       }))
       // Need a few samples for the average to mean anything, and only
       // the active pipeline is interesting — time sitting in terminal
