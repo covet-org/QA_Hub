@@ -48,6 +48,7 @@ export interface TestinyTestRun {
   project_id: number;
   is_closed: boolean;
   created_at?: string;
+  closed_at?: string | null;
   /** Present when queried with map {entities:["testcase","testrun"]}. */
   testrun_testcase_values?: TestinyRunResultValues | TestinyRunResultValues[];
 }

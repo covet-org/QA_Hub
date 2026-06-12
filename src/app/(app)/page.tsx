@@ -1,9 +1,15 @@
 import { Hero } from "@/components/Hero";
 import { AllocationBar } from "@/components/AllocationBar";
+import { CycleTimeCard } from "@/components/CycleTimeCard";
+import { ReleaseDurationsCard } from "@/components/ReleaseDurationsCard";
 import { StatCard } from "@/components/StatCard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { initiatives, overallEffortSplit } from "@/content/initiatives";
-import { getManualTestingSnapshot } from "@/lib/testiny/queries";
+import { getBugCycleStats } from "@/lib/linear/cycle";
+import {
+  getManualTestingSnapshot,
+  getReleaseDurations,
+} from "@/lib/testiny/queries";
 import { requireAccess } from "@/lib/viewer";
 
 interface HomePageProps {
@@ -11,11 +17,14 @@ interface HomePageProps {
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const [viewer, snapshot, { denied }] = await Promise.all([
-    requireAccess("/"),
-    getManualTestingSnapshot(),
-    searchParams,
-  ]);
+  const [viewer, snapshot, durations, cycleStats, { denied }] =
+    await Promise.all([
+      requireAccess("/"),
+      getManualTestingSnapshot(),
+      getReleaseDurations(),
+      getBugCycleStats(),
+      searchParams,
+    ]);
 
   const split = overallEffortSplit();
   const inProgress = initiatives.filter((i) => i.status === "in-progress").length;
@@ -71,6 +80,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <AllocationBar manual={split.manual} automation={split.automation} />
           </div>
         </section>
+
+        <div className="grid items-start gap-6 lg:grid-cols-2">
+          <ReleaseDurationsCard releases={durations.releases} />
+          <CycleTimeCard cycles={cycleStats.cycles} />
+        </div>
       </div>
     </div>
   );

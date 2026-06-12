@@ -171,6 +171,108 @@ export async function getActiveReleaseFloor(): Promise<number> {
   return ranks.length > 0 ? Math.min(...ranks) : Infinity;
 }
 
+export interface ReleasePhase {
+  /** Calendar days from the first run opening to the last run closing. */
+  days: number;
+  /** True while any run of this phase is still open. */
+  inProgress: boolean;
+}
+
+export interface ReleaseDuration {
+  release: string; // "3.32"
+  rank: number;
+  feature?: ReleasePhase;
+  regression?: ReleasePhase;
+}
+
+const sampleDurations: ReleaseDuration[] = [
+  { release: "3.32", rank: 3032, feature: { days: 9.4, inProgress: true } },
+  {
+    release: "3.31",
+    rank: 3031,
+    feature: { days: 11.2, inProgress: false },
+    regression: { days: 12.5, inProgress: true },
+  },
+  {
+    release: "3.30",
+    rank: 3030,
+    feature: { days: 6.8, inProgress: false },
+    regression: { days: 15.1, inProgress: false },
+  },
+];
+
+/**
+ * How long each release's testing phases took, from Testiny run
+ * timestamps: feature runs dictate feature testing, regression runs
+ * dictate the regression pass required to ship. A phase spans from its
+ * first run opening to its last run closing (or now, while open).
+ */
+export async function getReleaseDurations(): Promise<{
+  isSample: boolean;
+  releases: ReleaseDuration[];
+}> {
+  if (!testinyConfigured()) {
+    return { isSample: true, releases: sampleDurations };
+  }
+
+  try {
+    const runs = await findAllEntities<TestinyTestRun>("testrun", {
+      filter: { project_id: env.testinyProjectId },
+    });
+
+    // phase key: `${rank}:${phase}` → time window
+    const windows = new Map<
+      string,
+      { release: string; rank: number; phase: "feature" | "regression"; start: number; end: number; inProgress: boolean }
+    >();
+
+    const now = Date.now();
+    for (const run of runs) {
+      const rank = versionRank(run.title);
+      if (rank === null || !run.created_at) continue;
+      // "Regression", and the occasional "Regresion" typo.
+      const phase = /regres+ion/i.test(run.title) ? "regression" : "feature";
+      const release = run.title.match(/(\d+\.\d+)/)?.[1] ?? run.title;
+
+      const start = Date.parse(run.created_at);
+      const inProgress = !run.is_closed;
+      const end = run.closed_at && run.is_closed ? Date.parse(run.closed_at) : now;
+
+      const key = `${rank}:${phase}`;
+      const window = windows.get(key);
+      if (!window) {
+        windows.set(key, { release, rank, phase, start, end, inProgress });
+      } else {
+        window.start = Math.min(window.start, start);
+        window.end = Math.max(window.end, end);
+        window.inProgress = window.inProgress || inProgress;
+      }
+    }
+
+    const byRelease = new Map<number, ReleaseDuration>();
+    for (const w of windows.values()) {
+      const entry = byRelease.get(w.rank) ?? { release: w.release, rank: w.rank };
+      entry[w.phase] = {
+        days: Math.round(((w.end - w.start) / 86_400_000) * 10) / 10,
+        inProgress: w.inProgress,
+      };
+      byRelease.set(w.rank, entry);
+    }
+
+    const releases = [...byRelease.values()]
+      .sort((a, b) => b.rank - a.rank)
+      .slice(0, 8);
+
+    return { isSample: false, releases };
+  } catch (error) {
+    if (error instanceof TestinyError) {
+      console.warn(`Release durations unavailable: ${error.message}`);
+      return { isSample: true, releases: sampleDurations };
+    }
+    throw error;
+  }
+}
+
 export interface RunsByState {
   isSample: boolean;
   runs: RunSummary[];
