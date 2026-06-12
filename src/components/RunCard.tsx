@@ -24,22 +24,25 @@ function CaseList({
   if (cases.length === 0) return null;
   return (
     <div>
-      <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+      <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">
         <span className={`size-2 rounded-full ${dotClass}`} />
         {label} ({cases.length})
       </p>
       <ul className="mt-1.5 space-y-1">
         {cases.map((tc) => (
-          <li key={tc.id} className="flex items-baseline gap-2 text-[13px]">
+          <li key={tc.id} className="flex items-baseline gap-3">
             <a
               href={tc.url}
               target="_blank"
               rel="noreferrer"
-              className="shrink-0 font-mono text-[11px] font-semibold text-brand-700 hover:underline"
+              className="shrink-0 font-mono text-xs font-semibold text-brand-700 hover:underline"
             >
               TC-{tc.id}
             </a>
-            <span className="min-w-0 truncate text-slate-600" title={tc.title}>
+            <span
+              className="min-w-0 truncate text-sm text-slate-800"
+              title={tc.title}
+            >
               {tc.title}
             </span>
           </li>
@@ -107,7 +110,7 @@ export function RunCard({ run }: { run: RunSummary }) {
             type="button"
             onClick={() => setShowDetails((s) => !s)}
             aria-expanded={showDetails}
-            className="text-xs font-semibold text-brand-700 hover:underline"
+            className="text-sm font-medium text-brand-700 hover:underline"
           >
             {showDetails
               ? "Hide breakdown"
