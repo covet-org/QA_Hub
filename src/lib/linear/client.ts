@@ -128,6 +128,67 @@ export async function fetchIssuesWithLabels(
   return tickets;
 }
 
+const PROJECTS_QUERY = /* GraphQL */ `
+  query Projects($after: String) {
+    projects(first: 100, after: $after) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        name
+      }
+    }
+  }
+`;
+
+interface ProjectsPage {
+  data?: {
+    projects: {
+      pageInfo: { hasNextPage: boolean; endCursor: string | null };
+      nodes: { name: string }[];
+    };
+  };
+  errors?: { message: string }[];
+}
+
+/** Every Linear project name in the workspace (all pages). */
+export async function fetchProjectNames(): Promise<string[]> {
+  const apiKey = env.linearApiKey;
+  if (!apiKey) throw new LinearError("LINEAR_API_KEY is not configured");
+
+  const names: string[] = [];
+  let after: string | null = null;
+
+  for (;;) {
+    const res = await fetch(LINEAR_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ query: PROJECTS_QUERY, variables: { after } }),
+      next: { revalidate: LINEAR_REVALIDATE_SECONDS },
+    });
+
+    if (!res.ok) {
+      throw new LinearError(`Linear request failed: ${res.status} ${res.statusText}`);
+    }
+    const page = (await res.json()) as ProjectsPage;
+    if (page.errors?.length) {
+      throw new LinearError(`Linear query failed: ${page.errors[0].message}`);
+    }
+    const projects = page.data?.projects;
+    if (!projects) throw new LinearError("Linear returned no data");
+
+    names.push(...projects.nodes.map((n) => n.name));
+    if (!projects.pageInfo.hasNextPage) break;
+    after = projects.pageInfo.endCursor;
+  }
+
+  return names;
+}
+
 /** Roadmap tickets: the roadmap labels minus QA's own process tickets. */
 export async function fetchRoadmapIssues(): Promise<RoadmapTicket[]> {
   const all = await fetchIssuesWithLabels(env.roadmapLabels);

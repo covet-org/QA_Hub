@@ -3,6 +3,7 @@ import "server-only";
 import { env } from "@/lib/env";
 import {
   fetchIssuesWithLabels,
+  fetchProjectNames,
   linearConfigured,
   LinearError,
 } from "@/lib/linear/client";
@@ -51,8 +52,12 @@ export async function getBugsSnapshot(kind: BugKind): Promise<BugsSnapshot> {
 
   const label = kind === "cs" ? env.csBugLabel : env.bugLabel;
   let tickets: RoadmapTicket[];
+  let projectNames: string[];
   try {
-    tickets = await fetchIssuesWithLabels([label]);
+    [tickets, projectNames] = await Promise.all([
+      fetchIssuesWithLabels([label]),
+      fetchProjectNames(),
+    ]);
   } catch (error) {
     if (!(error instanceof LinearError)) throw error;
     console.warn(`Bugs unavailable: ${error.message}`);
@@ -70,7 +75,12 @@ export async function getBugsSnapshot(kind: BugKind): Promise<BugsSnapshot> {
 
   const scoped = tickets.filter((t) => inScope(t.project));
 
+  // Seed every numbered release project so the timeline is complete
+  // even for releases with zero bugs under this label.
   const byProject = new Map<string, RoadmapTicket[]>();
+  for (const name of projectNames) {
+    if (RELEASE_NAME.test(name)) byProject.set(name, []);
+  }
   for (const ticket of scoped) {
     const key = ticket.project ?? "No release";
     byProject.set(key, [...(byProject.get(key) ?? []), ticket]);

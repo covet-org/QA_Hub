@@ -154,6 +154,7 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
   const [release, setRelease] = useState<ReleaseFilter | "all">("active");
   const [priority, setPriority] = useState<string | "all">("all");
   const [status, setStatus] = useState<string | "all">("all");
+  const filtering = priority !== "all" || status !== "all";
 
   const visible = useMemo(() => {
     return groups
@@ -179,10 +180,10 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
           ).length,
         };
       })
-      .filter((g) => g.tickets.length > 0);
-  }, [groups, release, priority, status]);
-
-  const filtering = priority !== "all" || status !== "all";
+      // Empty release groups stay listed (complete timeline) unless a
+      // priority/status filter is active; other groups need tickets.
+      .filter((g) => g.tickets.length > 0 || (g.isRelease && !filtering));
+  }, [groups, release, priority, status, filtering]);
 
   return (
     <div>
