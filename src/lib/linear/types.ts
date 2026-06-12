@@ -9,10 +9,14 @@ export interface RoadmapTicket {
   status: string;
   /** Workflow state category: backlog | unstarted | started | completed | canceled. */
   statusType: string;
-  /** The roadmap labels on this ticket (subset of QA_ROADMAP_LABELS). */
+  /** The queried labels present on this ticket. */
   labels: string[];
   /** Linear project name, e.g. "3.32 Release". */
   project: string | null;
+  /** Linear priority label when triaged (e.g. "Urgent"), else null. */
+  priorityName?: string | null;
+  /** Every label on the ticket (used for exclusion rules). */
+  allLabels?: string[];
 }
 
 /** A ticket joined with its Testiny coverage. */

@@ -37,6 +37,15 @@ export const navigation: NavSection[] = [
           { label: "Closed", href: "/releases/closed" },
         ],
       },
+      {
+        label: "Bugs",
+        href: "/bugs",
+        minRole: "viewer",
+        children: [
+          { label: "Bugs", href: "/bugs/product" },
+          { label: "CS Bugs", href: "/bugs/cs" },
+        ],
+      },
     ],
   },
   {

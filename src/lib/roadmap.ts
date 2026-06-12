@@ -8,17 +8,8 @@ import type {
   RoadmapSnapshot,
   RoadmapTicket,
 } from "@/lib/linear/types";
+import { RELEASE_NAME, releaseRank } from "@/lib/release-utils";
 import { getCoverageIndex } from "@/lib/testiny/coverage";
-
-const RELEASE_NAME = /^(\d+)\.(\d+)\s+Release$/i;
-
-/** Sort key: release projects newest-first, then other projects, then none. */
-function releaseRank(name: string | null): number {
-  if (!name) return -1;
-  const match = name.match(RELEASE_NAME);
-  if (!match) return 0;
-  return Number(match[1]) * 1000 + Number(match[2]);
-}
 
 /**
  * The QA roadmap: Linear tickets carrying the roadmap labels, grouped

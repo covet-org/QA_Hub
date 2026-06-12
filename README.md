@@ -20,7 +20,8 @@ allocation, release readiness and testing visibility. Modeled on the
 | --- | --- | --- |
 | Home | `/` | viewer |
 | Roadmap (Linear releases × Testiny coverage) | `/roadmap` | viewer |
-| Releases (Testiny runs) | `/releases` | viewer |
+| Releases — Active / Closed (Testiny runs) | `/releases` | viewer |
+| Bugs — Bugs / CS Bugs (Linear, by release) | `/bugs` | viewer |
 | Manual Testing (Testiny inventory) | `/manual` | qa |
 | Automation (phase 2) | `/automation` | qa |
 | Access (approvals, links, roles) | `/access` | admin |

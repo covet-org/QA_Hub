@@ -1,6 +1,7 @@
 import "server-only";
 
 import { env } from "@/lib/env";
+import { versionRank } from "@/lib/release-utils";
 import {
   findAllEntities,
   testinyConfigured,
@@ -89,6 +90,34 @@ async function summarizeRunsWithResults(
   }
 
   return runs.map((run) => summarizeRun(run, resultsByRun.get(run.id) ?? []));
+}
+
+/**
+ * The version rank (major*1000+minor) of the oldest release that still
+ * has an open Testiny run — releases at or above it count as "active".
+ * Returns Infinity when no runs are open (everything counts as closed).
+ */
+export async function getActiveReleaseFloor(): Promise<number> {
+  let titles: string[];
+  if (!testinyConfigured()) {
+    titles = sampleSnapshot.runs.filter((r) => !r.isClosed).map((r) => r.title);
+  } else {
+    try {
+      const runs = await findAllEntities<TestinyTestRun>("testrun", {
+        filter: { project_id: env.testinyProjectId },
+      });
+      titles = runs.filter((r) => !r.is_closed).map((r) => r.title);
+    } catch (error) {
+      if (!(error instanceof TestinyError)) throw error;
+      console.warn(`Active-release floor unavailable: ${error.message}`);
+      titles = [];
+    }
+  }
+
+  const ranks = titles
+    .map(versionRank)
+    .filter((r): r is number => r !== null);
+  return ranks.length > 0 ? Math.min(...ranks) : Infinity;
 }
 
 export interface RunsByState {

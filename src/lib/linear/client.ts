@@ -20,7 +20,7 @@ export function linearConfigured(): boolean {
 }
 
 const ISSUES_QUERY = /* GraphQL */ `
-  query RoadmapIssues($labels: [String!]!, $after: String) {
+  query IssuesByLabels($labels: [String!]!, $after: String) {
     issues(
       first: 100
       after: $after
@@ -34,6 +34,8 @@ const ISSUES_QUERY = /* GraphQL */ `
         identifier
         title
         url
+        priority
+        priorityLabel
         state {
           name
           type
@@ -59,6 +61,8 @@ interface IssuesPage {
         identifier: string;
         title: string;
         url: string;
+        priority: number;
+        priorityLabel: string;
         state: { name: string; type: string };
         labels: { nodes: { name: string }[] };
         project: { name: string } | null;
@@ -68,12 +72,13 @@ interface IssuesPage {
   errors?: { message: string }[];
 }
 
-/** Fetch every issue carrying one of the QA roadmap labels. */
-export async function fetchRoadmapIssues(): Promise<RoadmapTicket[]> {
+/** Fetch every issue carrying any of the given labels (all pages). */
+export async function fetchIssuesWithLabels(
+  labels: string[],
+): Promise<RoadmapTicket[]> {
   const apiKey = env.linearApiKey;
   if (!apiKey) throw new LinearError("LINEAR_API_KEY is not configured");
 
-  const roadmapLabels = env.roadmapLabels;
   const tickets: RoadmapTicket[] = [];
   let after: string | null = null;
 
@@ -86,7 +91,7 @@ export async function fetchRoadmapIssues(): Promise<RoadmapTicket[]> {
       },
       body: JSON.stringify({
         query: ISSUES_QUERY,
-        variables: { labels: roadmapLabels, after },
+        variables: { labels, after },
       }),
       next: { revalidate: LINEAR_REVALIDATE_SECONDS },
     });
@@ -101,24 +106,18 @@ export async function fetchRoadmapIssues(): Promise<RoadmapTicket[]> {
     const issues = page.data?.issues;
     if (!issues) throw new LinearError("Linear returned no data");
 
-    const excluded = env.roadmapExcludeLabels;
-    // QA's own process tickets follow the "QA <phase> | COV-x" title
-    // convention but aren't always labeled "qa" consistently.
-    const qaProcessTitle = /^QA\b/i;
     for (const node of issues.nodes) {
       const allLabels = node.labels.nodes.map((l) => l.name);
-      // Skip QA's own process tickets even when someone puts a
-      // roadmap label on them.
-      if (allLabels.some((l) => excluded.includes(l))) continue;
-      if (qaProcessTitle.test(node.title)) continue;
       tickets.push({
         id: node.identifier,
         title: node.title,
         url: node.url,
         status: node.state.name,
         statusType: node.state.type,
-        labels: allLabels.filter((l) => roadmapLabels.includes(l)),
+        labels: allLabels.filter((l) => labels.includes(l)),
         project: node.project?.name ?? null,
+        priorityName: node.priority > 0 ? node.priorityLabel : null,
+        allLabels,
       });
     }
 
@@ -127,4 +126,19 @@ export async function fetchRoadmapIssues(): Promise<RoadmapTicket[]> {
   }
 
   return tickets;
+}
+
+/** Roadmap tickets: the roadmap labels minus QA's own process tickets. */
+export async function fetchRoadmapIssues(): Promise<RoadmapTicket[]> {
+  const all = await fetchIssuesWithLabels(env.roadmapLabels);
+  const excluded = env.roadmapExcludeLabels;
+  // QA's own process tickets follow the "QA <phase> | COV-x" title
+  // convention but aren't always labeled "qa" consistently.
+  const qaProcessTitle = /^QA\b/i;
+
+  return all.filter(
+    (ticket) =>
+      !qaProcessTitle.test(ticket.title) &&
+      !(ticket.allLabels ?? ticket.labels).some((l) => excluded.includes(l)),
+  );
 }

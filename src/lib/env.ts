@@ -57,6 +57,14 @@ export const env = {
       .map((l) => l.trim())
       .filter(Boolean);
   },
+  /** Linear label marking product bugs. */
+  get bugLabel(): string {
+    return process.env.QA_BUG_LABEL ?? "Bug";
+  },
+  /** Linear label marking customer-support bugs. */
+  get csBugLabel(): string {
+    return process.env.QA_CS_BUG_LABEL ?? "CS Bug";
+  },
   /** Where access-request notifications are sent. */
   get notifyEmail(): string {
     return process.env.NOTIFY_EMAIL ?? "clezama@co.vet";
