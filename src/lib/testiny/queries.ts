@@ -9,6 +9,7 @@ import {
 } from "@/lib/testiny/client";
 import { sampleSnapshot } from "@/lib/testiny/sample-data";
 import type {
+  CaseRef,
   ManualTestingSnapshot,
   RunSummary,
   TestinyFolder,
@@ -38,10 +39,22 @@ function asArray<T>(value: T | T[] | undefined | null): T[] {
 function summarizeRun(
   run: TestinyTestRun,
   allResults: TestinyRunResultValues[],
+  caseTitles: Map<number, string>,
+  projectKey: string,
 ): RunSummary {
   // Rows with deleted_at were removed from the run — don't count them.
   const results = allResults.filter((r) => !r.deleted_at);
   const counts = { passed: 0, failed: 0, blocked: 0, skipped: 0, notRun: 0 };
+  const failedCases: CaseRef[] = [];
+  const blockedCases: CaseRef[] = [];
+  const skippedCases: CaseRef[] = [];
+
+  const caseRef = (id: number): CaseRef => ({
+    id,
+    title: caseTitles.get(id) ?? `TC-${id}`,
+    url: `https://app.testiny.io/${projectKey}/testruns/tr/${run.id}/tc/${id}`,
+  });
+
   for (const r of results) {
     switch (r.result_status?.toUpperCase()) {
       case "PASSED":
@@ -49,12 +62,15 @@ function summarizeRun(
         break;
       case "FAILED":
         counts.failed++;
+        failedCases.push(caseRef(r.testcase_id));
         break;
       case "BLOCKED":
         counts.blocked++;
+        blockedCases.push(caseRef(r.testcase_id));
         break;
       case "SKIPPED":
         counts.skipped++;
+        skippedCases.push(caseRef(r.testcase_id));
         break;
       default:
         counts.notRun++;
@@ -66,10 +82,23 @@ function summarizeRun(
     isClosed: run.is_closed,
     total: results.length,
     ...counts,
+    failedCases,
+    blockedCases,
+    skippedCases,
   };
 }
 
-/** Expand results for the given runs and summarize each (one query). */
+/** Key of the Testiny project, used to build deep links into runs. */
+async function getProjectKey(): Promise<string> {
+  const projects = await findAllEntities<TestinyProject>("project");
+  return (
+    projects.find((p) => p.id === env.testinyProjectId)?.project_key ?? "P"
+  );
+}
+
+const PROBLEM_STATUSES = new Set(["FAILED", "BLOCKED", "SKIPPED"]);
+
+/** Expand results for the given runs and summarize each. */
 async function summarizeRunsWithResults(
   runs: TestinyTestRun[],
 ): Promise<RunSummary[]> {
@@ -83,13 +112,35 @@ async function summarizeRunsWithResults(
   });
 
   const resultsByRun = new Map<number, TestinyRunResultValues[]>();
+  const problemCaseIds = new Set<number>();
   for (const row of joinRows) {
     const bucket = resultsByRun.get(row.id) ?? [];
-    bucket.push(...asArray(row.testrun_testcase_values));
+    for (const value of asArray(row.testrun_testcase_values)) {
+      bucket.push(value);
+      if (
+        !value.deleted_at &&
+        PROBLEM_STATUSES.has(value.result_status?.toUpperCase() ?? "")
+      ) {
+        problemCaseIds.add(value.testcase_id);
+      }
+    }
     resultsByRun.set(row.id, bucket);
   }
 
-  return runs.map((run) => summarizeRun(run, resultsByRun.get(run.id) ?? []));
+  // Titles for the failed/blocked/skipped cases (incl. since-deleted ones).
+  const caseTitles = new Map<number, string>();
+  if (problemCaseIds.size > 0) {
+    const cases = await findAllEntities<TestinyTestCase>("testcase", {
+      ids: [...problemCaseIds],
+      includeDeleted: true,
+    });
+    for (const tc of cases) caseTitles.set(tc.id, tc.title);
+  }
+
+  const projectKey = await getProjectKey();
+  return runs.map((run) =>
+    summarizeRun(run, resultsByRun.get(run.id) ?? [], caseTitles, projectKey),
+  );
 }
 
 /**

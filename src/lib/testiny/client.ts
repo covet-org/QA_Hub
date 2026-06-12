@@ -35,6 +35,8 @@ interface FindOptions {
   ids?: number[];
   map?: MapJoin | MapJoin[];
   omitLargeValues?: boolean;
+  /** Include soft-deleted entities in the result. */
+  includeDeleted?: boolean;
   pagination?: { offset: number; limit: number };
   includeTotalCount?: boolean;
 }

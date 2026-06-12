@@ -58,6 +58,15 @@ export interface TestinyFindResponse<T> {
 }
 
 /** Aggregated, UI-friendly shapes. */
+
+/** A test case referenced from a run's problem list. */
+export interface CaseRef {
+  id: number;
+  title: string;
+  /** Deep link to the case inside the Testiny run. */
+  url: string;
+}
+
 export interface RunSummary {
   id: number;
   title: string;
@@ -68,6 +77,10 @@ export interface RunSummary {
   blocked: number;
   skipped: number;
   notRun: number;
+  /** The actual cases behind the failed/blocked/skipped counts. */
+  failedCases?: CaseRef[];
+  blockedCases?: CaseRef[];
+  skippedCases?: CaseRef[];
 }
 
 export interface ManualTestingSnapshot {

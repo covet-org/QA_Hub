@@ -1,4 +1,7 @@
-import type { RunSummary } from "@/lib/testiny/types";
+"use client";
+
+import { useState } from "react";
+import type { CaseRef, RunSummary } from "@/lib/testiny/types";
 import { Tag } from "@/components/Tag";
 
 const SEGMENTS = [
@@ -9,10 +12,52 @@ const SEGMENTS = [
   { key: "notRun", className: "bg-slate-200", label: "Not run" },
 ] as const;
 
+function CaseList({
+  label,
+  dotClass,
+  cases,
+}: {
+  label: string;
+  dotClass: string;
+  cases: CaseRef[];
+}) {
+  if (cases.length === 0) return null;
+  return (
+    <div>
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+        <span className={`size-2 rounded-full ${dotClass}`} />
+        {label} ({cases.length})
+      </p>
+      <ul className="mt-1.5 space-y-1">
+        {cases.map((tc) => (
+          <li key={tc.id} className="flex items-baseline gap-2 text-[13px]">
+            <a
+              href={tc.url}
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0 font-mono text-[11px] font-semibold text-brand-700 hover:underline"
+            >
+              TC-{tc.id}
+            </a>
+            <span className="min-w-0 truncate text-slate-600" title={tc.title}>
+              {tc.title}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** Test-run card with a stacked result bar, fed by Testiny. */
 export function RunCard({ run }: { run: RunSummary }) {
+  const [showDetails, setShowDetails] = useState(false);
   const executed = run.total - run.notRun;
   const progress = run.total > 0 ? Math.round((executed / run.total) * 100) : 0;
+  const problemCount =
+    (run.failedCases?.length ?? 0) +
+    (run.blockedCases?.length ?? 0) +
+    (run.skippedCases?.length ?? 0);
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
@@ -55,6 +100,40 @@ export function RunCard({ run }: { run: RunSummary }) {
           </span>
         ))}
       </div>
+
+      {problemCount > 0 && (
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <button
+            type="button"
+            onClick={() => setShowDetails((s) => !s)}
+            aria-expanded={showDetails}
+            className="text-xs font-semibold text-brand-700 hover:underline"
+          >
+            {showDetails
+              ? "Hide breakdown"
+              : `Show failed / blocked / skipped (${problemCount})`}
+          </button>
+          {showDetails && (
+            <div className="mt-3 space-y-3">
+              <CaseList
+                label="Failed"
+                dotClass="bg-rose-500"
+                cases={run.failedCases ?? []}
+              />
+              <CaseList
+                label="Blocked"
+                dotClass="bg-amber-400"
+                cases={run.blockedCases ?? []}
+              />
+              <CaseList
+                label="Skipped"
+                dotClass="bg-slate-300"
+                cases={run.skippedCases ?? []}
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
