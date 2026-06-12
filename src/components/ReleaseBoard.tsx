@@ -33,6 +33,18 @@ function CoverageTag({ ticket }: { ticket: CoveredTicket }) {
   );
 }
 
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`size-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+    >
+      <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
+    </svg>
+  );
+}
+
 function TicketRow({ ticket }: { ticket: CoveredTicket }) {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-white px-5 py-3.5">
@@ -63,6 +75,39 @@ function TicketRow({ ticket }: { ticket: CoveredTicket }) {
         </span>
       )}
     </li>
+  );
+}
+
+function CollapsibleReleaseGroup({ group }: { group: ReleaseGroup }) {
+  const [open, setOpen] = useState(true);
+  const covered = group.tickets.filter((t) => t.hasTestCases).length;
+
+  return (
+    <section className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-200">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 bg-white px-5 py-3.5 text-left hover:bg-slate-50"
+      >
+        <h2 className="font-display text-base font-semibold text-slate-800">
+          {group.name}
+        </h2>
+        <span className="flex items-center gap-3">
+          <span className="text-xs text-slate-500">
+            {covered}/{group.tickets.length} with test cases
+          </span>
+          <Chevron open={open} />
+        </span>
+      </button>
+      {open && (
+        <ul className="divide-y divide-slate-100 border-t border-slate-100">
+          {group.tickets.map((ticket) => (
+            <TicketRow key={ticket.id} ticket={ticket} />
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -105,27 +150,10 @@ export function ReleaseBoard({ groups }: { groups: ReleaseGroup[] }) {
         ))}
       </div>
 
-      <div className="mt-5 space-y-6">
-        {visible.map((group) => {
-          const covered = group.tickets.filter((t) => t.hasTestCases).length;
-          return (
-            <section key={group.name}>
-              <div className="mb-2 flex items-baseline justify-between">
-                <h2 className="font-display text-base font-semibold text-slate-800">
-                  {group.name}
-                </h2>
-                <span className="text-xs text-slate-500">
-                  {covered}/{group.tickets.length} with test cases
-                </span>
-              </div>
-              <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-200">
-                {group.tickets.map((ticket) => (
-                  <TicketRow key={ticket.id} ticket={ticket} />
-                ))}
-              </ul>
-            </section>
-          );
-        })}
+      <div className="mt-5 space-y-4">
+        {visible.map((group) => (
+          <CollapsibleReleaseGroup key={group.name} group={group} />
+        ))}
         {visible.length === 0 && (
           <p className="rounded-2xl bg-white px-5 py-10 text-center text-sm text-slate-500 ring-1 ring-slate-200">
             No tickets match this filter.
