@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  /* CoVet QA Brain palette — deep teal brand, mirrors Product Brain */
+  --color-brand-950: #05303f;
+  --color-brand-900: #083e51;
+  --color-brand-800: #0b4a60;
+  --color-brand-700: #0f5a74;
+  --color-brand-600: #14688a;
+  --color-brand-100: #d4ecf4;
+  --color-brand-50: #ecf7fa;
+
+  --color-accent-400: #38cfe0;
+  --color-accent-300: #7adfeb;
+
+  --color-surface: #f4f6f8;
+
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-poppins), var(--font-dm-sans), ui-sans-serif, sans-serif;
+}
+
+body {
+  background-color: var(--color-surface);
+}

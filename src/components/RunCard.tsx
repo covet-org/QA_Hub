@@ -1,0 +1,60 @@
+import type { RunSummary } from "@/lib/testiny/types";
+import { Tag } from "@/components/Tag";
+
+const SEGMENTS = [
+  { key: "passed", className: "bg-emerald-500", label: "Passed" },
+  { key: "failed", className: "bg-rose-500", label: "Failed" },
+  { key: "blocked", className: "bg-amber-400", label: "Blocked" },
+  { key: "skipped", className: "bg-slate-300", label: "Skipped" },
+  { key: "notRun", className: "bg-slate-200", label: "Not run" },
+] as const;
+
+/** Test-run card with a stacked result bar, fed by Testiny. */
+export function RunCard({ run }: { run: RunSummary }) {
+  const executed = run.total - run.notRun;
+  const progress = run.total > 0 ? Math.round((executed / run.total) * 100) : 0;
+
+  return (
+    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-[15px] font-semibold text-slate-800">{run.title}</h3>
+        <Tag
+          className={
+            run.isClosed
+              ? "bg-slate-100 text-slate-600 ring-slate-200"
+              : "bg-emerald-50 text-emerald-700 ring-emerald-200"
+          }
+        >
+          {run.isClosed ? "Closed" : "Active"}
+        </Tag>
+      </div>
+
+      <p className="mt-1 text-xs text-slate-500">
+        {executed} of {run.total} executed · {progress}%
+      </p>
+
+      <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-slate-100">
+        {SEGMENTS.map(({ key, className }) => {
+          const value = run[key];
+          if (!value || run.total === 0) return null;
+          return (
+            <div
+              key={key}
+              className={className}
+              style={{ width: `${(value / run.total) * 100}%` }}
+            />
+          );
+        })}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
+        {SEGMENTS.map(({ key, className, label }) => (
+          <span key={key} className="inline-flex items-center gap-1.5">
+            <span className={`size-2 rounded-full ${className}`} />
+            {label} {run[key]}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
