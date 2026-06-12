@@ -1,11 +1,12 @@
 import { Hero } from "@/components/Hero";
 import { AllocationBar } from "@/components/AllocationBar";
 import { CycleTimeCard } from "@/components/CycleTimeCard";
+import { ReleaseCycleCards } from "@/components/ReleaseCycleCards";
 import { ReleaseDurationsCard } from "@/components/ReleaseDurationsCard";
 import { StatCard } from "@/components/StatCard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { initiatives, overallEffortSplit } from "@/content/initiatives";
-import { getBugCycleStats } from "@/lib/linear/cycle";
+import { getBugCycleStats, getReleaseCycleStats } from "@/lib/linear/cycle";
 import {
   getManualTestingSnapshot,
   getReleaseDurations,
@@ -17,12 +18,13 @@ interface HomePageProps {
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const [viewer, snapshot, durations, cycleStats, { denied }] =
+  const [viewer, snapshot, durations, cycleStats, releaseCycles, { denied }] =
     await Promise.all([
       requireAccess("/"),
       getManualTestingSnapshot(),
       getReleaseDurations(),
       getBugCycleStats(),
+      getReleaseCycleStats(),
       searchParams,
     ]);
 
@@ -85,6 +87,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <ReleaseDurationsCard releases={durations.releases} />
           <CycleTimeCard cycles={cycleStats.cycles} />
         </div>
+
+        <ReleaseCycleCards releases={releaseCycles.releases} />
       </div>
     </div>
   );
