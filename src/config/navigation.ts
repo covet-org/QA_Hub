@@ -5,6 +5,11 @@ export interface NavItem {
   href: string;
   /** Minimum role required; items above the user's role render locked. */
   minRole: Role;
+  /**
+   * Sub-pages rendered as an expandable group in the sidebar.
+   * Access is governed by the parent href (also for share links).
+   */
+  children?: { label: string; href: string }[];
 }
 
 export interface NavSection {
@@ -23,7 +28,15 @@ export const navigation: NavSection[] = [
     items: [
       { label: "Home", href: "/", minRole: "viewer" },
       { label: "Roadmap", href: "/roadmap", minRole: "viewer" },
-      { label: "Releases", href: "/releases", minRole: "viewer" },
+      {
+        label: "Releases",
+        href: "/releases",
+        minRole: "viewer",
+        children: [
+          { label: "Active", href: "/releases/active" },
+          { label: "Closed", href: "/releases/closed" },
+        ],
+      },
     ],
   },
   {

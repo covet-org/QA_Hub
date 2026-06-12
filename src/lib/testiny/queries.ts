@@ -68,8 +68,71 @@ function summarizeRun(
   };
 }
 
+/** Expand results for the given runs and summarize each (one query). */
+async function summarizeRunsWithResults(
+  runs: TestinyTestRun[],
+): Promise<RunSummary[]> {
+  if (runs.length === 0) return [];
+
+  // includeDeleted: runs keep results for test cases that were later
+  // deleted from the library; without it those runs show 0 results.
+  const joinRows = await findAllEntities<TestinyTestRun>("testrun", {
+    ids: runs.map((r) => r.id),
+    map: { entities: ["testcase", "testrun"], includeDeleted: true },
+  });
+
+  const resultsByRun = new Map<number, TestinyRunResultValues[]>();
+  for (const row of joinRows) {
+    const bucket = resultsByRun.get(row.id) ?? [];
+    bucket.push(...asArray(row.testrun_testcase_values));
+    resultsByRun.set(row.id, bucket);
+  }
+
+  return runs.map((run) => summarizeRun(run, resultsByRun.get(run.id) ?? []));
+}
+
+export interface RunsByState {
+  isSample: boolean;
+  runs: RunSummary[];
+}
+
+/** All runs in the given state, newest first (closed capped at 15). */
+export async function getRunSummariesByState(
+  state: "active" | "closed",
+): Promise<RunsByState> {
+  const wantClosed = state === "closed";
+
+  if (!testinyConfigured()) {
+    return {
+      isSample: true,
+      runs: sampleSnapshot.runs.filter((r) => r.isClosed === wantClosed),
+    };
+  }
+
+  try {
+    const runs = await findAllEntities<TestinyTestRun>("testrun", {
+      filter: { project_id: env.testinyProjectId },
+    });
+    const selected = runs
+      .filter((r) => r.is_closed === wantClosed)
+      .sort((a, b) => b.id - a.id)
+      .slice(0, wantClosed ? 15 : undefined);
+
+    return { isSample: false, runs: await summarizeRunsWithResults(selected) };
+  } catch (error) {
+    if (error instanceof TestinyError) {
+      console.warn(`Falling back to sample runs: ${error.message}`);
+      return {
+        isSample: true,
+        runs: sampleSnapshot.runs.filter((r) => r.isClosed === wantClosed),
+      };
+    }
+    throw error;
+  }
+}
+
 /**
- * One snapshot powering the Manual Testing and Releases pages.
+ * One snapshot powering the Home and Manual Testing pages.
  * Falls back to bundled sample data when no API key is configured,
  * and degrades gracefully (sample + console warning) on API errors
  * so a Testiny outage never takes the page down.
@@ -147,29 +210,12 @@ export async function getManualTestingSnapshot(): Promise<ManualTestingSnapshot>
       .slice(0, 8);
 
     // Summarize the most recent runs (open runs first, then latest
-    // closed). The mapping join flattens to one row per (run, case)
-    // pair, so fetch all rows and aggregate per run.
+    // closed) for the Home/Manual stat cards.
     const recentRuns = [...runs]
       .sort((a, b) => Number(a.is_closed) - Number(b.is_closed) || b.id - a.id)
       .slice(0, 8);
 
-    // includeDeleted: runs keep results for test cases that were later
-    // deleted from the library; without it those runs show 0 results.
-    const joinRows = await findAllEntities<TestinyTestRun>("testrun", {
-      ids: recentRuns.map((r) => r.id),
-      map: { entities: ["testcase", "testrun"], includeDeleted: true },
-    });
-
-    const resultsByRun = new Map<number, TestinyRunResultValues[]>();
-    for (const row of joinRows) {
-      const bucket = resultsByRun.get(row.id) ?? [];
-      bucket.push(...asArray(row.testrun_testcase_values));
-      resultsByRun.set(row.id, bucket);
-    }
-
-    const runSummaries = recentRuns.map((run) =>
-      summarizeRun(run, resultsByRun.get(run.id) ?? []),
-    );
+    const runSummaries = await summarizeRunsWithResults(recentRuns);
 
     return {
       isSample: false,

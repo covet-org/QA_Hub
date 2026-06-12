@@ -16,6 +16,7 @@ function prepareSections(viewer: Viewer): PreparedNavSection[] {
           label: item.label,
           href: item.href,
           unlocked: allowed.has(item.href),
+          children: item.children,
         }))
         // Members see locked items (with a lock icon, like Product
         // Brain); guests only see what their link unlocks.

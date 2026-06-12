@@ -2,7 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { signOutAction } from "@/lib/actions";
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`size-3.5 opacity-60 transition-transform ${open ? "rotate-180" : ""}`}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+    >
+      <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
+    </svg>
+  );
+}
 
 function LockIcon() {
   return (
@@ -21,6 +34,7 @@ export interface PreparedNavItem {
   label: string;
   href: string;
   unlocked: boolean;
+  children?: { label: string; href: string }[];
 }
 
 export interface PreparedNavSection {
@@ -35,6 +49,56 @@ interface SidebarProps {
   userSub: string;
   badge: string;
   canSignOut: boolean;
+}
+
+function NavGroup({
+  item,
+  pathname,
+}: {
+  item: PreparedNavItem;
+  pathname: string;
+}) {
+  const inGroup = pathname.startsWith(item.href);
+  const [open, setOpen] = useState(inGroup);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
+          inGroup
+            ? "font-medium text-white"
+            : "text-brand-100/85 hover:bg-brand-800 hover:text-white"
+        }`}
+      >
+        {item.label}
+        <Chevron open={open} />
+      </button>
+      {open && (
+        <ul className="mt-0.5 space-y-0.5">
+          {item.children!.map((child) => {
+            const active = pathname === child.href;
+            return (
+              <li key={child.href}>
+                <Link
+                  href={child.href}
+                  className={`block rounded-lg py-1.5 pr-3 pl-7 text-sm transition-colors ${
+                    active
+                      ? "bg-brand-700 font-medium text-white"
+                      : "text-brand-100/75 hover:bg-brand-800 hover:text-white"
+                  }`}
+                >
+                  {child.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export function Sidebar({
@@ -68,7 +132,9 @@ export function Sidebar({
                 const active = pathname === item.href;
                 return (
                   <li key={item.href}>
-                    {item.unlocked ? (
+                    {item.unlocked && item.children?.length ? (
+                      <NavGroup item={item} pathname={pathname} />
+                    ) : item.unlocked ? (
                       <Link
                         href={item.href}
                         className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
