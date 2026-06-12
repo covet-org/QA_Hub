@@ -61,8 +61,17 @@ export async function getBugsSnapshot(kind: BugKind): Promise<BugsSnapshot> {
 
   const activeFloor = await getActiveReleaseFloor();
 
+  // Only bugs in release projects, Cross-Product, or with no release
+  // belong on the board — other backlog projects are out of QA scope.
+  const inScope = (project: string | null): boolean =>
+    project === null ||
+    RELEASE_NAME.test(project) ||
+    /cross-?product/i.test(project);
+
+  const scoped = tickets.filter((t) => inScope(t.project));
+
   const byProject = new Map<string, RoadmapTicket[]>();
-  for (const ticket of tickets) {
+  for (const ticket of scoped) {
     const key = ticket.project ?? "No release";
     byProject.set(key, [...(byProject.get(key) ?? []), ticket]);
   }
@@ -88,7 +97,7 @@ export async function getBugsSnapshot(kind: BugKind): Promise<BugsSnapshot> {
   return {
     isSample: false,
     groups,
-    totalBugs: tickets.length,
-    openBugs: tickets.filter(isOpen).length,
+    totalBugs: scoped.length,
+    openBugs: scoped.filter(isOpen).length,
   };
 }
