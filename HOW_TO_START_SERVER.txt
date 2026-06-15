@@ -1,0 +1,84 @@
+============================================================
+  CoVet QA Brain — How to start the local server
+============================================================
+
+WHAT THIS IS
+------------
+QA Brain runs as a local web app on your machine. To open it in a
+browser, a small server process has to be running. When that process
+stops (you close the window, restart the PC, etc.), the site shows
+"This site can't be reached" until you start it again.
+
+
+------------------------------------------------------------
+  EASIEST WAY — double-click the launcher
+------------------------------------------------------------
+1. Open the project folder:
+   C:\Users\CesarMain\Desktop\QA_Page Project
+
+2. Double-click:  start-server.bat
+
+3. A black window opens and shows "Ready in ... http://localhost:3000".
+   LEAVE THIS WINDOW OPEN — closing it stops the site.
+
+4. Open your browser at:  http://localhost:3000
+
+
+------------------------------------------------------------
+  MANUAL WAY — from a terminal
+------------------------------------------------------------
+1. Press the Windows key, type "powershell", press Enter.
+
+2. Paste this line and press Enter (it moves into the project):
+       cd "C:\Users\CesarMain\Desktop\QA_Page Project"
+
+3. Paste this and press Enter (it starts the server):
+       npm run dev
+
+4. Wait for "Ready in ... http://localhost:3000", then open
+   http://localhost:3000 in your browser.
+
+   Keep the PowerShell window open while you use the site.
+
+
+------------------------------------------------------------
+  TO STOP THE SERVER
+------------------------------------------------------------
+Click the server window and press:  Ctrl + C
+(or just close the window).
+
+
+------------------------------------------------------------
+  IF IT WON'T START
+------------------------------------------------------------
+* "npm is not recognized"
+    Node.js isn't on the PATH for this window. Close it and open a
+    NEW PowerShell window (PATH is loaded fresh), then try again.
+    Node.js is installed at: C:\Program Files\nodejs
+
+* "Port 3000 is in use" / "Another next dev server is already running"
+    The site is probably already running — just open
+    http://localhost:3000. To force a clean restart, close any open
+    server windows first, or run:
+        Get-NetTCPConnection -LocalPort 3000 -State Listen |
+          Select-Object -Expand OwningProcess | ForEach-Object {
+          Stop-Process -Id $_ -Force }
+    then start it again.
+
+* First run after pulling new code, or after errors about missing
+  packages: install dependencies once with:
+        npm install
+    then  npm run dev
+
+
+------------------------------------------------------------
+  GOOD TO KNOW
+------------------------------------------------------------
+* The address is always:  http://localhost:3000
+* Only THIS computer can open that address. To give the whole team a
+  permanent URL with no local server, the app should be deployed to
+  Vercel (see README.md, "Deploying to Vercel").
+* Secrets (API keys, etc.) live in the .env.local file in this folder.
+  The site reads them at startup, so if you change that file you must
+  stop and start the server again for changes to take effect.
+============================================================
