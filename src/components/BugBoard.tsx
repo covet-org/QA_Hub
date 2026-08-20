@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { BugGroup } from "@/lib/bugs";
 import type { RoadmapTicket } from "@/lib/linear/types";
 import { Tag } from "@/components/Tag";
@@ -12,7 +12,7 @@ const RELEASE_FILTERS: { value: ReleaseFilter; label: string }[] = [
   { value: "closed", label: "Closed releases" },
 ];
 
-const PRIORITY_FILTERS = ["Urgent", "High", "Medium", "Low", "No priority"];
+const PRIORITY_ORDER = ["Urgent", "High", "Medium", "Low", "No priority"];
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "backlog", label: "Backlog" },
@@ -21,6 +21,8 @@ const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "completed", label: "Done" },
   { value: "canceled", label: "Canceled" },
 ];
+
+const OPEN_TYPES = ["backlog", "unstarted", "started"];
 
 const statusTone: Record<string, string> = {
   backlog: "bg-slate-100 text-slate-600 ring-slate-200",
@@ -35,7 +37,20 @@ const priorityTone: Record<string, string> = {
   High: "bg-amber-50 text-amber-700 ring-amber-200",
   Medium: "bg-sky-50 text-sky-700 ring-sky-200",
   Low: "bg-slate-100 text-slate-600 ring-slate-200",
+  "No priority": "bg-slate-100 text-slate-500 ring-slate-200",
 };
+
+const priorityDot: Record<string, string> = {
+  Urgent: "bg-rose-500",
+  High: "bg-amber-400",
+  Medium: "bg-sky-500",
+  Low: "bg-slate-400",
+  "No priority": "bg-slate-300",
+};
+
+function priorityOf(t: RoadmapTicket): string {
+  return t.priorityName ?? "No priority";
+}
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -49,6 +64,7 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
+/** Single-select pill row (release, status). */
 function FilterPills<T extends string>({
   title,
   options,
@@ -80,6 +96,54 @@ function FilterPills<T extends string>({
           {option.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** Multi-select pill row for priorities. Empty selection = all. */
+function PriorityPills({
+  selected,
+  onToggle,
+  onClear,
+}: {
+  selected: Set<string>;
+  onToggle: (p: string) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="w-16 text-[11px] font-semibold tracking-wide text-slate-400 uppercase">
+        Priority
+      </span>
+      <button
+        type="button"
+        onClick={onClear}
+        className={`rounded-full px-3.5 py-1 text-[13px] font-medium transition-colors ${
+          selected.size === 0
+            ? "bg-brand-800 text-white"
+            : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+        }`}
+      >
+        All
+      </button>
+      {PRIORITY_ORDER.map((p) => {
+        const on = selected.has(p);
+        return (
+          <button
+            key={p}
+            type="button"
+            onClick={() => onToggle(p)}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-[13px] font-medium transition-colors ${
+              on
+                ? "bg-brand-800 text-white"
+                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <span className={`size-2 rounded-full ${priorityDot[p]}`} />
+            {p}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -152,11 +216,23 @@ function CollapsibleGroup({
 
 export function BugBoard({ groups }: { groups: BugGroup[] }) {
   const [release, setRelease] = useState<ReleaseFilter | "all">("active");
-  const [priority, setPriority] = useState<string | "all">("all");
+  const [priorities, setPriorities] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<string | "all">("all");
-  const filtering = priority !== "all" || status !== "all";
 
-  const visible = useMemo(() => {
+  const filtering = priorities.size > 0 || status !== "all";
+
+  function togglePriority(p: string) {
+    setPriorities((prev) => {
+      const next = new Set(prev);
+      if (next.has(p)) next.delete(p);
+      else next.add(p);
+      return next;
+    });
+  }
+
+  /** Release groups filtered by the current release/status and an
+   *  optional single priority (null = all priorities). */
+  function buildGroups(priorityFilter: string | null): BugGroup[] {
     return groups
       .filter((g) => {
         if (release === "all") return true;
@@ -165,25 +241,22 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
       })
       .map((g) => {
         const tickets = g.tickets.filter((t) => {
-          if (priority !== "all") {
-            const ticketPriority = t.priorityName ?? "No priority";
-            if (ticketPriority !== priority) return false;
-          }
+          if (priorityFilter && priorityOf(t) !== priorityFilter) return false;
           if (status !== "all" && t.statusType !== status) return false;
           return true;
         });
         return {
           ...g,
           tickets,
-          openCount: tickets.filter((t) =>
-            ["backlog", "unstarted", "started"].includes(t.statusType),
-          ).length,
+          openCount: tickets.filter((t) => OPEN_TYPES.includes(t.statusType))
+            .length,
         };
       })
-      // Empty release groups stay listed (complete timeline) unless a
-      // priority/status filter is active; other groups need tickets.
       .filter((g) => g.tickets.length > 0 || (g.isRelease && !filtering));
-  }, [groups, release, priority, status, filtering]);
+  }
+
+  const selectedPriorities = PRIORITY_ORDER.filter((p) => priorities.has(p));
+  const sig = `${release}-${status}-${[...priorities].sort().join(",")}`;
 
   return (
     <div>
@@ -194,11 +267,10 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
           selected={release}
           onSelect={setRelease}
         />
-        <FilterPills
-          title="Priority"
-          options={PRIORITY_FILTERS.map((p) => ({ value: p, label: p }))}
-          selected={priority}
-          onSelect={setPriority}
+        <PriorityPills
+          selected={priorities}
+          onToggle={togglePriority}
+          onClear={() => setPriorities(new Set())}
         />
         <FilterPills
           title="Status"
@@ -208,21 +280,66 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
         />
       </div>
 
-      <div className="mt-5 space-y-4">
-        {visible.map((group, index) => (
-          <CollapsibleGroup
-            // Re-mount on filter change so groups re-open when filtering.
-            key={`${group.name}-${release}-${priority}-${status}`}
-            group={group}
-            defaultOpen={filtering || index === 0}
-          />
-        ))}
-        {visible.length === 0 && (
-          <p className="rounded-2xl bg-white px-5 py-10 text-center text-sm text-slate-500 ring-1 ring-slate-200">
-            No bugs match these filters.
-          </p>
-        )}
-      </div>
+      {selectedPriorities.length >= 2 ? (
+        // Multiple priorities → one box per priority.
+        <div className="mt-5 space-y-6">
+          {selectedPriorities.map((p) => {
+            const pGroups = buildGroups(p);
+            const total = pGroups.reduce((n, g) => n + g.tickets.length, 0);
+            return (
+              <section
+                key={p}
+                className="overflow-hidden rounded-2xl ring-1 ring-slate-200"
+              >
+                <div
+                  className={`flex items-center gap-2 px-5 py-3 ring-1 ring-inset ${
+                    priorityTone[p] ?? priorityTone.Low
+                  }`}
+                >
+                  <span className={`size-2.5 rounded-full ${priorityDot[p]}`} />
+                  <h3 className="font-display text-sm font-semibold">{p}</h3>
+                  <span className="text-xs opacity-70">{total} bugs</span>
+                </div>
+                <div className="space-y-3 bg-slate-50/50 p-3">
+                  {pGroups.map((group) => (
+                    <CollapsibleGroup
+                      key={`${p}-${group.name}-${sig}`}
+                      group={group}
+                      defaultOpen
+                    />
+                  ))}
+                  {pGroups.length === 0 && (
+                    <p className="px-2 py-6 text-center text-sm text-slate-500">
+                      No {p.toLowerCase()} bugs in this view.
+                    </p>
+                  )}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      ) : (
+        // No priority filter, or a single one → one release-grouped board.
+        (() => {
+          const board = buildGroups(selectedPriorities[0] ?? null);
+          return (
+            <div className="mt-5 space-y-4">
+              {board.map((group, index) => (
+                <CollapsibleGroup
+                  key={`${group.name}-${sig}`}
+                  group={group}
+                  defaultOpen={filtering || index === 0}
+                />
+              ))}
+              {board.length === 0 && (
+                <p className="rounded-2xl bg-white px-5 py-10 text-center text-sm text-slate-500 ring-1 ring-slate-200">
+                  No bugs match these filters.
+                </p>
+              )}
+            </div>
+          );
+        })()
+      )}
     </div>
   );
 }
