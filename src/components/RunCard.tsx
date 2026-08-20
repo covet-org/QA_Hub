@@ -1,11 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type {
-  ReleaseBug,
-  ReleaseContent,
-  ReleaseStory,
-} from "@/lib/release-content";
+import type { ReleaseBug, ReleaseContent } from "@/lib/release-content";
 import type { CaseRef, RunSummary } from "@/lib/testiny/types";
 import { Tag } from "@/components/Tag";
 
@@ -37,14 +33,6 @@ const priorityDot: Record<string, string> = {
   "No priority": "bg-slate-300",
 };
 
-const runStatusTone: Record<string, string> = {
-  backlog: "bg-slate-100 text-slate-600 ring-slate-200",
-  unstarted: "bg-slate-100 text-slate-600 ring-slate-200",
-  started: "bg-sky-50 text-sky-700 ring-sky-200",
-  completed: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  canceled: "bg-slate-100 text-slate-400 ring-slate-200",
-};
-
 function TicketLink({ id, url }: { id: string; url: string }) {
   return (
     <a
@@ -58,41 +46,81 @@ function TicketLink({ id, url }: { id: string; url: string }) {
   );
 }
 
-function StoryRow({ story }: { story: ReleaseStory }) {
-  return (
-    <li className="flex flex-wrap items-center gap-2 py-1.5">
-      <TicketLink id={story.id} url={story.url} />
-      <span
-        className="min-w-0 flex-1 truncate text-sm text-slate-800"
-        title={story.title}
-      >
-        {story.title}
-      </span>
-      {story.labels
-        .filter((l) => STORY_LABEL[l])
-        .map((l) => (
-          <Tag key={l} className={STORY_LABEL_TONE[l]}>
-            {STORY_LABEL[l]}
-          </Tag>
-        ))}
-    </li>
-  );
-}
+const STATUS_TYPE_RANK: Record<string, number> = {
+  triage: 0,
+  backlog: 1,
+  unstarted: 2,
+  started: 3,
+  completed: 4,
+  canceled: 5,
+};
 
 function BugRow({ bug }: { bug: ReleaseBug }) {
   return (
-    <li className="flex flex-wrap items-center gap-2 py-1.5">
+    <li className="flex items-baseline gap-2 py-0.5">
       <TicketLink id={bug.id} url={bug.url} />
       <span
-        className="min-w-0 flex-1 truncate text-sm text-slate-800"
+        className="min-w-0 flex-1 truncate text-sm text-slate-700"
         title={bug.title}
       >
         {bug.title}
       </span>
-      <Tag className={runStatusTone[bug.statusType] ?? runStatusTone.backlog}>
-        {bug.status}
-      </Tag>
     </li>
+  );
+}
+
+/** Bugs grouped by priority, then by workflow status within each priority. */
+function PriorityStatusBugs({ bugs }: { bugs: ReleaseBug[] }) {
+  const groups = PRIORITY_BUCKETS.map((priority) => {
+    const inPriority = bugs.filter(
+      (b) => (b.priorityName ?? "No priority") === priority,
+    );
+    if (inPriority.length === 0) return null;
+
+    const typeByStatus = new Map<string, string>();
+    for (const b of inPriority) {
+      if (!typeByStatus.has(b.status)) typeByStatus.set(b.status, b.statusType);
+    }
+    const statuses = [...typeByStatus.keys()]
+      .sort(
+        (a, b) =>
+          (STATUS_TYPE_RANK[typeByStatus.get(a)!] ?? 9) -
+            (STATUS_TYPE_RANK[typeByStatus.get(b)!] ?? 9) || a.localeCompare(b),
+      )
+      .map((name) => ({
+        name,
+        bugs: inPriority.filter((b) => b.status === name),
+      }));
+    return { priority, count: inPriority.length, statuses };
+  }).filter((g): g is NonNullable<typeof g> => g !== null);
+
+  return (
+    <div className="space-y-2.5">
+      {groups.map(({ priority, count, statuses }) => (
+        <div key={priority}>
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${priorityTone[priority]}`}
+          >
+            <span className={`size-2 rounded-full ${priorityDot[priority]}`} />
+            {priority} bugs ({count})
+          </span>
+          <div className="mt-1 space-y-1.5 pl-3">
+            {statuses.map((s) => (
+              <div key={s.name}>
+                <p className="text-[11px] font-medium tracking-wide text-slate-500 uppercase">
+                  {s.name} ({s.bugs.length})
+                </p>
+                <ul className="mt-0.5 pl-2">
+                  {s.bugs.map((b) => (
+                    <BugRow key={b.id} bug={b} />
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -103,67 +131,78 @@ function ReleaseDetail({
   releaseNumber: string;
   content: ReleaseContent;
 }) {
-  const bugsByPriority = PRIORITY_BUCKETS.map((priority) => ({
-    priority,
-    bugs: content.bugs.filter(
-      (b) => (b.priorityName ?? "No priority") === priority,
-    ),
-  })).filter((g) => g.bugs.length > 0);
+  // Nest bugs under their parent user story; the rest go to "Other bugs".
+  const storyIds = new Set(content.stories.map((s) => s.id));
+  const bugsByStory = new Map<string, ReleaseBug[]>();
+  const orphanBugs: ReleaseBug[] = [];
+  for (const bug of content.bugs) {
+    if (bug.parentId && storyIds.has(bug.parentId)) {
+      bugsByStory.set(bug.parentId, [
+        ...(bugsByStory.get(bug.parentId) ?? []),
+        bug,
+      ]);
+    } else {
+      orphanBugs.push(bug);
+    }
+  }
 
   return (
-    <div className="mt-3 space-y-4 border-t border-slate-100 pt-3">
+    <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
       <p className="font-display text-sm font-semibold text-slate-800">
         Release {releaseNumber}
       </p>
 
-      <div>
-        <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
-          User stories ({content.stories.length})
-        </p>
-        {content.stories.length > 0 ? (
-          <ul className="mt-1.5 divide-y divide-slate-100">
-            {content.stories.map((s) => (
-              <StoryRow key={s.id} story={s} />
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-1 text-sm text-slate-500">
-            No roadmap tickets for this release.
-          </p>
-        )}
-      </div>
-
-      <div>
-        <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
-          Bugs ({content.bugs.length})
-        </p>
-        {bugsByPriority.length > 0 ? (
-          <div className="mt-2 space-y-2.5">
-            {bugsByPriority.map(({ priority, bugs }) => (
-              <div
-                key={priority}
-                className="overflow-hidden rounded-xl ring-1 ring-slate-200"
+      {content.stories.map((story) => {
+        const storyBugs = bugsByStory.get(story.id) ?? [];
+        return (
+          <div
+            key={story.id}
+            className="overflow-hidden rounded-xl ring-1 ring-slate-200"
+          >
+            <div className="flex flex-wrap items-center gap-2 bg-slate-50 px-3 py-2">
+              <TicketLink id={story.id} url={story.url} />
+              <span
+                className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800"
+                title={story.title}
               >
-                <div
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold ring-1 ring-inset ${
-                    priorityTone[priority]
-                  }`}
-                >
-                  <span className={`size-2 rounded-full ${priorityDot[priority]}`} />
-                  {priority} ({bugs.length})
-                </div>
-                <ul className="divide-y divide-slate-100 px-3">
-                  {bugs.map((b) => (
-                    <BugRow key={b.id} bug={b} />
-                  ))}
-                </ul>
+                {story.title}
+              </span>
+              {story.labels
+                .filter((l) => STORY_LABEL[l])
+                .map((l) => (
+                  <Tag key={l} className={STORY_LABEL_TONE[l]}>
+                    {STORY_LABEL[l]}
+                  </Tag>
+                ))}
+              <span className="text-xs text-slate-400">
+                {storyBugs.length} bug{storyBugs.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            {storyBugs.length > 0 && (
+              <div className="px-3 py-2.5">
+                <PriorityStatusBugs bugs={storyBugs} />
               </div>
-            ))}
+            )}
           </div>
-        ) : (
-          <p className="mt-1 text-sm text-slate-500">No bugs for this release.</p>
-        )}
-      </div>
+        );
+      })}
+
+      {orphanBugs.length > 0 && (
+        <div className="overflow-hidden rounded-xl ring-1 ring-slate-200">
+          <div className="bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+            Other bugs — not linked to a user story ({orphanBugs.length})
+          </div>
+          <div className="px-3 py-2.5">
+            <PriorityStatusBugs bugs={orphanBugs} />
+          </div>
+        </div>
+      )}
+
+      {content.stories.length === 0 && orphanBugs.length === 0 && (
+        <p className="text-sm text-slate-500">
+          No roadmap tickets or bugs for this release.
+        </p>
+      )}
     </div>
   );
 }

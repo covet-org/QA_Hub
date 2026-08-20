@@ -48,6 +48,9 @@ const ISSUES_QUERY = /* GraphQL */ `
         project {
           name
         }
+        parent {
+          identifier
+        }
       }
     }
   }
@@ -66,6 +69,7 @@ interface IssuesPage {
         state: { name: string; type: string };
         labels: { nodes: { name: string }[] };
         project: { name: string } | null;
+        parent: { identifier: string } | null;
       }[];
     };
   };
@@ -117,6 +121,7 @@ export async function fetchIssuesWithLabels(
         labels: allLabels.filter((l) => labels.includes(l)),
         project: node.project?.name ?? null,
         priorityName: node.priority > 0 ? node.priorityLabel : null,
+        parentId: node.parent?.identifier ?? null,
         allLabels,
       });
     }

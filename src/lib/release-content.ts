@@ -23,6 +23,8 @@ export interface ReleaseBug {
   priorityName: string | null;
   status: string;
   statusType: string;
+  /** Identifier of the parent user story, if the bug is a sub-issue. */
+  parentId: string | null;
 }
 
 export interface ReleaseContent {
@@ -76,6 +78,7 @@ export async function getReleaseContent(): Promise<
       priorityName: t.priorityName ?? null,
       status: t.status,
       statusType: t.statusType,
+      parentId: t.parentId ?? null,
     }));
   }
 

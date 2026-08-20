@@ -15,6 +15,8 @@ export interface RoadmapTicket {
   project: string | null;
   /** Linear priority label when triaged (e.g. "Urgent"), else null. */
   priorityName?: string | null;
+  /** Identifier of the parent issue (e.g. a user story), if any. */
+  parentId?: string | null;
   /** Every label on the ticket (used for exclusion rules). */
   allLabels?: string[];
 }
