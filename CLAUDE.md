@@ -89,6 +89,11 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
 - **`includeDeleted:true` is REQUIRED on the run-results map join** — otherwise runs whose test
   cases were later deleted from the library return ZERO rows (this silently broke "Feature testing
   3.30"). Then skip rows with `deleted_at` (cases removed from the run) when counting.
+- **But also exclude cases deleted from the LIBRARY**: `summarizeRunsWithResults` fetches the
+  referenced testcases and drops rows whose `testcase.deleted_at` is set. Testiny's own run summary
+  hides library-deleted cases, so without this qahub over-counts (run 40 showed 254/9-failed vs
+  Testiny's 250/5). Mapping-row `deleted_at` (removed from run) and testcase `deleted_at` (removed
+  from library) are DIFFERENT — handle both.
 - Case deep link: `https://app.testiny.io/{PROJECT_KEY}/testruns/tr/{runId}/tc/{caseId}`.
 
 ### Linear (GraphQL, `https://api.linear.app/graphql`, header = raw API key)
