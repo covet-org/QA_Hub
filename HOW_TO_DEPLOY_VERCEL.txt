@@ -1,0 +1,135 @@
+============================================================
+  CoVet QA Brain — Deploy to Vercel (always-on URL)
+============================================================
+
+WHY
+---
+Running "npm run dev" only serves the site on your own PC, and only
+while that window is open. Deploying to Vercel gives the whole team a
+permanent https URL that is always up — no local server to babysit.
+
+You do this once. After that, every "git push" to the main branch
+redeploys the site automatically.
+
+You will need: a GitHub account (clezama-QA) and a Vercel account
+(free — sign up with the same GitHub account at https://vercel.com).
+
+
+============================================================
+  STEP 1 — Get the code onto GitHub  (do this first)
+============================================================
+In a normal PowerShell window (NOT inside Claude):
+
+    cd "C:\Users\CesarMain\Desktop\QA_Page Project"
+    git push -u origin main
+
+A browser window opens the first time — sign in as clezama-QA and
+approve. When it finishes, refresh
+https://github.com/clezama-QA/Co.Vet_QA — you should see the files.
+
+
+============================================================
+  STEP 2 — Import the repo into Vercel
+============================================================
+1. Go to https://vercel.com and sign in with GitHub.
+2. Click "Add New..." -> "Project".
+3. Find "Co.Vet_QA" in the list and click "Import".
+   (If you don't see it: "Adjust GitHub App Permissions" and grant
+    Vercel access to the clezama-QA/Co.Vet_QA repo.)
+4. Framework Preset should auto-detect "Next.js". Leave the build
+   settings at their defaults. DON'T click Deploy yet — add the
+   environment variables first (Step 3).
+
+
+============================================================
+  STEP 3 — Add environment variables
+============================================================
+On the import screen, open the "Environment Variables" section and add
+each name below. Copy the VALUES from your local file:
+    C:\Users\CesarMain\Desktop\QA_Page Project\.env.local
+(That file is never uploaded to GitHub, so you must re-enter the
+values here.)
+
+Add these (name  ->  where the value comes from):
+
+  AUTH_SECRET              -> copy from .env.local
+  AUTH_GOOGLE_ID           -> copy from .env.local
+  AUTH_GOOGLE_SECRET       -> copy from .env.local
+  ALLOWED_EMAIL_DOMAIN     -> co.vet
+  QA_ADMIN_EMAILS          -> clezama@co.vet
+  QA_TEAM_EMAILS           -> (leave blank, or add QA emails)
+  NOTIFY_EMAIL             -> clezama@co.vet
+  RESEND_API_KEY           -> copy from .env.local
+  EMAIL_FROM               -> QA Brain <onboarding@resend.dev>
+  UPSTASH_REDIS_REST_URL   -> copy from .env.local
+  UPSTASH_REDIS_REST_TOKEN -> copy from .env.local
+  LINEAR_API_KEY           -> copy from .env.local
+  TESTINY_API_KEY          -> copy from .env.local
+  TESTINY_PROJECT_ID       -> 1
+
+  APP_URL                  -> SEE STEP 5 (set a placeholder for now,
+                              e.g. https://co-vet-qa.vercel.app , and
+                              correct it once you know the real URL)
+
+These have safe defaults in code, add only if you want to override:
+  QA_ROADMAP_LABELS, QA_ROADMAP_EXCLUDE_LABELS,
+  QA_BUG_LABEL, QA_CS_BUG_LABEL
+
+Then click "Deploy" and wait ~1-2 minutes for the build.
+
+
+============================================================
+  STEP 4 — Note your real URL
+============================================================
+When the build finishes, Vercel shows your site URL, e.g.
+    https://co-vet-qa.vercel.app
+(the exact name depends on what Vercel assigns). Copy it.
+
+
+============================================================
+  STEP 5 — Point APP_URL and Google at the real URL
+============================================================
+A) In Vercel: Project -> Settings -> Environment Variables.
+   Set APP_URL to your real URL from Step 4 (no trailing slash), e.g.
+       https://co-vet-qa.vercel.app
+   Then Deployments -> latest -> "..." -> Redeploy, so the change
+   takes effect. (APP_URL is used in the approval emails' links.)
+
+B) In Google Cloud Console -> APIs & Services -> Credentials ->
+   your OAuth client -> Authorized redirect URIs -> Add URI:
+       https://<your-real-url>/api/auth/callback/google
+   e.g. https://co-vet-qa.vercel.app/api/auth/callback/google
+   Keep the localhost one too. Save.
+   (Without this, Google sign-in on the live site fails with
+    "redirect_uri_mismatch".)
+
+
+============================================================
+  STEP 6 — Test it
+============================================================
+1. Open your Vercel URL.
+2. Click "Continue with Google", sign in as clezama@co.vet.
+   You're an admin, so you land straight on the dashboard.
+3. Check the Access page — approvals and share links now persist in
+   Upstash Redis (shared across everyone), not a local file.
+
+
+============================================================
+  FUTURE UPDATES
+============================================================
+Just push to main:
+    git add -A
+    git commit -m "your message"
+    git push
+Vercel rebuilds and redeploys automatically within a minute or two.
+
+
+============================================================
+  SECURITY NOTE
+============================================================
+The API keys used here were shared over chat during setup. Once the
+site is live and stable, rotate them (one click in each provider's
+dashboard) and update the values in Vercel -> Settings -> Environment
+Variables:
+  - Testiny, Resend, Linear, Google client secret, Upstash token
+============================================================
