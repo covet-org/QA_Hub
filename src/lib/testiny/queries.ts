@@ -96,51 +96,54 @@ async function getProjectKey(): Promise<string> {
   );
 }
 
-const PROBLEM_STATUSES = new Set(["FAILED", "BLOCKED", "SKIPPED"]);
-
 /** Expand results for the given runs and summarize each. */
 async function summarizeRunsWithResults(
   runs: TestinyTestRun[],
 ): Promise<RunSummary[]> {
   if (runs.length === 0) return [];
 
-  // includeDeleted: runs keep results for test cases that were later
-  // deleted from the library; without it those runs show 0 results.
+  // includeDeleted keeps mapping rows the join would otherwise drop; we
+  // then drop cases deleted from the library (see deletedCaseIds below)
+  // so the counts match Testiny's own run summary, which hides them.
   const joinRows = await findAllEntities<TestinyTestRun>("testrun", {
     ids: runs.map((r) => r.id),
     map: { entities: ["testcase", "testrun"], includeDeleted: true },
   });
 
   const resultsByRun = new Map<number, TestinyRunResultValues[]>();
-  const problemCaseIds = new Set<number>();
+  const caseIds = new Set<number>();
   for (const row of joinRows) {
     const bucket = resultsByRun.get(row.id) ?? [];
     for (const value of asArray(row.testrun_testcase_values)) {
       bucket.push(value);
-      if (
-        !value.deleted_at &&
-        PROBLEM_STATUSES.has(value.result_status?.toUpperCase() ?? "")
-      ) {
-        problemCaseIds.add(value.testcase_id);
-      }
+      caseIds.add(value.testcase_id);
     }
     resultsByRun.set(row.id, bucket);
   }
 
-  // Titles for the failed/blocked/skipped cases (incl. since-deleted ones).
+  // Fetch the referenced cases (incl. deleted) for their titles and to
+  // identify cases deleted from the library — Testiny excludes those from
+  // a run's totals even though their results linger in the mapping.
   const caseTitles = new Map<number, string>();
-  if (problemCaseIds.size > 0) {
+  const deletedCaseIds = new Set<number>();
+  if (caseIds.size > 0) {
     const cases = await findAllEntities<TestinyTestCase>("testcase", {
-      ids: [...problemCaseIds],
+      ids: [...caseIds],
       includeDeleted: true,
     });
-    for (const tc of cases) caseTitles.set(tc.id, tc.title);
+    for (const tc of cases) {
+      caseTitles.set(tc.id, tc.title);
+      if (tc.deleted_at) deletedCaseIds.add(tc.id);
+    }
   }
 
   const projectKey = await getProjectKey();
-  return runs.map((run) =>
-    summarizeRun(run, resultsByRun.get(run.id) ?? [], caseTitles, projectKey),
-  );
+  return runs.map((run) => {
+    const rows = (resultsByRun.get(run.id) ?? []).filter(
+      (r) => !deletedCaseIds.has(r.testcase_id),
+    );
+    return summarizeRun(run, rows, caseTitles, projectKey);
+  });
 }
 
 /**

@@ -27,6 +27,8 @@ export interface TestinyTestCase {
   id: number;
   title: string;
   project_id: number;
+  /** Set when the case was deleted from the library (Testiny hides these). */
+  deleted_at?: string | null;
   priority?: number | null; // 0 Critical … 3 Low
   testcase_type?: string | null; // FUNCTIONAL, REGRESSION, …
   /** Present when queried with map {entities:["testcase","testcase_folder"]}. */
