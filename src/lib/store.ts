@@ -25,25 +25,52 @@ function upstashConfig(): UpstashConfig | null {
   return url && token ? { url, token } : null;
 }
 
+/** Small sleep helper for retry backoff. */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function redis(
   config: UpstashConfig,
   command: (string | number)[],
 ): Promise<unknown> {
-  const res = await fetch(config.url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(command),
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    throw new Error(`Store request failed: ${res.status} ${res.statusText}`);
+  // Retry transient failures — serverless functions occasionally hit a
+  // DNS/connection blip reaching Upstash (fetch failed / ENOTFOUND) or a
+  // 5xx; a single blip should not 500 the page.
+  const maxAttempts = 3;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(config.url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(command),
+        cache: "no-store",
+      });
+      if (res.status >= 500) {
+        throw new Error(`Store request failed: ${res.status} ${res.statusText}`);
+      }
+      if (!res.ok) {
+        // 4xx is a real error (bad auth/command) — don't retry.
+        throw new Error(`Store request failed: ${res.status} ${res.statusText}`);
+      }
+      const json = (await res.json()) as { result: unknown; error?: string };
+      if (json.error) throw new Error(`Store error: ${json.error}`);
+      return json.result;
+    } catch (error) {
+      lastError = error;
+      const status = error instanceof Error ? error.message : "";
+      // Only retry transient network / 5xx failures, not 4xx.
+      const retryable =
+        !status.includes(" 4") /* 4xx status */ && attempt < maxAttempts;
+      if (!retryable) break;
+      await delay(150 * attempt);
+    }
   }
-  const json = (await res.json()) as { result: unknown; error?: string };
-  if (json.error) throw new Error(`Store error: ${json.error}`);
-  return json.result;
+  throw lastError;
 }
 
 // ── Local file fallback (dev only) ───────────────────────────────

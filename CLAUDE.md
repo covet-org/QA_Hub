@@ -118,17 +118,29 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
 A ticket "has test cases" when a Testiny folder whose TITLE mentions its id (regex `COV[-\s]?\d+`,
 any case, e.g. "Cov-2230") contains cases anywhere in its subtree. See `testiny/coverage.ts`.
 
-## Access model (see `src/lib/viewer.ts`)
+## Access model (see `src/lib/viewer.ts`, `src/lib/access/requests.ts`)
 
 1. Google SSO restricted to `ALLOWED_EMAIL_DOMAIN` (co.vet) — enforced in `auth.ts signIn`.
-2. Non-admins get an access request (stored in KV) and are held at `/pending` until approved.
-   Admins (`QA_ADMIN_EMAILS`) are auto-approved. Each pending sign-in emails `NOTIFY_EMAIL`
-   (throttled 1/hour) with HMAC-signed one-click approve/deny links (`/api/access/decision`).
-3. Roles `viewer < qa < admin`. Admin sets role per-user at approval time on `/access` (stored in
-   KV, no redeploy needed). `QA_TEAM_EMAILS` is only the default role hint.
+2. The allowlist is one KV record per email (`access:<email>`) with a status
+   (`pending`/`approved`) and a role. `/access` manages it (admin only):
+   - **Pending requests**: someone signs in unknown → pending record + `NOTIFY_EMAIL` email
+     (throttled 1/hour, HMAC one-click approve/deny at `/api/access/decision`). Admin approves
+     with a role or denies.
+   - **Permitted users**: full list; admin changes any role (incl. admin) or revokes.
+   - **Invite**: admin pre-authorizes an email + role (`inviteUser`) → approved record + an
+     invite email; that person skips pending on first sign-in.
+   - **Revoke = remove** the record entirely (they'd become a fresh pending request if they
+     sign in again).
+3. Roles `viewer < qa < admin`, all settable from the UI (stored in KV, no redeploy).
+   `QA_ADMIN_EMAILS` is an always-on **bootstrap** admin set — those emails are always admin and
+   can't be removed via the UI, so you can't lock yourself out. `getViewer` honors a stored
+   admin role too, so UI-promoted admins work. `QA_TEAM_EMAILS` is just a default-role hint.
 4. Share links (`/share/<id>`) set a signed guest cookie granting the exact sections the admin
    chose; revoking a link locks out existing holders immediately (re-validated every request).
    Admin pages are never shareable.
+5. Store reads (`src/lib/store.ts`) retry transient Upstash failures (occasional serverless
+   `ENOTFOUND`/`fetch failed`); the `/access` page also catches store errors and shows a retry
+   notice instead of a 500.
 
 ## Env vars (names only — values in .env.local / Vercel; see .env.example)
 

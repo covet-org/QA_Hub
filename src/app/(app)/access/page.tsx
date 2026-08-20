@@ -2,15 +2,21 @@ import type { Metadata } from "next";
 import { Hero } from "@/components/Hero";
 import { Tag } from "@/components/Tag";
 import { listShareLinks, shareableSections } from "@/lib/access/links";
-import { listAccessRecords } from "@/lib/access/requests";
+import { type AccessRecord, listAccessRecords } from "@/lib/access/requests";
 import { env } from "@/lib/env";
+import type { Role } from "@/lib/roles";
 import { storeConfigured } from "@/lib/store";
 import { requireAccess } from "@/lib/viewer";
 import {
   createShareLinkAction,
   decideAccessAction,
+  inviteUserAction,
+  removeUserAction,
   revokeShareLinkAction,
+  setRoleAction,
 } from "./actions";
+
+const ROLE_OPTIONS: Role[] = ["viewer", "qa", "admin"];
 
 export const metadata: Metadata = { title: "Access" };
 
@@ -22,13 +28,40 @@ const statusTag: Record<string, string> = {
 
 export default async function AccessPage() {
   await requireAccess("/access");
-  const [records, links] = await Promise.all([
-    listAccessRecords(),
-    listShareLinks(),
-  ]);
+
+  // The store can hit a transient network blip (redis() already retries);
+  // if it still fails, show a retry notice instead of a hard 500 page.
+  let records: Awaited<ReturnType<typeof listAccessRecords>> = [];
+  let links: Awaited<ReturnType<typeof listShareLinks>> = [];
+  let storeError = false;
+  try {
+    [records, links] = await Promise.all([
+      listAccessRecords(),
+      listShareLinks(),
+    ]);
+  } catch (error) {
+    console.error("Access page store read failed:", error);
+    storeError = true;
+  }
+
   const sections = shareableSections();
+  const bootstrapSet = new Set(env.adminEmails);
   const pending = records.filter((r) => r.status === "pending");
-  const decided = records.filter((r) => r.status !== "pending");
+  const approved = records.filter((r) => r.status === "approved");
+  const listed = new Set(approved.map((r) => r.email));
+  // Env bootstrap admins are always permitted and cannot be removed.
+  const bootstrap: AccessRecord[] = env.adminEmails
+    .filter((e) => !listed.has(e))
+    .map((email) => ({
+      email,
+      name: "",
+      status: "approved",
+      role: "admin",
+      requestedAt: "",
+    }));
+  const permitted = [...bootstrap, ...approved].sort((a, b) =>
+    a.email.localeCompare(b.email),
+  );
 
   return (
     <div>
@@ -38,6 +71,13 @@ export default async function AccessPage() {
         description="Approve sign-in requests, manage roles and create shareable links with custom per-section permissions. Requests email you at sign-in time; everything here applies immediately."
       />
       <div className="mx-auto max-w-5xl space-y-6 px-6 py-8 sm:px-10">
+        {storeError && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <span className="font-semibold">Couldn&apos;t reach the store.</span>{" "}
+            A temporary connection issue prevented loading requests and links.
+            Refresh to try again.
+          </div>
+        )}
         {!storeConfigured() && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <span className="font-semibold">Local storage mode.</span> Access
@@ -50,23 +90,16 @@ export default async function AccessPage() {
           </div>
         )}
 
-        {/* ── Access requests ─────────────────────────────────── */}
-        <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
-            Access requests
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Sign-in attempts wait here (and in your inbox at{" "}
-            {env.notifyEmail}) until you decide.
-          </p>
-
-          {pending.length === 0 && decided.length === 0 && (
-            <p className="mt-4 text-sm text-slate-500">
-              No requests yet. They appear the first time someone signs in.
+        {/* ── Pending requests ────────────────────────────────── */}
+        {pending.length > 0 && (
+          <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
+              Pending requests
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              People who signed in and are waiting for access. Approving adds
+              them to the permitted list below.
             </p>
-          )}
-
-          {pending.length > 0 && (
             <ul className="mt-4 divide-y divide-slate-100">
               {pending.map((r) => (
                 <li
@@ -79,10 +112,11 @@ export default async function AccessPage() {
                     </p>
                     <p className="truncate text-xs text-slate-500">
                       {r.email} · requested{" "}
-                      {new Date(r.requestedAt).toLocaleString()}
+                      {r.requestedAt
+                        ? new Date(r.requestedAt).toLocaleString()
+                        : "—"}
                     </p>
                   </div>
-                  <Tag className={statusTag[r.status]}>{r.status}</Tag>
                   <form action={decideAccessAction} className="flex gap-2">
                     <input type="hidden" name="email" value={r.email} />
                     <select
@@ -90,9 +124,11 @@ export default async function AccessPage() {
                       defaultValue="viewer"
                       className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700"
                     >
-                      <option value="viewer">viewer</option>
-                      <option value="qa">qa</option>
-                      <option value="admin">admin</option>
+                      {ROLE_OPTIONS.map((role) => (
+                        <option key={role} value={role}>
+                          {role}
+                        </option>
+                      ))}
                     </select>
                     <button
                       type="submit"
@@ -114,57 +150,124 @@ export default async function AccessPage() {
                 </li>
               ))}
             </ul>
-          )}
+          </section>
+        )}
 
-          {decided.length > 0 && (
-            <details className="mt-4">
-              <summary className="cursor-pointer text-xs font-medium text-slate-500">
-                Decided ({decided.length})
-              </summary>
-              <ul className="mt-2 divide-y divide-slate-100">
-                {decided.map((r) => (
-                  <li
-                    key={r.email}
-                    className="flex flex-wrap items-center gap-3 py-2.5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-slate-700">
-                        {r.name || r.email}{" "}
-                        <span className="text-xs text-slate-400">
-                          {r.email}
-                        </span>
-                      </p>
-                    </div>
-                    <Tag>{r.role}</Tag>
-                    <Tag className={statusTag[r.status]}>{r.status}</Tag>
-                    <form action={decideAccessAction} className="flex gap-2">
-                      <input type="hidden" name="email" value={r.email} />
-                      <input type="hidden" name="role" value={r.role} />
-                      {r.status === "denied" ? (
-                        <button
-                          type="submit"
-                          name="action"
-                          value="approve"
-                          className="text-xs font-medium text-brand-700 hover:underline"
+        {/* ── Permitted users ─────────────────────────────────── */}
+        <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
+            Permitted users
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Everyone allowed into QA Brain. Change a role or revoke access —
+            changes apply immediately.
+          </p>
+
+          {/* Invite */}
+          <form
+            action={inviteUserAction}
+            className="mt-4 flex flex-wrap items-end gap-3 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200"
+          >
+            <label className="flex-1 text-xs font-medium text-slate-600">
+              Invite by email
+              <input
+                name="email"
+                type="email"
+                required
+                placeholder={`name@${env.allowedEmailDomain}`}
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+              />
+            </label>
+            <label className="text-xs font-medium text-slate-600">
+              Role
+              <select
+                name="role"
+                defaultValue="viewer"
+                className="mt-1 block rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+              >
+                {ROLE_OPTIONS.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              className="rounded-lg bg-brand-800 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              Invite
+            </button>
+          </form>
+          <p className="mt-2 text-xs text-slate-400">
+            Invited users are pre-approved and emailed a sign-in link. Only
+            @{env.allowedEmailDomain} addresses can actually sign in.
+          </p>
+
+          <ul className="mt-4 divide-y divide-slate-100">
+            {permitted.map((r) => {
+              const isBootstrap = bootstrapSet.has(r.email);
+              const notYet = r.invited && !r.signedIn;
+              return (
+                <li
+                  key={r.email}
+                  className="flex flex-wrap items-center gap-3 py-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-800">
+                      {r.name || r.email}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">
+                      {r.email}
+                      {isBootstrap && " · bootstrap admin (env)"}
+                    </p>
+                  </div>
+                  {notYet && (
+                    <Tag className="bg-sky-50 text-sky-700 ring-sky-200">
+                      invited
+                    </Tag>
+                  )}
+                  {isBootstrap ? (
+                    <Tag className="bg-rose-50 text-rose-700 ring-rose-200">
+                      admin
+                    </Tag>
+                  ) : (
+                    <>
+                      <form action={setRoleAction} className="flex items-center gap-1.5">
+                        <input type="hidden" name="email" value={r.email} />
+                        <select
+                          name="role"
+                          defaultValue={r.role}
+                          className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700"
                         >
-                          Approve
-                        </button>
-                      ) : (
+                          {ROLE_OPTIONS.map((role) => (
+                            <option key={role} value={role}>
+                              {role}
+                            </option>
+                          ))}
+                        </select>
                         <button
                           type="submit"
-                          name="action"
-                          value="deny"
+                          className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                        >
+                          Set
+                        </button>
+                      </form>
+                      <form action={removeUserAction}>
+                        <input type="hidden" name="email" value={r.email} />
+                        <button
+                          type="submit"
                           className="text-xs font-medium text-rose-600 hover:underline"
                         >
                           Revoke
                         </button>
-                      )}
-                    </form>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
+                      </form>
+                    </>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         </section>
 
         {/* ── Share links ─────────────────────────────────────── */}

@@ -2,9 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { createShareLink, revokeShareLink } from "@/lib/access/links";
-import { decideAccess } from "@/lib/access/requests";
-import type { Role } from "@/lib/roles";
+import {
+  decideAccess,
+  inviteUser,
+  isAdminEmail,
+  removeAccess,
+  setUserRole,
+} from "@/lib/access/requests";
+import { isAllowedEmail, type Role } from "@/lib/roles";
 import { getViewer } from "@/lib/viewer";
+
+const ROLES: Role[] = ["viewer", "qa", "admin"];
+const asRole = (v: unknown): Role =>
+  ROLES.includes(v as Role) ? (v as Role) : "viewer";
 
 /** All admin actions re-verify the caller server-side. */
 async function requireAdmin() {
@@ -19,10 +29,38 @@ export async function decideAccessAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const email = String(formData.get("email") ?? "");
   const action = String(formData.get("action") ?? "");
-  const role = String(formData.get("role") ?? "viewer") as Role;
+  const role = asRole(formData.get("role"));
 
   if (!email || (action !== "approve" && action !== "deny")) return;
   await decideAccess({ email, action, role, decidedBy: admin.email });
+  revalidatePath("/access");
+}
+
+/** Change an approved user's role. */
+export async function setRoleAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const email = String(formData.get("email") ?? "");
+  const role = asRole(formData.get("role"));
+  if (email) await setUserRole(email, role, admin.email);
+  revalidatePath("/access");
+}
+
+/** Remove a user from the allowlist. Bootstrap (env) admins can't be removed. */
+export async function removeUserAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const email = String(formData.get("email") ?? "");
+  if (email && !isAdminEmail(email)) await removeAccess(email);
+  revalidatePath("/access");
+}
+
+/** Invite (pre-authorize + email) a new user. */
+export async function inviteUserAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const role = asRole(formData.get("role"));
+  if (email && isAllowedEmail(email)) {
+    await inviteUser({ email, role, invitedBy: admin.email });
+  }
   revalidatePath("/access");
 }
 
