@@ -66,7 +66,9 @@ export function RunsBoard({
         />
       </FilterBar>
 
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      {/* items-start: cards size to their own content, so expanding one
+          card does not stretch its neighbours into empty space. */}
+      <div className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {visible.map((run) => (
           <RunCard
             key={run.id}

@@ -319,7 +319,7 @@ export function RunCard({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl bg-surface-card shadow-card ring-1 ring-hairline transition-shadow hover:shadow-card-hover">
+    <div className="flex flex-col overflow-hidden rounded-xl bg-surface-card shadow-card ring-1 ring-hairline transition-shadow hover:shadow-card-hover">
       <div className="flex items-start justify-between gap-3 px-4 pt-3.5">
         <h3 className="font-display min-w-0 text-[15px] leading-tight font-semibold text-slate-800">
           {run.title}
@@ -373,8 +373,7 @@ export function RunCard({
         })}
       </div>
 
-      {/* Pushes the disclosures to the bottom so cards in a row align. */}
-      <div aria-hidden className="grow pb-3" />
+      <div aria-hidden className="pb-3" />
 
       {problemCount > 0 && (
         <div className="border-t border-hairline">
