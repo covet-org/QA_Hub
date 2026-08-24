@@ -40,6 +40,10 @@ const ISSUES_QUERY = /* GraphQL */ `
           name
           type
         }
+        assignee {
+          name
+          displayName
+        }
         labels {
           nodes {
             name
@@ -78,6 +82,7 @@ interface IssuesPage {
         priority: number;
         priorityLabel: string;
         state: { name: string; type: string };
+        assignee: { name: string; displayName: string | null } | null;
         labels: { nodes: { name: string }[] };
         project: { name: string } | null;
         parent: {
@@ -140,6 +145,8 @@ export async function fetchIssuesWithLabels(
         labels: allLabels.filter((l) => labels.includes(l)),
         project: node.project?.name ?? null,
         priorityName: node.priority > 0 ? node.priorityLabel : null,
+        assigneeName:
+          node.assignee?.displayName || node.assignee?.name || null,
         parentId: node.parent?.identifier ?? null,
         parent: node.parent
           ? {

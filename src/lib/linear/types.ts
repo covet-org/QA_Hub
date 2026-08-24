@@ -32,6 +32,8 @@ export interface RoadmapTicket {
   project: string | null;
   /** Linear priority label when triaged (e.g. "Urgent"), else null. */
   priorityName?: string | null;
+  /** Who the ticket is assigned to in Linear, null when unassigned. */
+  assigneeName?: string | null;
   /** Identifier of the parent issue (e.g. a user story), if any. */
   parentId?: string | null;
   /** The parent issue's own fields, when the ticket is a sub-issue. */

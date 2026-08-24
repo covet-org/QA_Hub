@@ -169,6 +169,22 @@ function BugRow({ ticket }: { ticket: RoadmapTicket }) {
           {ticket.priorityName}
         </Tag>
       )}
+      {/* Assignee from Linear — who actually owns fixing this bug. */}
+      {ticket.assigneeName ? (
+        <span
+          className="w-[104px] shrink-0 truncate text-right text-[11px] text-slate-500"
+          title={`Assigned to ${ticket.assigneeName} in Linear`}
+        >
+          {ticket.assigneeName}
+        </span>
+      ) : (
+        <span
+          className="w-[104px] shrink-0 text-right text-[11px] text-slate-300"
+          title="Unassigned in Linear"
+        >
+          unassigned
+        </span>
+      )}
       <Tag className={statusTone[ticket.statusType] ?? statusTone.backlog}>
         {ticket.status}
       </Tag>
