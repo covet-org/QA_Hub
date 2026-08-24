@@ -155,16 +155,21 @@ any case, e.g. "Cov-2230") contains cases anywhere in its subtree. See `testiny/
 ## Access model (see `src/lib/viewer.ts`, `src/lib/access/requests.ts`)
 
 1. Google SSO restricted to `ALLOWED_EMAIL_DOMAIN` (co.vet) — enforced in `auth.ts signIn`.
-2. The allowlist is one KV record per email (`access:<email>`) with a status
-   (`pending`/`approved`) and a role. `/access` manages it (admin only):
-   - **Pending requests**: someone signs in unknown → pending record + `NOTIFY_EMAIL` email
-     (throttled 1/hour, HMAC one-click approve/deny at `/api/access/decision`). Admin approves
-     with a role or denies.
+2. **The domain IS the allowlist.** Any verified `@co.vet` account is admitted on sign-in with
+   an approved record; nobody waits for approval. There is no pending state to clear.
+   `NOTIFY_EMAIL` gets ONE mail on a person's first arrival ("X just signed in", no
+   approve/deny buttons — they are already in). `/access` still manages roles:
    - **Permitted users**: full list; admin changes any role (incl. admin) or revokes.
    - **Invite**: admin pre-authorizes an email + role (`inviteUser`) → approved record + an
-     invite email; that person skips pending on first sign-in.
-   - **Revoke = remove** the record entirely (they'd become a fresh pending request if they
-     sign in again).
+     invite email. Largely redundant now that the domain admits everyone.
+   - **Revoke writes a `denied` record** — it must NOT just delete, because a missing record
+     now means "let them in". `denied` is the only thing that blocks a domain member.
+   - The old approve/deny-by-email chain (`notifyAdminOfRequest`, `decisionUrl`) is gone.
+     `/api/access/decision` still exists so links already sent keep working.
+3. **Access never depends on the store.** `getViewer` treats a member as approved unless a
+   record explicitly denies them, and a store read failure is logged, not fatal. This was a real
+   outage mode: when Upstash was unreachable every non-admin was sent to `/pending`, which read
+   as "the system rejects co.vet accounts".
 3. Roles `viewer < qa < admin`, all settable from the UI (stored in KV, no redeploy).
    `QA_ADMIN_EMAILS` is an always-on **bootstrap** admin set — those emails are always admin and
    can't be removed via the UI, so you can't lock yourself out. `getViewer` honors a stored

@@ -48,13 +48,22 @@ export async function getViewer(): Promise<Viewer | null> {
         status: "approved",
       };
     }
-    const record = await getAccessRecord(email);
+    // The domain is the allowlist, so a member is approved unless a
+    // record explicitly denies them. A missing record — first request
+    // after sign-in, or an unreachable store — must not read as pending:
+    // that is what was rejecting people with valid co.vet accounts.
+    const record = await getAccessRecord(email).catch((error) => {
+      console.error(
+        `Access record unreadable for ${email}: ${error instanceof Error ? error.message : error}`,
+      );
+      return null;
+    });
     return {
       kind: "member",
       email,
       name: session.user.name ?? email,
       role: record?.status === "approved" ? record.role : roleForEmail(email),
-      status: record?.status ?? "pending",
+      status: record?.status === "denied" ? "denied" : "approved",
     };
   }
 
