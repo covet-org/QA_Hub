@@ -170,7 +170,9 @@ any case, e.g. "Cov-2230") contains cases anywhere in its subtree. See `testiny/
    record explicitly denies them, and a store read failure is logged, not fatal. This was a real
    outage mode: when Upstash was unreachable every non-admin was sent to `/pending`, which read
    as "the system rejects co.vet accounts".
-3. Roles `viewer < qa < admin`, all settable from the UI (stored in KV, no redeploy).
+3. Roles `viewer < qa < admin`. **`qa` is the default for any domain member**, so a new
+   colleague sees everything except the admin Access page; `viewer` is a restricted role that
+   is only ever assigned deliberately. All settable from the UI (stored in KV, no redeploy).
    `QA_ADMIN_EMAILS` is an always-on **bootstrap** admin set — those emails are always admin and
    can't be removed via the UI, so you can't lock yourself out. `getViewer` honors a stored
    admin role too, so UI-promoted admins work. `QA_TEAM_EMAILS` is just a default-role hint.
