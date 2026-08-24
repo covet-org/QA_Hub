@@ -71,19 +71,20 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           />
         </div>
 
-        <div className="grid items-start gap-4 xl:grid-cols-3">
-          <Card>
-            <CardHeader
-              title="Current effort allocation"
-              subtitle="Average split across active roadmap initiatives. The department goal is to grow the automation share release over release."
+        <Card>
+          <CardHeader
+            title="Current effort allocation"
+            subtitle="Average split across active roadmap initiatives. The department goal is to grow the automation share release over release."
+          />
+          <CardBody>
+            <AllocationBar
+              manual={split.manual}
+              automation={split.automation}
             />
-            <CardBody>
-              <AllocationBar
-                manual={split.manual}
-                automation={split.automation}
-              />
-            </CardBody>
-          </Card>
+          </CardBody>
+        </Card>
+
+        <div className="grid items-start gap-4 lg:grid-cols-2">
           <ReleaseDurationsCard releases={durations.releases} />
           <CycleTimeCard cycles={cycleStats.cycles} />
         </div>

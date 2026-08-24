@@ -42,10 +42,10 @@ export function ReleaseDurationsCard({
 
   return (
     <section className="rounded-xl bg-surface-card p-5 shadow-card ring-1 ring-hairline">
-      <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
+      <h2 className="font-display text-[15px] leading-tight font-semibold text-slate-800">
         Release testing time
       </h2>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
         From each phase&apos;s first Testiny run opening to its last run
         closing — feature testing validates the release, regression clears it
         for production.

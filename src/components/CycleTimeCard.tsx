@@ -53,10 +53,10 @@ export function CycleTimeCard({ cycles }: { cycles: StatusCycle[] }) {
 
   return (
     <section className="rounded-xl bg-surface-card p-5 shadow-card ring-1 ring-hairline">
-      <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
+      <h2 className="font-display text-[15px] leading-tight font-semibold text-slate-800">
         Bug cycle time by status
       </h2>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
         Average working time a bug spends in each status before moving on —
         8-hour workdays, weekends excluded, last {CYCLE_WINDOW_DAYS} days.
       </p>
