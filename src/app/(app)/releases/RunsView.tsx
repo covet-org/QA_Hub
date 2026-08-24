@@ -1,20 +1,20 @@
 import { Hero } from "@/components/Hero";
-import { RunCard } from "@/components/RunCard";
+import { RunsBoard } from "@/app/(app)/releases/RunsBoard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
-import { getReleaseContent } from "@/lib/release-content";
 import { getRunSummariesByState } from "@/lib/testiny/queries";
 import { requireAccess } from "@/lib/viewer";
 
-const versionOf = (title: string): string | null =>
-  title.match(/(\d+\.\d+)/)?.[1] ?? null;
-
-/** Shared server view for the Active / Closed release pages. */
+/**
+ * Shared server view for the Active / Closed release pages.
+ *
+ * Deliberately fetches ONLY the Testiny run summaries. Per-release
+ * stories and bugs (which cost a full Linear roadmap + bugs pull) load
+ * from a server action when a viewer expands a release — see
+ * lib/release-actions.ts.
+ */
 export async function RunsView({ state }: { state: "active" | "closed" }) {
   await requireAccess("/releases");
-  const [{ isSample, runs }, releaseContent] = await Promise.all([
-    getRunSummariesByState(state),
-    getReleaseContent(),
-  ]);
+  const { isSample, runs } = await getRunSummariesByState(state);
   const isActive = state === "active";
 
   return (
@@ -32,24 +32,10 @@ export async function RunsView({ state }: { state: "active" | "closed" }) {
       <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
         {isSample && <SampleDataNotice />}
 
-        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {runs.map((run) => {
-            const version = versionOf(run.title);
-            return (
-              <RunCard
-                key={run.id}
-                run={run}
-                releaseNumber={version ?? undefined}
-                releaseContent={version ? releaseContent[version] : undefined}
-              />
-            );
-          })}
-          {runs.length === 0 && (
-            <p className="text-sm text-slate-500">
-              No {isActive ? "active" : "closed"} test runs.
-            </p>
-          )}
-        </div>
+        <RunsBoard
+          runs={runs}
+          emptyLabel={`No ${isActive ? "active" : "closed"} test runs.`}
+        />
       </div>
     </div>
   );

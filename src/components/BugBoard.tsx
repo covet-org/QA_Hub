@@ -1,16 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { BugGroup } from "@/lib/bugs";
 import type { RoadmapTicket } from "@/lib/linear/types";
+import {
+  FilterBar,
+  MultiSelectFilter,
+  type FilterOption,
+} from "@/components/MultiSelectFilter";
 import { Tag } from "@/components/Tag";
-
-type ReleaseFilter = "active" | "closed";
-
-const RELEASE_FILTERS: { value: ReleaseFilter; label: string }[] = [
-  { value: "active", label: "Active releases" },
-  { value: "closed", label: "Closed releases" },
-];
+import { useUrlFilter } from "@/lib/use-url-filter";
 
 const PRIORITY_ORDER = ["Urgent", "High", "Medium", "Low", "No priority"];
 
@@ -215,9 +214,20 @@ function CollapsibleGroup({
 }
 
 export function BugBoard({ groups }: { groups: BugGroup[] }) {
-  const [release, setRelease] = useState<ReleaseFilter | "all">("active");
+  const groupNames = useMemo(() => groups.map((g) => g.name), [groups]);
+  const release = useUrlFilter("release", groupNames);
   const [priorities, setPriorities] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<string | "all">("all");
+
+  const releaseOptions: FilterOption[] = useMemo(
+    () =>
+      groups.map((group) => ({
+        value: group.name,
+        label: group.name.replace(/ Release$/, ""),
+        count: group.tickets.length,
+      })),
+    [groups],
+  );
 
   const filtering = priorities.size > 0 || status !== "all";
 
@@ -234,11 +244,7 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
    *  optional single priority (null = all priorities). */
   function buildGroups(priorityFilter: string | null): BugGroup[] {
     return groups
-      .filter((g) => {
-        if (release === "all") return true;
-        if (release === "active") return g.isActiveRelease;
-        return g.isRelease && !g.isActiveRelease;
-      })
+      .filter((g) => release.selected.has(g.name))
       .map((g) => {
         const tickets = g.tickets.filter((t) => {
           if (priorityFilter && priorityOf(t) !== priorityFilter) return false;
@@ -256,16 +262,18 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
   }
 
   const selectedPriorities = PRIORITY_ORDER.filter((p) => priorities.has(p));
-  const sig = `${release}-${status}-${[...priorities].sort().join(",")}`;
+  const sig = `${[...release.selected].sort().join("|")}-${status}-${[...priorities].sort().join(",")}`;
 
   return (
     <div>
-      <div className="space-y-2.5 rounded-xl bg-surface-card p-4 shadow-card ring-1 ring-hairline">
-        <FilterPills
-          title="Releases"
-          options={RELEASE_FILTERS}
-          selected={release}
-          onSelect={setRelease}
+      <FilterBar>
+        <MultiSelectFilter
+          label="Release"
+          options={releaseOptions}
+          selected={release.selected}
+          onToggle={release.toggle}
+          onAll={release.setAll}
+          onClear={release.clear}
         />
         <PriorityPills
           selected={priorities}
@@ -278,7 +286,7 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
           selected={status}
           onSelect={setStatus}
         />
-      </div>
+      </FilterBar>
 
       {selectedPriorities.length >= 2 ? (
         // Multiple priorities → one box per priority.

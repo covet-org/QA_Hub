@@ -6,15 +6,16 @@ import type {
   ReleaseGroup,
   RoadmapNode,
 } from "@/lib/linear/types";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import {
+  FilterBar,
+  MultiSelectFilter,
+  type FilterOption,
+} from "@/components/MultiSelectFilter";
 import { Tag } from "@/components/Tag";
 
-type CoverageFilter = "all" | "covered" | "missing";
-
-const FILTERS: { value: CoverageFilter; label: string }[] = [
-  { value: "all", label: "All tickets" },
-  { value: "covered", label: "Has test cases" },
-  { value: "missing", label: "No test cases" },
-];
+/** Coverage boxes: both selected by default, either can stand alone. */
+const COVERAGE_VALUES = ["has", "none"];
 
 const statusTone: Record<string, string> = {
   backlog: "bg-slate-100 text-slate-600 ring-slate-200",
@@ -234,10 +235,11 @@ function CoverageMeter({ covered, counted }: { covered: number; counted: number 
 
 function CollapsibleReleaseGroup({
   group,
-  filter,
+  expandParents,
 }: {
   group: VisibleGroup;
-  filter: CoverageFilter;
+  /** Open parent rows on mount — used while a coverage filter narrows. */
+  expandParents: boolean;
 }) {
   const [open, setOpen] = useState(true);
 
@@ -264,11 +266,12 @@ function CollapsibleReleaseGroup({
         <ul className="divide-y divide-hairline border-t border-hairline">
           {group.rows.map((row) =>
             row.children.length > 0 ? (
-              // Remounted per filter so a filtered view opens on its matches.
+              // Remounted per filter state so a narrowed view opens on its
+              // matches rather than hiding them behind a collapsed row.
               <ParentRow
-                key={`${row.node.ticket.id}:${filter}`}
+                key={`${row.node.ticket.id}:${expandParents}`}
                 row={row}
-                startOpen={filter !== "all"}
+                startOpen={expandParents}
               />
             ) : (
               <TicketRow key={row.node.ticket.id} ticket={row.node.ticket} />
@@ -281,17 +284,46 @@ function CollapsibleReleaseGroup({
 }
 
 export function ReleaseBoard({ groups }: { groups: ReleaseGroup[] }) {
-  const [filter, setFilter] = useState<CoverageFilter>("all");
+  const groupNames = useMemo(() => groups.map((g) => g.name), [groups]);
+  const release = useUrlFilter("release", groupNames);
+  const coverage = useUrlFilter("coverage", COVERAGE_VALUES);
+  // With one coverage box active the view is a hunt for those rows, so
+  // parents open onto their matches instead of hiding them.
+  const narrowed = coverage.selected.size === 1;
+
+  const releaseOptions: FilterOption[] = useMemo(
+    () =>
+      groups.map((group) => ({
+        value: group.name,
+        label: group.name.replace(/ Release$/, ""),
+        count: group.tickets.length,
+      })),
+    [groups],
+  );
+
+  const coverageOptions: FilterOption[] = useMemo(() => {
+    const inScope = groups.filter((g) => release.selected.has(g.name));
+    const tickets = inScope.flatMap((g) => g.tickets);
+    return [
+      {
+        value: "has",
+        label: "Has test cases",
+        count: tickets.filter((t) => t.hasTestCases).length,
+      },
+      {
+        value: "none",
+        label: "No test cases",
+        count: tickets.filter((t) => !t.hasTestCases).length,
+      },
+    ];
+  }, [groups, release.selected]);
 
   const visible = useMemo<VisibleGroup[]>(() => {
     const matches = (t: CoveredTicket) =>
-      filter === "all"
-        ? true
-        : filter === "covered"
-          ? t.hasTestCases
-          : !t.hasTestCases;
+      coverage.selected.has(t.hasTestCases ? "has" : "none");
 
     return groups
+      .filter((group) => release.selected.has(group.name))
       .map((group) => {
         const rows: VisibleNode[] = [];
         let counted = 0;
@@ -313,38 +345,42 @@ export function ReleaseBoard({ groups }: { groups: ReleaseGroup[] }) {
         return { ...group, rows, counted, covered };
       })
       .filter((group) => group.rows.length > 0);
-  }, [groups, filter]);
+  }, [groups, coverage.selected, release.selected]);
 
   return (
     <div>
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => setFilter(f.value)}
-            className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
-              filter === f.value
-                ? "bg-brand-800 text-white shadow-card"
-                : "bg-surface-card text-slate-600 ring-1 ring-hairline hover:bg-surface-sunken"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      <FilterBar>
+        <MultiSelectFilter
+          label="Release"
+          options={releaseOptions}
+          selected={release.selected}
+          onToggle={release.toggle}
+          onAll={release.setAll}
+          onClear={release.clear}
+        />
+        <MultiSelectFilter
+          label="Test cases"
+          options={coverageOptions}
+          selected={coverage.selected}
+          onToggle={coverage.toggle}
+          onAll={coverage.setAll}
+          onClear={coverage.clear}
+        />
+      </FilterBar>
 
-      <div className="mt-5 space-y-4">
+      <div className="mt-4 space-y-4">
         {visible.map((group) => (
           <CollapsibleReleaseGroup
             key={group.name}
             group={group}
-            filter={filter}
+            expandParents={narrowed}
           />
         ))}
         {visible.length === 0 && (
           <p className="rounded-xl bg-surface-card px-5 py-10 text-center text-sm text-slate-500 shadow-card ring-1 ring-hairline">
-            No tickets match this filter.
+            {release.selected.size === 0 || coverage.selected.size === 0
+              ? "Nothing selected — pick a release and a test-case state above."
+              : "No tickets match these filters."}
           </p>
         )}
       </div>
