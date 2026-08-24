@@ -24,7 +24,7 @@ export default async function RoadmapPage() {
         description="Feature tickets from Linear releases — Medium to Big Size Features and Quick wins — matched against Testiny to show which already have test cases and which still need them."
         footnote="Linear releases · Testiny coverage by COV-id folders"
       />
-      <div className="mx-auto max-w-5xl space-y-6 px-6 py-8 sm:px-10">
+      <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
         {snapshot.isSample && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <span className="font-semibold">Linear snapshot data.</span> Set{" "}

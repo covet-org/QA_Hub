@@ -28,19 +28,19 @@ export default async function AutomationPage() {
         </Tag>
       </Hero>
 
-      <div className="mx-auto max-w-5xl space-y-8 px-6 py-8 sm:px-10">
+      <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
         {!status.available && (
-          <section className="rounded-2xl border border-dashed border-brand-600/30 bg-brand-50 p-6">
+          <section className="rounded-xl border border-dashed border-brand-600/30 bg-brand-50 p-6">
             <h2 className="font-display text-lg font-semibold text-brand-900">
               Suite results land here
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
               When the automated suite ships, implement{" "}
-              <code className="rounded bg-white px-1.5 py-0.5 text-[12px] ring-1 ring-slate-200">
+              <code className="rounded bg-white px-1.5 py-0.5 text-[12px] ring-1 ring-hairline">
                 AutomationProvider
               </code>{" "}
               in{" "}
-              <code className="rounded bg-white px-1.5 py-0.5 text-[12px] ring-1 ring-slate-200">
+              <code className="rounded bg-white px-1.5 py-0.5 text-[12px] ring-1 ring-hairline">
                 src/lib/automation/provider.ts
               </code>{" "}
               against the CI results source (Playwright report, GitHub Actions

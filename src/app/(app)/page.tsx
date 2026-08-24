@@ -1,3 +1,4 @@
+import { Card, CardBody, CardHeader } from "@/components/Card";
 import { Hero } from "@/components/Hero";
 import { AllocationBar } from "@/components/AllocationBar";
 import { CycleTimeCard } from "@/components/CycleTimeCard";
@@ -43,7 +44,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         footnote={`Testiny · ${snapshot.projectName}`}
       />
 
-      <div className="mx-auto max-w-5xl space-y-6 px-6 py-8 sm:px-10">
+      <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
         {denied && (
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             You don&apos;t have access to that section. Ask a QA lead if you
@@ -70,20 +71,19 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           />
         </div>
 
-        <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
-            Current effort allocation
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Average split across active roadmap initiatives. The department
-            goal is to grow the automation share release over release.
-          </p>
-          <div className="mt-5 max-w-xl">
-            <AllocationBar manual={split.manual} automation={split.automation} />
-          </div>
-        </section>
-
-        <div className="grid items-start gap-6 lg:grid-cols-2">
+        <div className="grid items-start gap-4 xl:grid-cols-3">
+          <Card>
+            <CardHeader
+              title="Current effort allocation"
+              subtitle="Average split across active roadmap initiatives. The department goal is to grow the automation share release over release."
+            />
+            <CardBody>
+              <AllocationBar
+                manual={split.manual}
+                automation={split.automation}
+              />
+            </CardBody>
+          </Card>
           <ReleaseDurationsCard releases={durations.releases} />
           <CycleTimeCard cycles={cycleStats.cycles} />
         </div>

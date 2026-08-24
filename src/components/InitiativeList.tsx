@@ -49,7 +49,7 @@ function InitiativeRow({ initiative }: { initiative: Initiative }) {
         <Chevron open={open} />
       </button>
       {open && (
-        <div className="border-t border-slate-100 px-5 py-4">
+        <div className="border-t border-hairline px-5 py-4">
           <p className="max-w-3xl text-sm leading-relaxed text-slate-600">
             {initiative.description}
           </p>
@@ -93,10 +93,10 @@ export function InitiativeList({ initiatives }: { initiatives: Initiative[] }) {
             key={f.value}
             type="button"
             onClick={() => setFilter(f.value)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
               filter === f.value
-                ? "bg-brand-800 text-white"
-                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                ? "bg-brand-800 text-white shadow-card"
+                : "bg-surface-card text-slate-600 ring-1 ring-hairline hover:bg-surface-sunken"
             }`}
           >
             {f.label}
@@ -104,12 +104,12 @@ export function InitiativeList({ initiatives }: { initiatives: Initiative[] }) {
         ))}
       </div>
 
-      <ul className="mt-5 divide-y divide-slate-100 overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-200">
+      <ul className="mt-4 divide-y divide-hairline overflow-hidden rounded-xl bg-surface-card shadow-card ring-1 ring-hairline">
         {visible.map((initiative) => (
           <InitiativeRow key={initiative.id} initiative={initiative} />
         ))}
         {visible.length === 0 && (
-          <li className="bg-white px-5 py-10 text-center text-sm text-slate-500">
+          <li className="px-5 py-10 text-center text-sm text-slate-500">
             No initiatives with this status.
           </li>
         )}

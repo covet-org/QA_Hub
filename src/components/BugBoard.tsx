@@ -90,7 +90,7 @@ function FilterPills<T extends string>({
           className={`rounded-full px-3.5 py-1 text-[13px] font-medium transition-colors ${
             selected === option.value
               ? "bg-brand-800 text-white"
-              : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+              : "bg-white text-slate-600 ring-1 ring-hairline hover:bg-slate-50"
           }`}
         >
           {option.label}
@@ -121,7 +121,7 @@ function PriorityPills({
         className={`rounded-full px-3.5 py-1 text-[13px] font-medium transition-colors ${
           selected.size === 0
             ? "bg-brand-800 text-white"
-            : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+            : "bg-white text-slate-600 ring-1 ring-hairline hover:bg-slate-50"
         }`}
       >
         All
@@ -136,7 +136,7 @@ function PriorityPills({
             className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-[13px] font-medium transition-colors ${
               on
                 ? "bg-brand-800 text-white"
-                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                : "bg-white text-slate-600 ring-1 ring-hairline hover:bg-slate-50"
             }`}
           >
             <span className={`size-2 rounded-full ${priorityDot[p]}`} />
@@ -150,12 +150,12 @@ function PriorityPills({
 
 function BugRow({ ticket }: { ticket: RoadmapTicket }) {
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-white px-5 py-3">
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5 transition-colors hover:bg-surface-sunken">
       <a
         href={ticket.url}
         target="_blank"
         rel="noreferrer"
-        className="font-mono text-xs font-semibold text-brand-700 hover:underline"
+        className="w-[68px] shrink-0 font-mono text-xs font-semibold text-brand-700 hover:underline"
       >
         {ticket.id}
       </a>
@@ -186,25 +186,25 @@ function CollapsibleGroup({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-200">
+    <section className="overflow-hidden rounded-xl bg-surface-card shadow-card ring-1 ring-hairline">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 bg-white px-5 py-3.5 text-left hover:bg-slate-50"
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-sunken"
       >
         <span className="flex items-baseline gap-2.5">
-          <h2 className="font-display text-base font-semibold text-slate-800">
+          <h2 className="font-display text-[15px] font-semibold text-slate-800">
             {group.name}
           </h2>
-          <span className="text-xs text-slate-400">
+          <span className="nums text-xs text-slate-400">
             {group.openCount} open · {group.tickets.length} total
           </span>
         </span>
         <Chevron open={open} />
       </button>
       {open && (
-        <ul className="divide-y divide-slate-100 border-t border-slate-100">
+        <ul className="divide-y divide-hairline border-t border-hairline">
           {group.tickets.map((ticket) => (
             <BugRow key={ticket.id} ticket={ticket} />
           ))}
@@ -260,7 +260,7 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
 
   return (
     <div>
-      <div className="space-y-2.5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <div className="space-y-2.5 rounded-xl bg-surface-card p-4 shadow-card ring-1 ring-hairline">
         <FilterPills
           title="Releases"
           options={RELEASE_FILTERS}
@@ -289,7 +289,7 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
             return (
               <section
                 key={p}
-                className="overflow-hidden rounded-2xl ring-1 ring-slate-200"
+                className="overflow-hidden rounded-xl ring-1 ring-hairline"
               >
                 <div
                   className={`flex items-center gap-2 px-5 py-3 ring-1 ring-inset ${
@@ -332,7 +332,7 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
                 />
               ))}
               {board.length === 0 && (
-                <p className="rounded-2xl bg-white px-5 py-10 text-center text-sm text-slate-500 ring-1 ring-slate-200">
+                <p className="rounded-xl bg-surface-card px-5 py-10 text-center text-sm text-slate-500 ring-1 ring-hairline">
                   No bugs match these filters.
                 </p>
               )}

@@ -63,7 +63,7 @@ export function ReleaseCycleCards({ releases }: { releases: ReleaseCycle[] }) {
         {releases.map((release) => (
           <div
             key={release.rank}
-            className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
+            className="rounded-xl bg-surface-card p-5 shadow-card ring-1 ring-hairline"
           >
             <h3 className="font-display text-base font-semibold text-slate-800">
               {release.release}
@@ -93,11 +93,11 @@ export function ReleaseCycleCards({ releases }: { releases: ReleaseCycle[] }) {
               ))}
             </div>
 
-            <details className="mt-4 border-t border-slate-100 pt-3">
+            <details className="mt-4 border-t border-hairline pt-3">
               <summary className="cursor-pointer text-sm font-medium text-brand-700 hover:underline">
                 All bugs ({release.bugs.length})
               </summary>
-              <ul className="mt-2 max-h-80 divide-y divide-slate-100 overflow-y-auto">
+              <ul className="mt-2 max-h-80 divide-y divide-hairline overflow-y-auto">
                 {release.bugs.map((bug) => (
                   <BugRow key={bug.id} bug={bug} />
                 ))}

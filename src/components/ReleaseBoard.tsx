@@ -49,14 +49,15 @@ interface VisibleGroup extends ReleaseGroup {
 function CoverageTag({ ticket }: { ticket: CoveredTicket }) {
   if (ticket.hasTestCases) {
     return (
-      <Tag className="bg-emerald-50 text-emerald-700 ring-emerald-200">
-        ✓ {ticket.caseCount} test case{ticket.caseCount === 1 ? "" : "s"}
+      <Tag tone="success">
+        <span className="nums">✓ {ticket.caseCount}</span>
+        <span className="ml-1 font-medium">
+          test case{ticket.caseCount === 1 ? "" : "s"}
+        </span>
       </Tag>
     );
   }
-  return (
-    <Tag className="bg-rose-50 text-rose-700 ring-rose-200">No test cases</Tag>
-  );
+  return <Tag tone="danger">No test cases</Tag>;
 }
 
 function Chevron({ open }: { open: boolean }) {
@@ -133,8 +134,8 @@ function TicketRow({
     <li
       className={
         nested
-          ? "flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5 pr-5 pl-4"
-          : "flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-white px-5 py-3.5"
+          ? "flex flex-wrap items-center gap-x-3 gap-y-1.5 border-l-2 border-brand-100 py-2 pr-4 pl-3 transition-colors hover:bg-white"
+          : "flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5 transition-colors hover:bg-surface-sunken"
       }
     >
       <TicketLink ticket={ticket} />
@@ -168,8 +169,8 @@ function ParentRow({
   const covered = children.filter((c) => c.hasTestCases).length;
 
   return (
-    <li className="bg-white">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-3.5">
+    <li>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5 transition-colors hover:bg-surface-sunken">
         <TicketLink ticket={ticket} />
         <PriorityTag ticket={ticket} />
         <button
@@ -203,13 +204,31 @@ function ParentRow({
         </button>
       </div>
       {open && (
-        <ul className="divide-y divide-slate-100 border-t border-slate-100 bg-slate-50/60 pl-5">
+        <ul className="divide-y divide-hairline border-t border-hairline bg-surface-sunken pl-6">
           {children.map((child) => (
             <TicketRow key={child.id} ticket={child} nested />
           ))}
         </ul>
       )}
     </li>
+  );
+}
+
+/** Slim coverage meter shown on each release group header. */
+function CoverageMeter({ covered, counted }: { covered: number; counted: number }) {
+  const pct = counted > 0 ? Math.round((covered / counted) * 100) : 0;
+  return (
+    <span className="flex items-center gap-2">
+      <span className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-slate-200 sm:block">
+        <span
+          className="block h-full rounded-full bg-emerald-500"
+          style={{ width: `${pct}%` }}
+        />
+      </span>
+      <span className="nums text-xs text-slate-500">
+        {covered}/{counted} with test cases
+      </span>
+    </span>
   );
 }
 
@@ -223,25 +242,26 @@ function CollapsibleReleaseGroup({
   const [open, setOpen] = useState(true);
 
   return (
-    <section className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-200">
+    <section className="overflow-hidden rounded-xl bg-surface-card shadow-card ring-1 ring-hairline">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 bg-white px-5 py-3.5 text-left hover:bg-slate-50"
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-sunken"
       >
-        <h2 className="font-display text-base font-semibold text-slate-800">
+        <h2 className="font-display flex items-center gap-2 text-[15px] font-semibold text-slate-800">
+          {group.isRelease && (
+            <span aria-hidden className="size-1.5 rounded-full bg-brand-600" />
+          )}
           {group.name}
         </h2>
         <span className="flex items-center gap-3">
-          <span className="text-xs text-slate-500">
-            {group.covered}/{group.counted} with test cases
-          </span>
+          <CoverageMeter covered={group.covered} counted={group.counted} />
           <Chevron open={open} />
         </span>
       </button>
       {open && (
-        <ul className="divide-y divide-slate-100 border-t border-slate-100">
+        <ul className="divide-y divide-hairline border-t border-hairline">
           {group.rows.map((row) =>
             row.children.length > 0 ? (
               // Remounted per filter so a filtered view opens on its matches.
@@ -303,10 +323,10 @@ export function ReleaseBoard({ groups }: { groups: ReleaseGroup[] }) {
             key={f.value}
             type="button"
             onClick={() => setFilter(f.value)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
               filter === f.value
-                ? "bg-brand-800 text-white"
-                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                ? "bg-brand-800 text-white shadow-card"
+                : "bg-surface-card text-slate-600 ring-1 ring-hairline hover:bg-surface-sunken"
             }`}
           >
             {f.label}
@@ -323,7 +343,7 @@ export function ReleaseBoard({ groups }: { groups: ReleaseGroup[] }) {
           />
         ))}
         {visible.length === 0 && (
-          <p className="rounded-2xl bg-white px-5 py-10 text-center text-sm text-slate-500 ring-1 ring-slate-200">
+          <p className="rounded-xl bg-surface-card px-5 py-10 text-center text-sm text-slate-500 shadow-card ring-1 ring-hairline">
             No tickets match this filter.
           </p>
         )}
