@@ -19,10 +19,12 @@ const ROLE_RANK: Record<Role, number> = { viewer: 0, qa: 1, admin: 2 };
 export function roleForEmail(email: string | null | undefined): Role {
   // No email means no session at all; nothing is unlocked by "viewer".
   if (!email) return "viewer";
-  const normalized = email.toLowerCase();
+  const normalized = email.trim().toLowerCase();
   if (env.adminEmails.includes(normalized)) return "admin";
-  // Everyone on the domain is QA team by default. QA_TEAM_EMAILS is kept
-  // for explicitness but no longer decides anything on its own.
+  // Explicitly demoted: signed in, but no testing sections.
+  if (env.viewerEmails.includes(normalized)) return "viewer";
+  // Everyone else on the domain is QA team. QA_TEAM_EMAILS is kept for
+  // documentation but no longer decides anything on its own.
   return isAllowedEmail(normalized) || env.qaTeamEmails.includes(normalized)
     ? "qa"
     : "viewer";

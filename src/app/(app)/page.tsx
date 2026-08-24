@@ -32,8 +32,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const split = overallEffortSplit();
   const inProgress = initiatives.filter((i) => i.status === "in-progress").length;
   const activeRuns = snapshot.runs.filter((r) => !r.isClosed).length;
-  const firstName =
-    viewer.kind === "member" ? (viewer.name.split(" ")[0] ?? "there") : "there";
+  const firstName = viewer.name.split(" ")[0] || "there";
 
   return (
     <div>

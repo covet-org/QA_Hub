@@ -17,7 +17,7 @@ It surfaces, from live data:
 - **Automation** — phase-2 placeholder; implement `AutomationProvider` when a CI suite exists.
 - **Home** — dashboards: current effort split, release testing time (Testiny), bug cycle time by
   status/priority (Linear history, 8h workdays), and per-release median bug cycle time.
-- **Access** (admin only) — approve/deny sign-ins, assign roles, create/revoke share links.
+- **Access** (admin only) — read-only view of the env-driven permission policy.
 
 ## Stack & commands
 
@@ -59,8 +59,8 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
 - `src/lib/access/` — `requests.ts` (approval records + admin email notify), `links.ts` (share
   links + which sections they unlock), `token.ts` (HMAC-signed tokens for email decision links and
   the guest cookie, signed with AUTH_SECRET).
-- `src/lib/store.ts` — tiny KV: **Upstash Redis REST** in prod, `.data/store.json` file locally.
-  Stores access requests (`access:<email>`) and share links (`share:<id>`).
+- `src/lib/access/members.ts` — the entire permission model: domain check, env role lists and
+  the sign-in notification. No storage layer exists.
 - `src/lib/email.ts` — Resend sender; logs to console if `RESEND_API_KEY` unset.
 - `src/lib/linear/` — `client.ts` (GraphQL: `fetchIssuesWithLabels`, `fetchRoadmapIssues`,
   `fetchProjectNames`), `cycle.ts` (bug cycle-time from issue history), `types.ts`, `sample-data.ts`
@@ -152,42 +152,36 @@ renders flat — hierarchy is only visible against live Linear data.
 A ticket "has test cases" when a Testiny folder whose TITLE mentions its id (regex `COV[-\s]?\d+`,
 any case, e.g. "Cov-2230") contains cases anywhere in its subtree. See `testiny/coverage.ts`.
 
-## Access model (see `src/lib/viewer.ts`, `src/lib/access/requests.ts`)
+## Access model (see `src/lib/viewer.ts`, `src/lib/access/members.ts`)
+
+**Permissions are configuration, not data. There is no database.** The KV store, share links
+and the whole approval flow were deleted: access used to depend on Upstash, and when Upstash
+went down `kvGet` threw inside the Auth.js `signIn` callback, so every colleague saw
+"Access Denied". Configuration cannot have an outage.
 
 1. Google SSO restricted to `ALLOWED_EMAIL_DOMAIN` (co.vet) — enforced in `auth.ts signIn`.
-2. **The domain IS the allowlist.** Any verified `@co.vet` account is admitted on sign-in with
-   an approved record; nobody waits for approval. There is no pending state to clear.
-   `NOTIFY_EMAIL` gets ONE mail on a person's first arrival ("X just signed in", no
-   approve/deny buttons — they are already in). `/access` still manages roles:
-   - **Permitted users**: full list; admin changes any role (incl. admin) or revokes.
-   - **Invite**: admin pre-authorizes an email + role (`inviteUser`) → approved record + an
-     invite email. Largely redundant now that the domain admits everyone.
-   - **Revoke writes a `denied` record** — it must NOT just delete, because a missing record
-     now means "let them in". `denied` is the only thing that blocks a domain member.
-   - The old approve/deny-by-email chain (`notifyAdminOfRequest`, `decisionUrl`) is gone.
-     `/api/access/decision` still exists so links already sent keep working.
-3. **Access never depends on the store.** `getViewer` treats a member as approved unless a
-   record explicitly denies them, and a store read failure is logged, not fatal. This was a real
-   outage mode: when Upstash was unreachable every non-admin was sent to `/pending`, which read
-   as "the system rejects co.vet accounts".
-3. Roles `viewer < qa < admin`. **`qa` is the default for any domain member**, so a new
-   colleague sees everything except the admin Access page; `viewer` is a restricted role that
-   is only ever assigned deliberately. All settable from the UI (stored in KV, no redeploy).
-   `QA_ADMIN_EMAILS` is an always-on **bootstrap** admin set — those emails are always admin and
-   can't be removed via the UI, so you can't lock yourself out. `getViewer` honors a stored
-   admin role too, so UI-promoted admins work. `QA_TEAM_EMAILS` is just a default-role hint.
-4. Share links (`/share/<id>`) set a signed guest cookie granting the exact sections the admin
-   chose; revoking a link locks out existing holders immediately (re-validated every request).
-   Admin pages are never shareable.
-5. Store reads (`src/lib/store.ts`) retry transient Upstash failures (occasional serverless
-   `ENOTFOUND`/`fetch failed`); the `/access` page also catches store errors and shows a retry
-   notice instead of a 500.
+   `isAllowedEmail` normalizes the CONFIGURED domain too (stray `@`, capitals, whitespace),
+   because that misconfiguration is indistinguishable from a real rejection.
+2. **The domain IS the allowlist**, and the default role is `qa` — a new colleague sees every
+   section except `/access`. Three env lists adjust it, and nothing else does:
+   - `QA_ADMIN_EMAILS` — full access incl. the Access page.
+   - `QA_VIEWER_EMAILS` — demoted: no Manual Testing / Automation.
+   - `QA_BLOCKED_EMAILS` — refused at `signIn`; a signed-in blocked account lands on
+     `/no-access` rather than Auth.js's own error screen.
+3. `NOTIFY_EMAIL` gets a mail on each sign-in (`notifySignIn`). Without a store there is no way
+   to know whether it is somebody's first, so it fires per session rather than per person;
+   sessions last 30 days. It is fire-and-forget and swallows its own failures — a mail problem
+   must never block a sign-in.
+4. `getViewer` resolves role and status from the session plus env alone, so no page can fail
+   because a service is unreachable. `allowedHrefs` still derives from `navigation` minRole.
+5. **Changing a role means editing the env var and redeploying** (~1 min). `/access` is now a
+   read-only view of this policy. That is the accepted trade for having no outage class here.
 
 ## Env vars (names only — values in .env.local / Vercel; see .env.example)
 
 AUTH_SECRET · AUTH_GOOGLE_ID · AUTH_GOOGLE_SECRET · ALLOWED_EMAIL_DOMAIN · QA_ADMIN_EMAILS ·
-QA_TEAM_EMAILS · NOTIFY_EMAIL · RESEND_API_KEY · EMAIL_FROM · APP_URL · UPSTASH_REDIS_REST_URL ·
-UPSTASH_REDIS_REST_TOKEN · LINEAR_API_KEY · QA_ROADMAP_LABELS · QA_ROADMAP_EXCLUDE_LABELS ·
+QA_VIEWER_EMAILS · QA_BLOCKED_EMAILS · QA_TEAM_EMAILS (legacy) · NOTIFY_EMAIL · RESEND_API_KEY ·
+EMAIL_FROM · APP_URL · LINEAR_API_KEY · QA_ROADMAP_LABELS · QA_ROADMAP_EXCLUDE_LABELS ·
 QA_BUG_LABEL · QA_CS_BUG_LABEL · TESTINY_API_KEY · TESTINY_PROJECT_ID.
 All have code defaults except the secrets/keys. `APP_URL` must be the prod URL in Vercel
 (used in email links). Changing role/label env vars in Vercel requires a redeploy to take effect.

@@ -1,120 +1,59 @@
 import "server-only";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { navigation } from "@/config/navigation";
-import { getValidShareLink } from "@/lib/access/links";
-import {
-  getAccessRecord,
-  isAdminEmail,
-  type AccessStatus,
-} from "@/lib/access/requests";
-import { verifyToken } from "@/lib/access/token";
-import { hasRole, roleForEmail, type Role } from "@/lib/roles";
+import { memberFor, type AccessStatus } from "@/lib/access/members";
+import { hasRole, type Role } from "@/lib/roles";
 
-/** Cookie carrying the signed share-link grant for guests. */
-export const SHARE_COOKIE = "qa_share";
-
-export type Viewer =
-  | {
-      kind: "member";
-      email: string;
-      name: string;
-      role: Role;
-      status: AccessStatus;
-    }
-  | {
-      kind: "guest";
-      linkId: string;
-      label: string;
-      sections: string[];
-    };
+export interface Viewer {
+  email: string;
+  name: string;
+  role: Role;
+  status: AccessStatus;
+}
 
 /**
- * Resolve who is looking at the page: a signed-in member (Google SSO,
- * approval-gated) or a guest holding a valid share-link cookie.
+ * Who is looking at the page. Signed-in members only — share links went
+ * away with the KV store, so there are no guests.
+ *
+ * Resolved from the session plus env configuration alone, so no request
+ * can fail because a database is unreachable. That failure mode is what
+ * showed the whole team "Access Denied".
  */
 export async function getViewer(): Promise<Viewer | null> {
   const session = await auth();
-  if (session?.user?.email) {
-    const email = session.user.email;
-    if (isAdminEmail(email)) {
-      return {
-        kind: "member",
-        email,
-        name: session.user.name ?? email,
-        role: "admin",
-        status: "approved",
-      };
-    }
-    // The domain is the allowlist, so a member is approved unless a
-    // record explicitly denies them. A missing record — first request
-    // after sign-in, or an unreachable store — must not read as pending:
-    // that is what was rejecting people with valid co.vet accounts.
-    const record = await getAccessRecord(email).catch((error) => {
-      console.error(
-        `Access record unreadable for ${email}: ${error instanceof Error ? error.message : error}`,
-      );
-      return null;
-    });
-    return {
-      kind: "member",
-      email,
-      name: session.user.name ?? email,
-      role: record?.status === "approved" ? record.role : roleForEmail(email),
-      status: record?.status === "denied" ? "denied" : "approved",
-    };
-  }
+  if (!session?.user?.email) return null;
 
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SHARE_COOKIE)?.value;
-  if (token) {
-    const payload = verifyToken<{ l: string; exp: number }>(token);
-    if (payload) {
-      const link = await getValidShareLink(payload.l);
-      if (link) {
-        return {
-          kind: "guest",
-          linkId: link.id,
-          label: link.label,
-          sections: link.sections,
-        };
-      }
-    }
-  }
-
-  return null;
+  const member = memberFor(session.user.email);
+  return {
+    email: member.email,
+    name: session.user.name ?? member.email,
+    role: member.role,
+    status: member.status,
+  };
 }
 
 /** Hrefs this viewer may open (single source of truth: navigation config). */
 export function allowedHrefs(viewer: Viewer): string[] {
-  const all = navigation.flatMap((s) => s.items);
-  if (viewer.kind === "guest") {
-    return all.map((i) => i.href).filter((h) => viewer.sections.includes(h));
-  }
-  if (viewer.status !== "approved") return [];
-  return all.filter((i) => hasRole(viewer.role, i.minRole)).map((i) => i.href);
+  if (viewer.status === "blocked") return [];
+  return navigation
+    .flatMap((s) => s.items)
+    .filter((i) => hasRole(viewer.role, i.minRole))
+    .map((i) => i.href);
 }
 
 /**
- * Server-side gate used by every page. Redirects to sign-in, the
- * pending screen, or the viewer's first allowed section as appropriate.
+ * Server-side gate used by every page: no session → sign-in, blocked →
+ * the no-access page, a section above your role → back to what you can
+ * see.
  */
 export async function requireAccess(href: string): Promise<Viewer> {
   const viewer = await getViewer();
   if (!viewer) redirect("/sign-in");
-  if (viewer.kind === "member" && viewer.status === "denied") {
-    redirect("/pending");
-  }
-  if (viewer.kind === "member" && viewer.status === "pending") {
-    redirect("/pending");
-  }
+  if (viewer.status === "blocked") redirect("/no-access");
 
   const allowed = allowedHrefs(viewer);
-  if (!allowed.includes(href)) {
-    if (viewer.kind === "member") redirect("/?denied=1");
-    redirect(allowed[0] ?? "/sign-in");
-  }
+  if (!allowed.includes(href)) redirect("/?denied=1");
   return viewer;
 }
