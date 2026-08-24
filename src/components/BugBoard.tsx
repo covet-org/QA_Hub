@@ -78,7 +78,7 @@ function FilterPills<T extends string>({
   const all = [{ value: "all" as const, label: "All" }, ...options];
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="w-16 text-[11px] font-semibold tracking-wide text-slate-400 uppercase">
+      <span className="w-16 text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
         {title}
       </span>
       {all.map((option) => (
@@ -86,7 +86,7 @@ function FilterPills<T extends string>({
           key={option.value}
           type="button"
           onClick={() => onSelect(option.value)}
-          className={`rounded-full px-3.5 py-1 text-[13px] font-medium transition-colors ${
+          className={`rounded-full px-3.5 py-1 text-xs font-medium transition-colors ${
             selected === option.value
               ? "bg-brand-800 text-white"
               : "bg-white text-slate-600 ring-1 ring-hairline hover:bg-slate-50"
@@ -111,13 +111,13 @@ function PriorityPills({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="w-16 text-[11px] font-semibold tracking-wide text-slate-400 uppercase">
+      <span className="w-16 text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
         Priority
       </span>
       <button
         type="button"
         onClick={onClear}
-        className={`rounded-full px-3.5 py-1 text-[13px] font-medium transition-colors ${
+        className={`rounded-full px-3.5 py-1 text-xs font-medium transition-colors ${
           selected.size === 0
             ? "bg-brand-800 text-white"
             : "bg-white text-slate-600 ring-1 ring-hairline hover:bg-slate-50"
@@ -132,7 +132,7 @@ function PriorityPills({
             key={p}
             type="button"
             onClick={() => onToggle(p)}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-[13px] font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-medium transition-colors ${
               on
                 ? "bg-brand-800 text-white"
                 : "bg-white text-slate-600 ring-1 ring-hairline hover:bg-slate-50"
@@ -154,12 +154,12 @@ function BugRow({ ticket }: { ticket: RoadmapTicket }) {
         href={ticket.url}
         target="_blank"
         rel="noreferrer"
-        className="w-[68px] shrink-0 font-mono text-xs font-semibold text-brand-700 hover:underline"
+        className="w-[68px] shrink-0 font-mono text-[11px] font-semibold text-brand-700 hover:underline"
       >
         {ticket.id}
       </a>
       <span
-        className="min-w-0 flex-1 truncate text-sm text-slate-800"
+        className="min-w-0 flex-1 truncate text-[13px] text-slate-800"
         title={ticket.title}
       >
         {ticket.title}
@@ -193,10 +193,10 @@ function CollapsibleGroup({
         className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-sunken"
       >
         <span className="flex items-baseline gap-2.5">
-          <h2 className="font-display text-[15px] font-semibold text-slate-800">
+          <h2 className="font-display text-sm font-semibold text-slate-800">
             {group.name}
           </h2>
-          <span className="nums text-xs text-slate-400">
+          <span className="nums text-[11px] text-slate-400">
             {group.openCount} open · {group.tickets.length} total
           </span>
         </span>
@@ -305,8 +305,8 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
                   }`}
                 >
                   <span className={`size-2.5 rounded-full ${priorityDot[p]}`} />
-                  <h3 className="font-display text-sm font-semibold">{p}</h3>
-                  <span className="text-xs opacity-70">{total} bugs</span>
+                  <h3 className="font-display text-[13px] font-semibold">{p}</h3>
+                  <span className="text-[11px] opacity-70">{total} bugs</span>
                 </div>
                 <div className="space-y-3 bg-slate-50/50 p-3">
                   {pGroups.map((group) => (
@@ -317,7 +317,7 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
                     />
                   ))}
                   {pGroups.length === 0 && (
-                    <p className="px-2 py-6 text-center text-sm text-slate-500">
+                    <p className="px-2 py-6 text-center text-[13px] text-slate-500">
                       No {p.toLowerCase()} bugs in this view.
                     </p>
                   )}
@@ -340,7 +340,7 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
                 />
               ))}
               {board.length === 0 && (
-                <p className="rounded-xl bg-surface-card px-5 py-10 text-center text-sm text-slate-500 ring-1 ring-hairline">
+                <p className="rounded-xl bg-surface-card px-5 py-10 text-center text-[13px] text-slate-500 ring-1 ring-hairline">
                   No bugs match these filters.
                 </p>
               )}

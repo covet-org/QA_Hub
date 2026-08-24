@@ -32,11 +32,11 @@ export function Hero({
             <p className="text-[10px] font-semibold tracking-[0.2em] text-accent-300 uppercase">
               {kicker}
             </p>
-            <h1 className="font-display mt-1.5 text-3xl font-semibold tracking-tight">
+            <h1 className="font-display mt-1.5 text-2xl font-semibold tracking-tight">
               {title}
               <span className="text-accent-400">.</span>
             </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-brand-100/85">
+            <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-brand-100/85">
               {description}
             </p>
           </div>

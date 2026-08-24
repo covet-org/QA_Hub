@@ -37,11 +37,11 @@ export function StatCard({ label, value, hint, tone = "brand" }: StatCardProps) 
       </p>
       <div className="mt-1.5 flex items-baseline gap-2">
         <p
-          className={`font-display nums text-[28px] leading-none font-semibold ${valueColor[tone]}`}
+          className={`font-display nums text-2xl leading-none font-semibold ${valueColor[tone]}`}
         >
           {value}
         </p>
-        {hint && <p className="text-xs text-slate-500">{hint}</p>}
+        {hint && <p className="text-[11px] text-slate-500">{hint}</p>}
       </div>
     </div>
   );

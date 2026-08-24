@@ -79,7 +79,7 @@ function TicketLink({ ticket }: { ticket: CoveredTicket }) {
       href={ticket.url}
       target="_blank"
       rel="noreferrer"
-      className="w-[68px] shrink-0 font-mono text-xs font-semibold text-brand-700 hover:underline"
+      className="w-[68px] shrink-0 font-mono text-[11px] font-semibold text-brand-700 hover:underline"
     >
       {ticket.id}
     </a>
@@ -96,7 +96,7 @@ function PriorityTag({ ticket }: { ticket: CoveredTicket }) {
   if (!priority) {
     return (
       <span
-        className="w-[70px] shrink-0 text-center text-xs text-slate-300"
+        className="w-[70px] shrink-0 text-center text-[11px] text-slate-300"
         title="No priority set in Linear"
       >
         —
@@ -116,7 +116,7 @@ function FolderHint({ ticket }: { ticket: CoveredTicket }) {
   if (ticket.folders.length === 0) return null;
   return (
     <span
-      className="text-xs text-slate-400"
+      className="text-[11px] text-slate-400"
       title={`Testiny folders: ${ticket.folders.join(", ")}`}
     >
       {ticket.folders.length} folder{ticket.folders.length === 1 ? "" : "s"}
@@ -142,7 +142,7 @@ function TicketRow({
       <TicketLink ticket={ticket} />
       <PriorityTag ticket={ticket} />
       <span
-        className="min-w-0 flex-1 truncate text-sm text-slate-800"
+        className="min-w-0 flex-1 truncate text-[13px] text-slate-800"
         title={ticket.title}
       >
         {ticket.title}
@@ -181,7 +181,7 @@ function ParentRow({
           className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 text-left"
         >
           <span
-            className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800"
+            className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-800"
             title={ticket.title}
           >
             {ticket.title}
@@ -197,7 +197,7 @@ function ParentRow({
             <CoverageTag ticket={ticket} />
           )}
           {!containerOnly && <FolderHint ticket={ticket} />}
-          <span className="text-xs whitespace-nowrap text-slate-500">
+          <span className="text-[11px] whitespace-nowrap text-slate-500">
             {children.length} sub-issue{children.length === 1 ? "" : "s"} ·{" "}
             {covered} with test cases
           </span>
@@ -226,7 +226,7 @@ function CoverageMeter({ covered, counted }: { covered: number; counted: number 
           style={{ width: `${pct}%` }}
         />
       </span>
-      <span className="nums text-xs text-slate-500">
+      <span className="nums text-[11px] text-slate-500">
         {covered}/{counted} with test cases
       </span>
     </span>
@@ -251,7 +251,7 @@ function CollapsibleReleaseGroup({
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-sunken"
       >
-        <h2 className="font-display flex items-center gap-2 text-[15px] font-semibold text-slate-800">
+        <h2 className="font-display flex items-center gap-2 text-sm font-semibold text-slate-800">
           {group.isRelease && (
             <span aria-hidden className="size-1.5 rounded-full bg-brand-600" />
           )}
@@ -377,7 +377,7 @@ export function ReleaseBoard({ groups }: { groups: ReleaseGroup[] }) {
           />
         ))}
         {visible.length === 0 && (
-          <p className="rounded-xl bg-surface-card px-5 py-10 text-center text-sm text-slate-500 shadow-card ring-1 ring-hairline">
+          <p className="rounded-xl bg-surface-card px-5 py-10 text-center text-[13px] text-slate-500 shadow-card ring-1 ring-hairline">
             {release.selected.size === 0 || coverage.selected.size === 0
               ? "Nothing selected — pick a release and a test-case state above."
               : "No tickets match these filters."}

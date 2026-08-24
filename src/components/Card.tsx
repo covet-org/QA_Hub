@@ -33,11 +33,11 @@ export function CardHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 px-4 pt-3.5 pb-3">
       <div className="min-w-0">
-        <h2 className="font-display text-[15px] leading-tight font-semibold text-slate-800">
+        <h2 className="font-display text-sm leading-tight font-semibold text-slate-800">
           {title}
         </h2>
         {subtitle && (
-          <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+          <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
             {subtitle}
           </p>
         )}

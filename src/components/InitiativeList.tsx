@@ -41,7 +41,7 @@ function InitiativeRow({ initiative }: { initiative: Initiative }) {
         aria-expanded={open}
         className="flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-slate-50"
       >
-        <span className="flex-1 text-[15px] font-medium text-slate-800">
+        <span className="flex-1 text-sm font-medium text-slate-800">
           {initiative.title}
         </span>
         <Tag>{initiative.area}</Tag>
@@ -50,7 +50,7 @@ function InitiativeRow({ initiative }: { initiative: Initiative }) {
       </button>
       {open && (
         <div className="border-t border-hairline px-5 py-4">
-          <p className="max-w-3xl text-sm leading-relaxed text-slate-600">
+          <p className="max-w-3xl text-[13px] leading-relaxed text-slate-600">
             {initiative.description}
           </p>
           <div className="mt-4 max-w-md">
@@ -93,7 +93,7 @@ export function InitiativeList({ initiatives }: { initiatives: Initiative[] }) {
             key={f.value}
             type="button"
             onClick={() => setFilter(f.value)}
-            className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
               filter === f.value
                 ? "bg-brand-800 text-white shadow-card"
                 : "bg-surface-card text-slate-600 ring-1 ring-hairline hover:bg-surface-sunken"
@@ -109,7 +109,7 @@ export function InitiativeList({ initiatives }: { initiatives: Initiative[] }) {
           <InitiativeRow key={initiative.id} initiative={initiative} />
         ))}
         {visible.length === 0 && (
-          <li className="px-5 py-10 text-center text-sm text-slate-500">
+          <li className="px-5 py-10 text-center text-[13px] text-slate-500">
             No initiatives with this status.
           </li>
         )}

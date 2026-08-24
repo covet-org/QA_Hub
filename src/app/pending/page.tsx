@@ -17,13 +17,13 @@ export default async function PendingPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-900 via-brand-800 to-brand-700 px-4">
       <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
-        <p className="font-display text-2xl font-semibold text-brand-900">
+        <p className="font-display text-xl font-semibold text-brand-900">
           co<span className="text-accent-400">·</span>vet
         </p>
-        <h1 className="mt-6 text-lg font-semibold text-slate-800">
+        <h1 className="mt-6 text-base font-semibold text-slate-800">
           {denied ? "Access denied" : "Waiting for approval"}
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-slate-500">
+        <p className="mt-2 text-[13px] leading-relaxed text-slate-500">
           {denied ? (
             <>
               Your access request was declined. If you think this is a
@@ -44,13 +44,13 @@ export default async function PendingPage() {
             </>
           )}
         </p>
-        <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+        <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
           Signed in as {viewer.email}
         </p>
         <form action={signOutAction} className="mt-6">
           <button
             type="submit"
-            className="w-full rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200"
+            className="w-full rounded-xl bg-slate-100 px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-200"
           >
             Sign out
           </button>

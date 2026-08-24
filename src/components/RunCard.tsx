@@ -42,7 +42,7 @@ function TicketLink({ id, url }: { id: string; url: string }) {
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="shrink-0 font-mono text-xs font-semibold text-brand-700 hover:underline"
+      className="shrink-0 font-mono text-[11px] font-semibold text-brand-700 hover:underline"
     >
       {id}
     </a>
@@ -63,7 +63,7 @@ function BugRow({ bug }: { bug: ReleaseBug }) {
     <li className="flex items-baseline gap-2 py-0.5">
       <TicketLink id={bug.id} url={bug.url} />
       <span
-        className="min-w-0 flex-1 truncate text-sm text-slate-700"
+        className="min-w-0 flex-1 truncate text-[13px] text-slate-700"
         title={bug.title}
       >
         {bug.title}
@@ -102,7 +102,7 @@ function PriorityStatusBugs({ bugs }: { bugs: ReleaseBug[] }) {
       {groups.map(({ priority, count, statuses }) => (
         <div key={priority}>
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${priorityTone[priority]}`}
+            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${priorityTone[priority]}`}
           >
             <span className={`size-2 rounded-full ${priorityDot[priority]}`} />
             {priority} bugs ({count})
@@ -110,7 +110,7 @@ function PriorityStatusBugs({ bugs }: { bugs: ReleaseBug[] }) {
           <div className="mt-1 space-y-1.5 pl-3">
             {statuses.map((s) => (
               <div key={s.name}>
-                <p className="text-[11px] font-medium tracking-wide text-slate-500 uppercase">
+                <p className="text-[10px] font-medium tracking-wide text-slate-500 uppercase">
                   {s.name} ({s.bugs.length})
                 </p>
                 <ul className="mt-0.5 pl-2">
@@ -151,7 +151,7 @@ function ReleaseDetail({
 
   return (
     <div className="space-y-3 border-t border-hairline bg-surface-sunken px-4 py-3">
-      <p className="font-display text-sm font-semibold text-slate-800">
+      <p className="font-display text-[13px] font-semibold text-slate-800">
         Release {releaseNumber}
       </p>
 
@@ -165,7 +165,7 @@ function ReleaseDetail({
             <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
               <TicketLink id={story.id} url={story.url} />
               <span
-                className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800"
+                className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-800"
                 title={story.title}
               >
                 {story.title}
@@ -177,7 +177,7 @@ function ReleaseDetail({
                     {STORY_LABEL[l]}
                   </Tag>
                 ))}
-              <span className="text-xs text-slate-400">
+              <span className="text-[11px] text-slate-400">
                 {storyBugs.length} bug{storyBugs.length === 1 ? "" : "s"}
               </span>
             </div>
@@ -192,7 +192,7 @@ function ReleaseDetail({
 
       {orphanBugs.length > 0 && (
         <div className="overflow-hidden rounded-lg bg-surface-card ring-1 ring-hairline">
-          <div className="border-b border-hairline px-3 py-2 text-sm font-medium text-slate-700">
+          <div className="border-b border-hairline px-3 py-2 text-[13px] font-medium text-slate-700">
             Other bugs — not linked to a user story ({orphanBugs.length})
           </div>
           <div className="px-3 py-2.5">
@@ -202,7 +202,7 @@ function ReleaseDetail({
       )}
 
       {content.stories.length === 0 && orphanBugs.length === 0 && (
-        <p className="text-sm text-slate-500">
+        <p className="text-[13px] text-slate-500">
           No roadmap tickets or bugs for this release.
         </p>
       )}
@@ -230,13 +230,13 @@ function CaseList({
   if (cases.length === 0) return null;
   return (
     <div>
-      <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
         <span className={`size-2 rounded-full ${dotClass}`} />
         {label} ({cases.length})
       </p>
       <ul className="mt-1.5 space-y-1">
         {cases.map((tc) => (
-          <li key={tc.id} className="flex items-baseline gap-2.5 text-sm">
+          <li key={tc.id} className="flex items-baseline gap-2.5 text-[13px]">
             <a
               href={tc.url}
               target="_blank"
@@ -254,14 +254,14 @@ function CaseList({
             {/* Assigned to, from Testiny's per-run assignment. */}
             {tc.assignee ? (
               <span
-                className="shrink-0 text-xs text-slate-500"
+                className="shrink-0 text-[11px] text-slate-500"
                 title={`Assigned to ${tc.assignee} in Testiny`}
               >
                 {tc.assignee}
               </span>
             ) : (
               <span
-                className="shrink-0 text-xs text-slate-300"
+                className="shrink-0 text-[11px] text-slate-300"
                 title="Unassigned in Testiny"
               >
                 unassigned
@@ -339,7 +339,7 @@ export function RunCard({
       {/* Full-width header: run identity left, progress figure right. */}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pt-3.5">
         <div className="flex min-w-0 items-center gap-2.5">
-          <h3 className="font-display min-w-0 truncate text-[15px] leading-tight font-semibold text-slate-800">
+          <h3 className="font-display min-w-0 truncate text-sm leading-tight font-semibold text-slate-800">
             {run.title}
           </h3>
           <Tag tone={run.isClosed ? "neutral" : "success"}>
@@ -347,10 +347,10 @@ export function RunCard({
           </Tag>
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="font-display nums text-2xl leading-none font-semibold text-brand-800">
+          <span className="font-display nums text-xl leading-none font-semibold text-brand-800">
             {progress}%
           </span>
-          <span className="nums text-xs text-slate-500">
+          <span className="nums text-[11px] text-slate-500">
             {executed} of {run.total} executed
           </span>
         </div>
@@ -376,7 +376,7 @@ export function RunCard({
           return (
             <span
               key={key}
-              className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[11px] ring-1 ring-inset ${
+              className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] ring-1 ring-inset ${
                 value
                   ? "bg-slate-50 text-slate-600 ring-slate-200"
                   : "text-slate-300 ring-transparent"
@@ -399,7 +399,7 @@ export function RunCard({
             type="button"
             onClick={() => setShowDetails((s) => !s)}
             aria-expanded={showDetails}
-            className="w-full px-4 py-2.5 text-left text-[13px] font-medium text-brand-700 transition-colors hover:bg-surface-sunken"
+            className="w-full px-4 py-2.5 text-left text-xs font-medium text-brand-700 transition-colors hover:bg-surface-sunken"
           >
             {showDetails
               ? "Hide breakdown"
@@ -433,24 +433,24 @@ export function RunCard({
             type="button"
             onClick={toggleRelease}
             aria-expanded={showRelease}
-            className="w-full px-4 py-2.5 text-left text-[13px] font-medium text-brand-700 transition-colors hover:bg-surface-sunken"
+            className="w-full px-4 py-2.5 text-left text-xs font-medium text-brand-700 transition-colors hover:bg-surface-sunken"
           >
             {showRelease
               ? "Hide release stories & bugs"
               : `Show release ${releaseNumber} stories & bugs`}
           </button>
           {showRelease && releaseState === "loading" && (
-            <p className="border-t border-hairline bg-surface-sunken px-4 py-3 text-[13px] text-slate-500">
+            <p className="border-t border-hairline bg-surface-sunken px-4 py-3 text-xs text-slate-500">
               Loading release {releaseNumber}…
             </p>
           )}
           {showRelease && releaseState === "error" && (
-            <p className="border-t border-hairline bg-surface-sunken px-4 py-3 text-[13px] text-rose-700">
+            <p className="border-t border-hairline bg-surface-sunken px-4 py-3 text-xs text-rose-700">
               Could not load release {releaseNumber}. Collapse and try again.
             </p>
           )}
           {showRelease && releaseState === "idle" && !releaseContent && (
-            <p className="border-t border-hairline bg-surface-sunken px-4 py-3 text-[13px] text-slate-500">
+            <p className="border-t border-hairline bg-surface-sunken px-4 py-3 text-xs text-slate-500">
               No stories or bugs recorded for release {releaseNumber}.
             </p>
           )}
@@ -469,7 +469,7 @@ export function RunCard({
             type="button"
             onClick={toggleDescopes}
             aria-expanded={showDescopes}
-            className="w-full px-4 py-2.5 text-left text-[13px] font-medium text-brand-700 transition-colors hover:bg-surface-sunken"
+            className="w-full px-4 py-2.5 text-left text-xs font-medium text-brand-700 transition-colors hover:bg-surface-sunken"
           >
             {showDescopes
               ? "Hide descoped tasks"
@@ -478,23 +478,23 @@ export function RunCard({
           {showDescopes && (
             <div className="border-t border-hairline bg-surface-sunken px-4 py-3">
               {descopeState === "loading" && (
-                <p className="text-[13px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   Reading Linear history for {releaseNumber}…
                 </p>
               )}
               {descopeState === "error" && (
-                <p className="text-[13px] text-rose-700">
+                <p className="text-xs text-rose-700">
                   Could not read descopes for {releaseNumber}. Collapse and try
                   again.
                 </p>
               )}
               {descopeState === "idle" && descopes?.unavailable && (
-                <p className="text-[13px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   Descope history needs a Linear API key.
                 </p>
               )}
               {descopeState === "idle" && descopes?.error && (
-                <p className="text-[13px] text-amber-800">
+                <p className="text-xs text-amber-800">
                   Linear rejected the history query ({descopes.error}).
                 </p>
               )}

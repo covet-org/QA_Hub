@@ -50,7 +50,7 @@ export function RunsBoard({
   );
 
   if (runs.length === 0) {
-    return <p className="text-sm text-slate-500">{emptyLabel}</p>;
+    return <p className="text-[13px] text-slate-500">{emptyLabel}</p>;
   }
 
   return (
@@ -80,7 +80,7 @@ export function RunsBoard({
       </div>
 
       {visible.length === 0 && (
-        <p className="rounded-xl bg-surface-card px-5 py-10 text-center text-sm text-slate-500 shadow-card ring-1 ring-hairline">
+        <p className="rounded-xl bg-surface-card px-5 py-10 text-center text-[13px] text-slate-500 shadow-card ring-1 ring-hairline">
           No runs match this filter.
         </p>
       )}

@@ -46,7 +46,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
       <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
         {denied && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
             You don&apos;t have access to that section. Ask a QA lead if you
             think you should.
           </div>
