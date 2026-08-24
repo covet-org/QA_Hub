@@ -24,6 +24,14 @@ const statusTone: Record<string, string> = {
   canceled: "bg-slate-100 text-slate-400 ring-slate-200",
 };
 
+/** Linear priority labels, warmest first. */
+const priorityTone: Record<string, string> = {
+  Urgent: "bg-rose-100 text-rose-700 ring-rose-200",
+  High: "bg-orange-50 text-orange-700 ring-orange-200",
+  Medium: "bg-amber-50 text-amber-700 ring-amber-200",
+  Low: "bg-slate-100 text-slate-500 ring-slate-200",
+};
+
 /** A board row after filtering: the node plus the sub-issues still shown. */
 interface VisibleNode {
   node: RoadmapNode;
@@ -69,10 +77,36 @@ function TicketLink({ ticket }: { ticket: CoveredTicket }) {
       href={ticket.url}
       target="_blank"
       rel="noreferrer"
-      className="font-mono text-xs font-semibold text-brand-700 hover:underline"
+      className="w-[68px] shrink-0 font-mono text-xs font-semibold text-brand-700 hover:underline"
     >
       {ticket.id}
     </a>
+  );
+}
+
+/**
+ * Linear priority, in a fixed-width slot right of the ticket id so the
+ * ids, priorities and titles read as columns even when untriaged tickets
+ * have no priority at all.
+ */
+function PriorityTag({ ticket }: { ticket: CoveredTicket }) {
+  const priority = ticket.priorityName;
+  if (!priority) {
+    return (
+      <span
+        className="w-[70px] shrink-0 text-center text-xs text-slate-300"
+        title="No priority set in Linear"
+      >
+        —
+      </span>
+    );
+  }
+  return (
+    <span className="w-[70px] shrink-0">
+      <Tag className={priorityTone[priority] ?? priorityTone.Low}>
+        {priority}
+      </Tag>
+    </span>
   );
 }
 
@@ -104,6 +138,7 @@ function TicketRow({
       }
     >
       <TicketLink ticket={ticket} />
+      <PriorityTag ticket={ticket} />
       <span
         className="min-w-0 flex-1 truncate text-sm text-slate-800"
         title={ticket.title}
@@ -136,6 +171,7 @@ function ParentRow({
     <li className="bg-white">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-3.5">
         <TicketLink ticket={ticket} />
+        <PriorityTag ticket={ticket} />
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
