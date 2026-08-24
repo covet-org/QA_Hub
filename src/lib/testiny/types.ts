@@ -42,6 +42,21 @@ export interface TestinyRunResultValues {
   result_status: string | null; // PASSED | FAILED | BLOCKED | SKIPPED | NOTRUN
   /** Set when the case was removed from the run (don't count those). */
   deleted_at?: string | null;
+  /** Who the case is assigned to WITHIN this run (Testiny's own field). */
+  assigned_user_id?: number | null;
+}
+
+/**
+ * A Testiny user, as returned by the user entity. The name fields vary by
+ * instance, so every one is optional and the display name falls back
+ * through them — see userDisplayName().
+ */
+export interface TestinyUser {
+  id: number;
+  name?: string | null;
+  firstname?: string | null;
+  lastname?: string | null;
+  email?: string | null;
 }
 
 export interface TestinyTestRun {
@@ -68,6 +83,8 @@ export interface CaseRef {
   title: string;
   /** Deep link to the case inside the Testiny run. */
   url: string;
+  /** Assignee within the run, null when unassigned or unresolvable. */
+  assignee?: string | null;
 }
 
 export interface RunSummary {

@@ -54,11 +54,13 @@ export function DescopeList({
         {events.length} feature{events.length === 1 ? "" : "s"} descoped from{" "}
         {release}
       </p>
+      {/* One line per row, matching the roadmap board. Wraps rather than
+          crushes the title on narrow viewports. */}
       <ul className="mt-2 divide-y divide-hairline overflow-hidden rounded-lg bg-surface-card ring-1 ring-hairline">
         {events.map((event) => (
           <li
             key={event.id}
-            className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3 py-2"
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2"
           >
             <a
               href={event.url}
@@ -68,15 +70,23 @@ export function DescopeList({
             >
               {event.id}
             </a>
-            {event.priorityName && (
-              <Tag
-                className={priorityTone[event.priorityName] ?? priorityTone.Low}
-              >
-                {event.priorityName}
-              </Tag>
-            )}
+            <span className="w-[70px] shrink-0">
+              {event.priorityName ? (
+                <Tag
+                  className={
+                    priorityTone[event.priorityName] ?? priorityTone.Low
+                  }
+                >
+                  {event.priorityName}
+                </Tag>
+              ) : (
+                <span className="block text-center text-xs text-slate-300">
+                  —
+                </span>
+              )}
+            </span>
             <span
-              className="min-w-0 flex-1 truncate text-sm text-slate-800"
+              className="min-w-[12rem] flex-1 truncate text-sm text-slate-800"
               title={event.title}
             >
               {event.title}

@@ -2,11 +2,8 @@
 
 import { useState } from "react";
 import { DescopeList } from "@/components/DescopeList";
-import {
-  loadDescopes,
-  loadReleaseContent,
-  type DescopeResult,
-} from "@/lib/release-actions";
+import { fetchDescopes } from "@/lib/descope-cache";
+import { loadReleaseContent, type DescopeResult } from "@/lib/release-actions";
 import type { ReleaseBug, ReleaseContent } from "@/lib/release-content";
 import type { CaseRef, RunSummary } from "@/lib/testiny/types";
 import { Tag } from "@/components/Tag";
@@ -249,11 +246,27 @@ function CaseList({
               TC-{tc.id}
             </a>
             <span
-              className="min-w-0 truncate text-slate-800"
+              className="min-w-0 flex-1 truncate text-slate-800"
               title={tc.title}
             >
               {tc.title}
             </span>
+            {/* Assigned to, from Testiny's per-run assignment. */}
+            {tc.assignee ? (
+              <span
+                className="shrink-0 text-xs text-slate-500"
+                title={`Assigned to ${tc.assignee} in Testiny`}
+              >
+                {tc.assignee}
+              </span>
+            ) : (
+              <span
+                className="shrink-0 text-xs text-slate-300"
+                title="Unassigned in Testiny"
+              >
+                unassigned
+              </span>
+            )}
           </li>
         ))}
       </ul>
@@ -312,7 +325,9 @@ export function RunCard({
     if (!next || descopes || descopeState === "loading") return;
     setDescopeState("loading");
     try {
-      setDescopes(await loadDescopes(releaseNumber!));
+      // Shared per release, so the dev and regression cards of one
+      // release do not each fetch the same list.
+      setDescopes(await fetchDescopes(releaseNumber!));
       setDescopeState("idle");
     } catch {
       setDescopeState("error");
@@ -320,23 +335,25 @@ export function RunCard({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl bg-surface-card shadow-card ring-1 ring-hairline transition-shadow hover:shadow-card-hover">
-      <div className="flex items-start justify-between gap-3 px-4 pt-3.5">
-        <h3 className="font-display min-w-0 text-[15px] leading-tight font-semibold text-slate-800">
-          {run.title}
-        </h3>
-        <Tag tone={run.isClosed ? "neutral" : "success"}>
-          {run.isClosed ? "Closed" : "Active"}
-        </Tag>
-      </div>
-
-      <div className="mt-2.5 flex items-baseline gap-2 px-4">
-        <span className="font-display nums text-2xl leading-none font-semibold text-brand-800">
-          {progress}%
-        </span>
-        <span className="nums text-xs text-slate-500">
-          {executed} of {run.total} executed
-        </span>
+    <div className="flex flex-col overflow-hidden rounded-xl bg-surface-card shadow-card ring-1 ring-hairline transition-shadow hover:shadow-card-hover">
+      {/* Full-width header: run identity left, progress figure right. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pt-3.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <h3 className="font-display min-w-0 truncate text-[15px] leading-tight font-semibold text-slate-800">
+            {run.title}
+          </h3>
+          <Tag tone={run.isClosed ? "neutral" : "success"}>
+            {run.isClosed ? "Closed" : "Active"}
+          </Tag>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="font-display nums text-2xl leading-none font-semibold text-brand-800">
+            {progress}%
+          </span>
+          <span className="nums text-xs text-slate-500">
+            {executed} of {run.total} executed
+          </span>
+        </div>
       </div>
 
       <div className="mx-4 mt-2.5 flex h-2 overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200/70">
@@ -374,8 +391,7 @@ export function RunCard({
         })}
       </div>
 
-      {/* Pushes the disclosures to the bottom so cards in a row align. */}
-      <div aria-hidden className="grow pb-3" />
+      <div aria-hidden className="pb-3" />
 
       {problemCount > 0 && (
         <div className="border-t border-hairline">

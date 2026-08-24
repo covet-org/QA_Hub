@@ -66,7 +66,10 @@ export function RunsBoard({
         />
       </FilterBar>
 
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      {/* Full-width panels stacked like the roadmap's release groups: a
+          run expands across the screen instead of inside a narrow column,
+          and nothing stretches a neighbour. */}
+      <div className="space-y-4">
         {visible.map((run) => (
           <RunCard
             key={run.id}
