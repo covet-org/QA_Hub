@@ -41,13 +41,15 @@ const DEFAULT_VISIBLE = 3;
  */
 const DEFAULT_WINDOW_DAYS = 30;
 
-const PAD = { top: 18, right: 76, bottom: 30, left: 42 };
+const PAD = { top: 18, right: 78, bottom: 30, left: 42 };
 const W = 900;
 const H = 300;
 
 interface Hover {
   day: number;
   x: number;
+  /** The series the pointer is closest to — emphasised, listed first. */
+  nearest: string | null;
   values: { release: string; color: string; count: number }[];
 }
 
@@ -66,6 +68,10 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
   const [fullRange, setFullRange] = useState(false);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [hover, setHover] = useState<Hover | null>(null);
+  /** Click freezes the readout so a value can be read, or copied, calmly. */
+  const [pinned, setPinned] = useState(false);
+  /** Legend hover previews a series without committing to a click. */
+  const [legendFocus, setLegendFocus] = useState<string | null>(null);
 
   // Colour follows the release, not its position in the visible list.
   const colorOf = useMemo(() => {
@@ -112,22 +118,22 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
   // the one before it — the question the chart is asked most often.
   const current = trends[0];
   const previous = trends[1];
-  const delta =
-    current && previous ? current.total - previous.total : null;
+  const delta = current && previous ? current.total - previous.total : null;
 
-  const ticks = Array.from({ length: 5 }, (_, i) =>
-    Math.round((maxCount / 4) * i),
-  );
+  // Three gridlines, not five: the reader needs a floor, a middle and a
+  // ceiling, and every extra line competes with the data.
+  const ticks = [0, Math.round(maxCount / 2), maxCount];
   const dayStep = maxDay <= 10 ? 2 : maxDay <= 30 ? 5 : Math.ceil(maxDay / 6);
   const dayTicks = Array.from(
     { length: Math.floor(maxDay / dayStep) + 1 },
     (_, i) => i * dayStep,
   );
 
-  function onMove(event: React.MouseEvent<SVGSVGElement>) {
-    if (shown.length === 0) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const px = ((event.clientX - rect.left) / rect.width) * W;
+  /** Which series is emphasised: legend hover wins, else the nearest line. */
+  const focused = legendFocus ?? hover?.nearest ?? null;
+
+  function readAt(clientX: number, rect: DOMRect) {
+    const px = ((clientX - rect.left) / rect.width) * W;
     const day = Math.max(
       0,
       Math.min(
@@ -135,15 +141,61 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
         Math.round(((px - PAD.left) / (W - PAD.left - PAD.right)) * maxDay),
       ),
     );
-    setHover({
-      day,
-      x: x(day),
-      values: shown.map((t) => ({
+    return day;
+  }
+
+  function showDay(day: number, pointerY?: number) {
+    const values = shown
+      .map((t) => ({
         release: t.release,
         color: colorOf.get(t.release)!,
         count: countAtDay(t, day),
-      })),
-    });
+      }))
+      // Highest line first: the tooltip reads in the order the eye sees.
+      .sort((a, b) => b.count - a.count);
+
+    // Nearest series by vertical distance, so hovering "near a line"
+    // emphasises that line rather than requiring a 2px hit.
+    let nearest: string | null = null;
+    if (pointerY !== undefined) {
+      let best = Infinity;
+      for (const v of values) {
+        const d = Math.abs(y(v.count) - pointerY);
+        if (d < best) {
+          best = d;
+          nearest = v.release;
+        }
+      }
+      if (best > 48) nearest = null; // too far from anything to claim focus
+    }
+
+    setHover({ day, x: x(day), nearest, values });
+  }
+
+  function onPointerMove(event: React.PointerEvent<SVGSVGElement>) {
+    if (pinned || shown.length === 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const pointerY = ((event.clientY - rect.top) / rect.height) * H;
+    showDay(readAt(event.clientX, rect), pointerY);
+  }
+
+  function onKeyDown(event: React.KeyboardEvent<SVGSVGElement>) {
+    if (shown.length === 0) return;
+    const day = hover?.day ?? 0;
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      const next = Math.max(
+        0,
+        Math.min(maxDay, day + (event.key === "ArrowRight" ? 1 : -1)),
+      );
+      showDay(next);
+    } else if (event.key === "Escape") {
+      setPinned(false);
+      setHover(null);
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setPinned((p) => !p);
+    }
   }
 
   function toggle(release: string) {
@@ -207,22 +259,33 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
         {offered.map((trend) => {
           const color = colorOf.get(trend.release)!;
           const on = !hidden.has(trend.release);
+          const dim = focused !== null && focused !== trend.release;
           return (
             <button
               key={trend.release}
               type="button"
               onClick={() => toggle(trend.release)}
+              onPointerEnter={() => setLegendFocus(trend.release)}
+              onPointerLeave={() => setLegendFocus(null)}
+              onFocus={() => setLegendFocus(trend.release)}
+              onBlur={() => setLegendFocus(null)}
               aria-pressed={on}
-              className={`inline-flex items-center gap-1.5 rounded-full py-0.5 pr-2 pl-1.5 text-[11px] font-medium ring-1 ring-inset transition-colors ${
+              title={
+                on ? `Hide ${trend.release}` : `Show ${trend.release}`
+              }
+              className={`inline-flex items-center gap-1.5 rounded-full py-0.5 pr-2 pl-1.5 text-[11px] font-medium ring-1 ring-inset transition-all ${
                 on
                   ? "bg-surface-card text-slate-700 ring-hairline"
                   : "text-slate-400 ring-transparent hover:bg-surface-sunken"
-              }`}
+              } ${dim ? "opacity-45" : "opacity-100"}`}
             >
               <span
                 aria-hidden
-                className="size-2 rounded-full"
-                style={{ background: on ? color : "#cbd5e1" }}
+                className="size-2 rounded-full transition-transform"
+                style={{
+                  background: on ? color : "#cbd5e1",
+                  transform: focused === trend.release ? "scale(1.4)" : "none",
+                }}
               />
               {trend.release}
               <span className="nums text-slate-400">{trend.total}</span>
@@ -240,6 +303,9 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
               : `+ More (${trends.length - DEFAULT_VISIBLE})`}
           </button>
         )}
+        <span className="ml-auto hidden text-[10px] text-slate-400 sm:block">
+          {pinned ? "Pinned — click to release" : "Click to pin · ← → to step"}
+        </span>
       </div>
 
       {!fullRange && clipped.length > 0 && (
@@ -252,11 +318,14 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
       <div className="relative mt-2">
         <svg
           viewBox={`0 0 ${W} ${H}`}
-          className="w-full"
+          className="w-full cursor-crosshair rounded-lg focus:ring-2 focus:ring-brand-600/40 focus:outline-none"
           role="img"
-          aria-label="Cumulative bugs found per release, by day since the first bug"
-          onMouseMove={onMove}
-          onMouseLeave={() => setHover(null)}
+          tabIndex={0}
+          aria-label="Cumulative bugs found per release, by day since the first bug. Arrow keys step through days."
+          onPointerMove={onPointerMove}
+          onPointerLeave={() => !pinned && setHover(null)}
+          onClick={() => setPinned((p) => !p)}
+          onKeyDown={onKeyDown}
         >
           <defs>
             {shown.map((trend) => {
@@ -270,7 +339,7 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
                   x2="0"
                   y2="1"
                 >
-                  <stop offset="0%" stopColor={color} stopOpacity={0.18} />
+                  <stop offset="0%" stopColor={color} stopOpacity={0.2} />
                   <stop offset="100%" stopColor={color} stopOpacity={0} />
                 </linearGradient>
               );
@@ -286,7 +355,7 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
                 y2={y(tick)}
                 stroke="#e3e9ee"
                 strokeWidth={1}
-                strokeDasharray={tick === 0 ? undefined : "2 4"}
+                strokeDasharray={tick === 0 ? undefined : "2 5"}
               />
               <text
                 x={PAD.left - 10}
@@ -321,16 +390,16 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
               x2={hover.x}
               y1={PAD.top}
               y2={H - PAD.bottom}
-              stroke="#94a3b8"
+              stroke={pinned ? "#0f5a74" : "#94a3b8"}
               strokeWidth={1}
-              strokeDasharray="3 3"
+              strokeDasharray={pinned ? undefined : "3 3"}
             />
           )}
 
-          {/* Only the current release gets a fill: more than one stacked
-              wash turns into mud and hides the lines underneath. */}
+          {/* Fill only under the emphasised release: more than one wash
+              turns to mud and hides the lines beneath. */}
           {shown
-            .filter((t) => t.release === current.release)
+            .filter((t) => t.release === (focused ?? current.release))
             .map((trend) => {
               const pts = coords(trend);
               const area =
@@ -352,26 +421,40 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
             const inWindow = visiblePoints(trend);
             const last = inWindow[inWindow.length - 1] ?? { day: 0, count: 0 };
             const cut = trend.points[trend.points.length - 1].day > maxDay;
-            const isCurrent = trend.release === current.release;
+            const isFocused = focused === trend.release;
+            const dim = focused !== null && !isFocused;
+            const d = smoothPath(pts);
             return (
-              <g key={trend.release}>
+              <g
+                key={trend.release}
+                opacity={dim ? 0.22 : 1}
+                style={{ transition: "opacity 140ms ease-out" }}
+              >
+                {/* Halo: a surface-coloured stroke under the line keeps
+                    crossings readable without thickening the data mark. */}
+                <path
+                  d={d}
+                  fill="none"
+                  stroke="#ffffff"
+                  strokeWidth={6}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity={dim ? 0 : 0.9}
+                />
                 <path
                   className="trend-line"
                   pathLength={1}
-                  d={smoothPath(pts)}
+                  d={d}
                   fill="none"
                   stroke={color}
-                  strokeWidth={isCurrent ? 2.5 : 2}
+                  strokeWidth={isFocused ? 3 : 2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  opacity={isCurrent ? 1 : 0.85}
                 />
-                {/* End cap: a 2px surface ring keeps it legible where
-                    lines cross. */}
                 <circle
                   cx={x(last.day)}
                   cy={y(last.count)}
-                  r={4}
+                  r={isFocused ? 5 : 4}
                   fill={color}
                   stroke="#ffffff"
                   strokeWidth={2}
@@ -381,7 +464,7 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
                     x={x(last.day) + 10}
                     y={y(last.count) + 4}
                     fontSize={11}
-                    fontWeight={isCurrent ? 600 : 400}
+                    fontWeight={isFocused ? 700 : 500}
                     fill={color}
                     className="nums"
                   >
@@ -393,7 +476,7 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
                   <circle
                     cx={hover.x}
                     cy={y(countAtDay(trend, hover.day))}
-                    r={4}
+                    r={isFocused ? 5 : 3.5}
                     fill="#ffffff"
                     stroke={color}
                     strokeWidth={2}
@@ -415,23 +498,32 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
           >
             <p className="text-[10px] font-semibold tracking-wide text-slate-500 uppercase">
               Day {hover.day}
+              {pinned && <span className="ml-1 text-brand-700">· pinned</span>}
             </p>
             <ul className="mt-1 space-y-0.5">
-              {hover.values.map((v) => (
-                <li key={v.release} className="flex items-center gap-1.5">
-                  <span
-                    aria-hidden
-                    className="h-[3px] w-3 rounded-full"
-                    style={{ background: v.color }}
-                  />
-                  <span className="nums text-[13px] font-semibold text-slate-800">
-                    {v.count}
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    {v.release}
-                  </span>
-                </li>
-              ))}
+              {hover.values.map((v) => {
+                const isFocused = focused === v.release;
+                return (
+                  <li
+                    key={v.release}
+                    className={`flex items-center gap-1.5 rounded px-1 ${
+                      isFocused ? "bg-surface-sunken" : ""
+                    }`}
+                  >
+                    <span
+                      aria-hidden
+                      className="h-[3px] w-3 rounded-full"
+                      style={{ background: v.color }}
+                    />
+                    <span className="nums text-[13px] font-semibold text-slate-800">
+                      {v.count}
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {v.release}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
