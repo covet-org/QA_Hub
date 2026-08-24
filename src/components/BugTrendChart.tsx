@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ReleaseTrend } from "@/lib/bug-trend";
+import type { ReleaseTrend, TrendPoint } from "@/lib/bug-trend";
 
 /**
  * Bugs found per release, as cumulative discovery curves.
@@ -28,6 +28,18 @@ const SERIES_COLORS = [
 /** Shown without pressing "+ More". */
 const DEFAULT_VISIBLE = 3;
 
+/**
+ * Days of the x-axis by default.
+ *
+ * Bugs get filed against a release for months after its testing ends, and
+ * one such tail sets the scale for every other line: with the full range
+ * the axis ran to day 93 and the two current releases — which do all
+ * their work inside ten days — were squeezed into the left sixth of the
+ * plot. Thirty days covers the window where discovery actually happens;
+ * "Full range" brings the tail back.
+ */
+const DEFAULT_WINDOW_DAYS = 30;
+
 const PAD = { top: 16, right: 68, bottom: 28, left: 38 };
 const W = 900;
 const H = 300;
@@ -50,6 +62,7 @@ function countAtDay(trend: ReleaseTrend, day: number): number {
 
 export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
   const [expanded, setExpanded] = useState(false);
+  const [fullRange, setFullRange] = useState(false);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [hover, setHover] = useState<Hover | null>(null);
 
@@ -63,19 +76,31 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
   const offered = expanded ? trends : trends.slice(0, DEFAULT_VISIBLE);
   const shown = offered.filter((t) => !hidden.has(t.release));
 
-  const maxDay = Math.max(
+  const fullDay = Math.max(
     1,
     ...shown.flatMap((t) => t.points.map((p) => p.day)),
   );
-  const maxCount = Math.max(1, ...shown.map((t) => t.total));
+  const maxDay = fullRange ? fullDay : Math.min(fullDay, DEFAULT_WINDOW_DAYS);
+  // A clipped line is drawn only to the edge, so the y-axis reflects what
+  // is actually on screen rather than counts the reader cannot see.
+  const maxCount = Math.max(1, ...shown.map((t) => countAtDay(t, maxDay)));
+  const clipped = shown.filter((t) => t.points[t.points.length - 1].day > maxDay);
 
   const x = (day: number) =>
     PAD.left + (day / maxDay) * (W - PAD.left - PAD.right);
   const y = (count: number) =>
     H - PAD.bottom - (count / maxCount) * (H - PAD.top - PAD.bottom);
 
+  /** Points inside the window, plus the edge value when the line is cut. */
+  const visiblePoints = (trend: ReleaseTrend): TrendPoint[] => {
+    const inside = trend.points.filter((p) => p.day <= maxDay);
+    const last = trend.points[trend.points.length - 1];
+    if (last.day > maxDay) inside.push({ day: maxDay, count: countAtDay(trend, maxDay) });
+    return inside;
+  };
+
   const path = (trend: ReleaseTrend) => {
-    const pts = [{ day: 0, count: 0 }, ...trend.points];
+    const pts = [{ day: 0, count: 0 }, ...visiblePoints(trend)];
     return pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(p.day)},${y(p.count)}`).join(" ");
   };
 
@@ -158,7 +183,21 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
             {expanded ? "Show fewer" : `+ More (${trends.length - DEFAULT_VISIBLE})`}
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setFullRange((f) => !f)}
+          className="ml-auto text-[11px] font-medium text-brand-700 hover:underline"
+        >
+          {fullRange ? `First ${DEFAULT_WINDOW_DAYS} days` : "Full range"}
+        </button>
       </div>
+
+      {!fullRange && clipped.length > 0 && (
+        <p className="mt-1 text-[10px] text-slate-400">
+          {clipped.map((t) => t.release).join(", ")} continued past day{" "}
+          {DEFAULT_WINDOW_DAYS} — arrows show each release&apos;s final total.
+        </p>
+      )}
 
       <div className="relative mt-3">
         <svg
@@ -224,7 +263,9 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
 
           {shown.map((trend) => {
             const color = colorOf.get(trend.release)!;
-            const last = trend.points[trend.points.length - 1];
+            const inWindow = visiblePoints(trend);
+            const last = inWindow[inWindow.length - 1] ?? { day: 0, count: 0 };
+            const cut = trend.points[trend.points.length - 1].day > maxDay;
             return (
               <g key={trend.release}>
                 <path
@@ -246,7 +287,8 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
                     fill={color}
                     className="nums"
                   >
-                    {trend.release} · {trend.total}
+                    {trend.release} · {last.count}
+                    {cut ? ` → ${trend.total}` : ""}
                   </text>
                 )}
                 {hover && (
