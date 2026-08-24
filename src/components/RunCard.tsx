@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { loadReleaseContent } from "@/lib/release-actions";
 import type { ReleaseBug, ReleaseContent } from "@/lib/release-content";
 import type { CaseRef, RunSummary } from "@/lib/testiny/types";
 import { Tag } from "@/components/Tag";
@@ -259,24 +260,39 @@ function CaseList({
 export function RunCard({
   run,
   releaseNumber,
-  releaseContent,
 }: {
   run: RunSummary;
   releaseNumber?: string;
-  releaseContent?: ReleaseContent;
 }) {
   const [showDetails, setShowDetails] = useState(false);
   const [showRelease, setShowRelease] = useState(false);
+  // Release stories/bugs are fetched on first expand, not with the page.
+  const [releaseContent, setReleaseContent] = useState<ReleaseContent | null>(
+    null,
+  );
+  const [releaseState, setReleaseState] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
   const executed = run.total - run.notRun;
   const progress = run.total > 0 ? Math.round((executed / run.total) * 100) : 0;
   const problemCount =
     (run.failedCases?.length ?? 0) +
     (run.blockedCases?.length ?? 0) +
     (run.skippedCases?.length ?? 0);
-  const hasRelease =
-    !!releaseNumber &&
-    !!releaseContent &&
-    (releaseContent.stories.length > 0 || releaseContent.bugs.length > 0);
+  const hasRelease = !!releaseNumber;
+
+  async function toggleRelease() {
+    const next = !showRelease;
+    setShowRelease(next);
+    if (!next || releaseContent || releaseState === "loading") return;
+    setReleaseState("loading");
+    try {
+      setReleaseContent(await loadReleaseContent(releaseNumber!));
+      setReleaseState("idle");
+    } catch {
+      setReleaseState("error");
+    }
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl bg-surface-card shadow-card ring-1 ring-hairline transition-shadow hover:shadow-card-hover">
@@ -374,18 +390,33 @@ export function RunCard({
         <div className="border-t border-hairline">
           <button
             type="button"
-            onClick={() => setShowRelease((s) => !s)}
+            onClick={toggleRelease}
             aria-expanded={showRelease}
             className="w-full px-4 py-2.5 text-left text-[13px] font-medium text-brand-700 transition-colors hover:bg-surface-sunken"
           >
             {showRelease
               ? "Hide release stories & bugs"
-              : `Show release ${releaseNumber} stories & bugs (${releaseContent!.stories.length} stories · ${releaseContent!.bugs.length} bugs)`}
+              : `Show release ${releaseNumber} stories & bugs`}
           </button>
-          {showRelease && (
+          {showRelease && releaseState === "loading" && (
+            <p className="border-t border-hairline bg-surface-sunken px-4 py-3 text-[13px] text-slate-500">
+              Loading release {releaseNumber}…
+            </p>
+          )}
+          {showRelease && releaseState === "error" && (
+            <p className="border-t border-hairline bg-surface-sunken px-4 py-3 text-[13px] text-rose-700">
+              Could not load release {releaseNumber}. Collapse and try again.
+            </p>
+          )}
+          {showRelease && releaseState === "idle" && !releaseContent && (
+            <p className="border-t border-hairline bg-surface-sunken px-4 py-3 text-[13px] text-slate-500">
+              No stories or bugs recorded for release {releaseNumber}.
+            </p>
+          )}
+          {showRelease && releaseState === "idle" && releaseContent && (
             <ReleaseDetail
               releaseNumber={releaseNumber!}
-              content={releaseContent!}
+              content={releaseContent}
             />
           )}
         </div>
