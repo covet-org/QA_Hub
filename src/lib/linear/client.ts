@@ -34,6 +34,7 @@ const ISSUES_QUERY = /* GraphQL */ `
         identifier
         title
         url
+        createdAt
         priority
         priorityLabel
         state {
@@ -79,6 +80,7 @@ interface IssuesPage {
         identifier: string;
         title: string;
         url: string;
+        createdAt: string;
         priority: number;
         priorityLabel: string;
         state: { name: string; type: string };
@@ -138,6 +140,7 @@ export async function fetchIssuesWithLabels(
       const allLabels = node.labels.nodes.map((l) => l.name);
       tickets.push({
         id: node.identifier,
+        createdAt: node.createdAt,
         title: node.title,
         url: node.url,
         status: node.state.name,

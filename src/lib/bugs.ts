@@ -8,6 +8,7 @@ import {
   LinearError,
 } from "@/lib/linear/client";
 import type { RoadmapTicket } from "@/lib/linear/types";
+import { buildBugTrends, type ReleaseTrend } from "@/lib/bug-trend";
 import { RELEASE_NAME, releaseRank } from "@/lib/release-utils";
 import { getActiveReleaseFloor } from "@/lib/testiny/queries";
 
@@ -110,4 +111,24 @@ export async function getBugsSnapshot(kind: BugKind): Promise<BugsSnapshot> {
     totalBugs: scoped.length,
     openBugs: scoped.filter(isOpen).length,
   };
+}
+
+/**
+ * Bug discovery curves for the Home chart.
+ *
+ * Reuses the product-bug snapshot, so this costs nothing beyond what the
+ * Bugs page already fetches (both share the 5-minute Linear cache).
+ * Returns an empty list rather than throwing: a chart is not worth
+ * failing the landing page over.
+ */
+export async function getBugTrends(): Promise<ReleaseTrend[]> {
+  try {
+    const snapshot = await getBugsSnapshot("product");
+    return buildBugTrends(snapshot.groups.flatMap((g) => g.tickets));
+  } catch (error) {
+    console.error(
+      `Bug trends unavailable: ${error instanceof Error ? error.message : error}`,
+    );
+    return [];
+  }
 }
