@@ -54,29 +54,24 @@ export function DescopeList({
         {events.length} feature{events.length === 1 ? "" : "s"} descoped from{" "}
         {release}
       </p>
-      {/* Two lines per row on purpose: a run card column is ~340px, so a
-          single-line layout truncated titles down to "[...". */}
+      {/* One line per row, matching the roadmap board. Wraps rather than
+          crushes the title on narrow viewports. */}
       <ul className="mt-2 divide-y divide-hairline overflow-hidden rounded-lg bg-surface-card ring-1 ring-hairline">
         {events.map((event) => (
-          <li key={event.id} className="px-3 py-2">
-            <div className="flex items-baseline gap-2">
-              <a
-                href={event.url}
-                target="_blank"
-                rel="noreferrer"
-                className="shrink-0 font-mono text-xs font-semibold text-brand-700 hover:underline"
-              >
-                {event.id}
-              </a>
-              <span
-                className="min-w-0 flex-1 truncate text-[13px] text-slate-800"
-                title={event.title}
-              >
-                {event.title}
-              </span>
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-              {event.priorityName && (
+          <li
+            key={event.id}
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2"
+          >
+            <a
+              href={event.url}
+              target="_blank"
+              rel="noreferrer"
+              className="w-[68px] shrink-0 font-mono text-xs font-semibold text-brand-700 hover:underline"
+            >
+              {event.id}
+            </a>
+            <span className="w-[70px] shrink-0">
+              {event.priorityName ? (
                 <Tag
                   className={
                     priorityTone[event.priorityName] ?? priorityTone.Low
@@ -84,25 +79,33 @@ export function DescopeList({
                 >
                   {event.priorityName}
                 </Tag>
+              ) : (
+                <span className="block text-center text-xs text-slate-300">
+                  —
+                </span>
               )}
-              <Tag
-                className={statusTone[event.statusType] ?? statusTone.backlog}
-              >
-                {event.status}
-              </Tag>
-              <span
-                className="text-xs text-slate-500"
-                title={`Left ${release} on ${event.at}`}
-              >
-                →{" "}
-                {event.toRelease
-                  ? `${event.toRelease} Release`
-                  : (event.toProject ?? "no project")}
-              </span>
-              <span className="nums text-xs text-slate-400">
-                {movedAt(event.at)}
-              </span>
-            </div>
+            </span>
+            <span
+              className="min-w-[12rem] flex-1 truncate text-sm text-slate-800"
+              title={event.title}
+            >
+              {event.title}
+            </span>
+            <span
+              className="shrink-0 text-xs text-slate-500"
+              title={`Left ${release} on ${event.at}`}
+            >
+              →{" "}
+              {event.toRelease
+                ? `${event.toRelease} Release`
+                : (event.toProject ?? "no project")}
+            </span>
+            <Tag className={statusTone[event.statusType] ?? statusTone.backlog}>
+              {event.status}
+            </Tag>
+            <span className="nums w-[52px] shrink-0 text-right text-xs text-slate-400">
+              {movedAt(event.at)}
+            </span>
           </li>
         ))}
       </ul>

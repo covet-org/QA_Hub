@@ -66,9 +66,10 @@ export function RunsBoard({
         />
       </FilterBar>
 
-      {/* items-start: cards size to their own content, so expanding one
-          card does not stretch its neighbours into empty space. */}
-      <div className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      {/* Full-width panels stacked like the roadmap's release groups: a
+          run expands across the screen instead of inside a narrow column,
+          and nothing stretches a neighbour. */}
+      <div className="space-y-4">
         {visible.map((run) => (
           <RunCard
             key={run.id}
