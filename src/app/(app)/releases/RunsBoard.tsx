@@ -6,9 +6,7 @@ import {
   MultiSelectFilter,
   type FilterOption,
 } from "@/components/MultiSelectFilter";
-import { DescopeBoard } from "@/components/DescopeBoard";
 import { RunCard } from "@/components/RunCard";
-import type { DescopeSnapshot } from "@/lib/linear/descope";
 import type { RunSummary } from "@/lib/testiny/types";
 import { useUrlFilter } from "@/lib/use-url-filter";
 
@@ -26,11 +24,9 @@ function byVersionDesc(a: string, b: string): number {
 export function RunsBoard({
   runs,
   emptyLabel,
-  descopes,
 }: {
   runs: RunSummary[];
   emptyLabel: string;
-  descopes: DescopeSnapshot;
 }) {
   const versions = useMemo(
     () => [...new Set(runs.map((r) => versionOf(r.title)))].sort(byVersionDesc),
@@ -51,11 +47,6 @@ export function RunsBoard({
   const visible = useMemo(
     () => runs.filter((run) => release.selected.has(versionOf(run.title))),
     [runs, release.selected],
-  );
-
-  const selectedVersions = useMemo(
-    () => versions.filter((v) => release.selected.has(v)),
-    [versions, release.selected],
   );
 
   if (runs.length === 0) {
@@ -90,15 +81,6 @@ export function RunsBoard({
           No runs match this filter.
         </p>
       )}
-
-      {/* Descopes follow the same release selection as the run cards, so
-          a ticket never shows twice for one release. */}
-      <DescopeBoard
-        byRelease={descopes.byRelease}
-        versions={selectedVersions}
-        unavailable={descopes.unavailable}
-        error={descopes.error}
-      />
     </div>
   );
 }

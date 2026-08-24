@@ -1,7 +1,39 @@
 "use server";
 
+import { getDescopeSnapshot, type DescopeEvent } from "@/lib/linear/descope";
 import { getReleaseContent, type ReleaseContent } from "@/lib/release-content";
 import { requireAccess } from "@/lib/viewer";
+
+/** What a descope lookup returned, including why it found nothing. */
+export interface DescopeResult {
+  events: DescopeEvent[];
+  /** True when Linear is not configured, so nothing could be detected. */
+  unavailable: boolean;
+  /** Set when Linear was configured but the history query failed. */
+  error: string | null;
+}
+
+/**
+ * Features that left one release's scope, read from Linear issue history
+ * when a viewer opens the dropdown on a run card.
+ *
+ * Linear is the source of truth here, deliberately: descoping is recorded
+ * in the ticket's own project moves and activity, not in Testiny. A run's
+ * Testiny description may also mention descoped stories, but that is a
+ * hand-written note and is NOT used.
+ *
+ * Loaded on demand so the Releases pages cost one Testiny query — issue
+ * history is the most expensive Linear call in the app.
+ */
+export async function loadDescopes(version: string): Promise<DescopeResult> {
+  await requireAccess("/releases");
+  const snapshot = await getDescopeSnapshot();
+  return {
+    events: snapshot.byRelease[version] ?? [],
+    unavailable: snapshot.unavailable,
+    error: snapshot.error,
+  };
+}
 
 /**
  * Per-release stories and bugs, fetched only when a viewer actually

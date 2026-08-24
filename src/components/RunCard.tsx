@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { loadReleaseContent } from "@/lib/release-actions";
+import { DescopeList } from "@/components/DescopeList";
+import {
+  loadDescopes,
+  loadReleaseContent,
+  type DescopeResult,
+} from "@/lib/release-actions";
 import type { ReleaseBug, ReleaseContent } from "@/lib/release-content";
 import type { CaseRef, RunSummary } from "@/lib/testiny/types";
 import { Tag } from "@/components/Tag";
@@ -273,6 +278,13 @@ export function RunCard({
   const [releaseState, setReleaseState] = useState<
     "idle" | "loading" | "error"
   >("idle");
+  // Descopes come from Linear issue history, loaded on open for the same
+  // reason as the release content: it is an expensive query.
+  const [showDescopes, setShowDescopes] = useState(false);
+  const [descopes, setDescopes] = useState<DescopeResult | null>(null);
+  const [descopeState, setDescopeState] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
   const executed = run.total - run.notRun;
   const progress = run.total > 0 ? Math.round((executed / run.total) * 100) : 0;
   const problemCount =
@@ -291,6 +303,19 @@ export function RunCard({
       setReleaseState("idle");
     } catch {
       setReleaseState("error");
+    }
+  }
+
+  async function toggleDescopes() {
+    const next = !showDescopes;
+    setShowDescopes(next);
+    if (!next || descopes || descopeState === "loading") return;
+    setDescopeState("loading");
+    try {
+      setDescopes(await loadDescopes(releaseNumber!));
+      setDescopeState("idle");
+    } catch {
+      setDescopeState("error");
     }
   }
 
@@ -418,6 +443,55 @@ export function RunCard({
               releaseNumber={releaseNumber!}
               content={releaseContent}
             />
+          )}
+        </div>
+      )}
+
+      {hasRelease && (
+        <div className="border-t border-hairline">
+          <button
+            type="button"
+            onClick={toggleDescopes}
+            aria-expanded={showDescopes}
+            className="w-full px-4 py-2.5 text-left text-[13px] font-medium text-brand-700 transition-colors hover:bg-surface-sunken"
+          >
+            {showDescopes
+              ? "Hide descoped tasks"
+              : `Show descoped tasks for ${releaseNumber}`}
+          </button>
+          {showDescopes && (
+            <div className="border-t border-hairline bg-surface-sunken px-4 py-3">
+              {descopeState === "loading" && (
+                <p className="text-[13px] text-slate-500">
+                  Reading Linear history for {releaseNumber}…
+                </p>
+              )}
+              {descopeState === "error" && (
+                <p className="text-[13px] text-rose-700">
+                  Could not read descopes for {releaseNumber}. Collapse and try
+                  again.
+                </p>
+              )}
+              {descopeState === "idle" && descopes?.unavailable && (
+                <p className="text-[13px] text-slate-500">
+                  Descope history needs a Linear API key.
+                </p>
+              )}
+              {descopeState === "idle" && descopes?.error && (
+                <p className="text-[13px] text-amber-800">
+                  Linear rejected the history query ({descopes.error}).
+                </p>
+              )}
+              {descopeState === "idle" &&
+                descopes &&
+                !descopes.unavailable &&
+                !descopes.error && (
+                  <DescopeList
+                    release={releaseNumber!}
+                    events={descopes.events}
+                  />
+                )}
+            </div>
           )}
         </div>
       )}
