@@ -86,8 +86,13 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
   latest exit wins — which is what keeps the release filter free of duplicate rows.
   Window: `DESCOPE_WINDOW_DAYS` (180), and the issues filter is updatedAt-based, so a feature
   parked in a squad project and untouched since is not detected.
-  `getDescopeSnapshot()` never throws: a Linear failure degrades to a notice on the page,
-  because it must not take the Releases pages down.
+  `getDescopeSnapshot()` never throws: a Linear failure degrades to a notice, because it must
+  not take the Releases pages down.
+  **Linear is the source of truth for descoping** — the ticket's own project moves and activity.
+  A Testiny run description may also list descoped stories by hand; that note is NOT read, and
+  disagreements between it and Linear are expected.
+  Surfaced as a per-run-card dropdown ("Show descoped tasks for 3.36") that calls the
+  `loadDescopes` server action on open, so the Releases pages still cost one Testiny query.
 - `src/lib/release-utils.ts` — shared `RELEASE_NAME` regex + `releaseRank`/`versionRank`.
 - `src/lib/worktime.ts` — 8-hour-workday math (weekends excluded) for cycle time.
 - `src/content/initiatives.ts` — hand-maintained effort-allocation initiatives (Home/Automation).

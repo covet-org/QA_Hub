@@ -1,7 +1,6 @@
 import { Hero } from "@/components/Hero";
 import { RunsBoard } from "@/app/(app)/releases/RunsBoard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
-import { getDescopeSnapshot } from "@/lib/linear/descope";
 import { getRunSummariesByState } from "@/lib/testiny/queries";
 import { requireAccess } from "@/lib/viewer";
 
@@ -15,12 +14,7 @@ import { requireAccess } from "@/lib/viewer";
  */
 export async function RunsView({ state }: { state: "active" | "closed" }) {
   await requireAccess("/releases");
-  // Descope detection reads Linear issue history and never throws — a
-  // failure there degrades to a notice instead of taking the runs down.
-  const [{ isSample, runs }, descopes] = await Promise.all([
-    getRunSummariesByState(state),
-    getDescopeSnapshot(),
-  ]);
+  const { isSample, runs } = await getRunSummariesByState(state);
   const isActive = state === "active";
 
   return (
@@ -41,7 +35,6 @@ export async function RunsView({ state }: { state: "active" | "closed" }) {
         <RunsBoard
           runs={runs}
           emptyLabel={`No ${isActive ? "active" : "closed"} test runs.`}
-          descopes={descopes}
         />
       </div>
     </div>
