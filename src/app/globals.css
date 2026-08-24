@@ -7,18 +7,41 @@
   --color-brand-800: #0b4a60;
   --color-brand-700: #0f5a74;
   --color-brand-600: #14688a;
+  --color-brand-500: #1b7ba3;
+  --color-brand-200: #a9d9e9;
   --color-brand-100: #d4ecf4;
   --color-brand-50: #ecf7fa;
 
   --color-accent-400: #38cfe0;
   --color-accent-300: #7adfeb;
 
-  --color-surface: #f4f6f8;
+  /* Layered surfaces: page, card, and the tint used for nested rows. */
+  --color-surface: #f1f5f7;
+  --color-surface-card: #ffffff;
+  --color-surface-sunken: #f8fafb;
+  --color-hairline: #e3e9ee;
 
   --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-poppins), var(--font-dm-sans), ui-sans-serif, sans-serif;
+
+  /* Card elevation — deliberately soft, so density reads calm not busy. */
+  --shadow-card: 0 1px 2px rgb(8 62 81 / 0.04), 0 1px 3px rgb(8 62 81 / 0.06);
+  --shadow-card-hover: 0 2px 4px rgb(8 62 81 / 0.06), 0 8px 20px rgb(8 62 81 / 0.08);
+  --shadow-panel: 0 10px 30px rgb(8 62 81 / 0.10);
 }
 
 body {
   background-color: var(--color-surface);
+  /* Barely-there wash so white cards separate from the page. */
+  background-image: radial-gradient(
+    120% 60% at 50% 0%,
+    rgb(212 236 244 / 0.55) 0%,
+    transparent 60%
+  );
+  background-attachment: fixed;
+}
+
+/* Figures line up in columns when numbers change. */
+.nums {
+  font-variant-numeric: tabular-nums;
 }

@@ -70,7 +70,7 @@ export default async function AccessPage() {
         title="Access"
         description="Approve sign-in requests, manage roles and create shareable links with custom per-section permissions. Requests email you at sign-in time; everything here applies immediately."
       />
-      <div className="mx-auto max-w-5xl space-y-6 px-6 py-8 sm:px-10">
+      <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
         {storeError && (
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             <span className="font-semibold">Couldn&apos;t reach the store.</span>{" "}
@@ -92,7 +92,7 @@ export default async function AccessPage() {
 
         {/* ── Pending requests ────────────────────────────────── */}
         {pending.length > 0 && (
-          <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <section className="rounded-xl bg-surface-card p-5 shadow-card ring-1 ring-hairline">
             <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
               Pending requests
             </h2>
@@ -100,7 +100,7 @@ export default async function AccessPage() {
               People who signed in and are waiting for access. Approving adds
               them to the permitted list below.
             </p>
-            <ul className="mt-4 divide-y divide-slate-100">
+            <ul className="mt-4 divide-y divide-hairline">
               {pending.map((r) => (
                 <li
                   key={r.email}
@@ -154,7 +154,7 @@ export default async function AccessPage() {
         )}
 
         {/* ── Permitted users ─────────────────────────────────── */}
-        <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <section className="rounded-xl bg-surface-card p-5 shadow-card ring-1 ring-hairline">
           <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
             Permitted users
           </h2>
@@ -166,7 +166,7 @@ export default async function AccessPage() {
           {/* Invite */}
           <form
             action={inviteUserAction}
-            className="mt-4 flex flex-wrap items-end gap-3 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200"
+            className="mt-4 flex flex-wrap items-end gap-3 rounded-xl bg-slate-50 p-4 ring-1 ring-hairline"
           >
             <label className="flex-1 text-xs font-medium text-slate-600">
               Invite by email
@@ -204,7 +204,7 @@ export default async function AccessPage() {
             @{env.allowedEmailDomain} addresses can actually sign in.
           </p>
 
-          <ul className="mt-4 divide-y divide-slate-100">
+          <ul className="mt-4 divide-y divide-hairline">
             {permitted.map((r) => {
               const isBootstrap = bootstrapSet.has(r.email);
               const notYet = r.invited && !r.signedIn;
@@ -271,7 +271,7 @@ export default async function AccessPage() {
         </section>
 
         {/* ── Share links ─────────────────────────────────────── */}
-        <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <section className="rounded-xl bg-surface-card p-5 shadow-card ring-1 ring-hairline">
           <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
             Share links
           </h2>
@@ -283,7 +283,7 @@ export default async function AccessPage() {
 
           <form
             action={createShareLinkAction}
-            className="mt-4 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200"
+            className="mt-4 rounded-xl bg-slate-50 p-4 ring-1 ring-hairline"
           >
             <div className="flex flex-wrap items-end gap-3">
               <label className="flex-1 text-xs font-medium text-slate-600">
@@ -336,7 +336,7 @@ export default async function AccessPage() {
           </form>
 
           {links.length > 0 && (
-            <ul className="mt-5 divide-y divide-slate-100">
+            <ul className="mt-5 divide-y divide-hairline">
               {links.map((link) => {
                 const url = `${env.appUrl}/share/${link.id}`;
                 const expired = link.expired;
@@ -390,7 +390,7 @@ export default async function AccessPage() {
         </section>
 
         {/* ── Static config ───────────────────────────────────── */}
-        <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <section className="rounded-xl bg-surface-card p-5 shadow-card ring-1 ring-hairline">
           <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
             Base configuration
           </h2>

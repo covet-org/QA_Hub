@@ -29,10 +29,10 @@ export async function RunsView({ state }: { state: "active" | "closed" }) {
         }
         footnote="Testiny · QA CoVet"
       />
-      <div className="mx-auto max-w-5xl space-y-6 px-6 py-8 sm:px-10">
+      <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
         {isSample && <SampleDataNotice />}
 
-        <div className="grid items-start gap-4 md:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {runs.map((run) => {
             const version = versionOf(run.title);
             return (

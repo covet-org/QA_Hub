@@ -67,10 +67,10 @@ function NavGroup({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
+        className={`flex w-full items-center justify-between rounded-md px-3 py-1.5 text-[13px] transition-colors ${
           inGroup
             ? "font-medium text-white"
-            : "text-brand-100/85 hover:bg-brand-800 hover:text-white"
+            : "text-brand-100/80 hover:bg-white/5 hover:text-white"
         }`}
       >
         {item.label}
@@ -84,10 +84,10 @@ function NavGroup({
               <li key={child.href}>
                 <Link
                   href={child.href}
-                  className={`block rounded-lg py-1.5 pr-3 pl-7 text-sm transition-colors ${
+                  className={`block rounded-md py-1.5 pr-3 pl-7 text-[13px] transition-colors ${
                     active
-                      ? "bg-brand-700 font-medium text-white"
-                      : "text-brand-100/75 hover:bg-brand-800 hover:text-white"
+                      ? "bg-white/10 font-medium text-white shadow-[inset_2px_0_0_0_var(--color-accent-400)]"
+                      : "text-brand-100/70 hover:bg-white/5 hover:text-white"
                   }`}
                 >
                   {child.label}
@@ -111,8 +111,8 @@ export function Sidebar({
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-60 shrink-0 flex-col bg-brand-900 text-brand-100 max-lg:hidden">
-      <div className="px-6 pt-6 pb-4">
+    <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-white/5 bg-gradient-to-b from-brand-900 to-brand-950 text-brand-100 max-lg:hidden">
+      <div className="px-5 pt-5 pb-3">
         <span className="font-display text-xl font-semibold text-white">
           co<span className="text-accent-400">·</span>vet
         </span>
@@ -123,8 +123,8 @@ export function Sidebar({
 
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
         {sections.map((section) => (
-          <div key={section.title} className="mt-5">
-            <p className="px-3 text-[10px] font-semibold tracking-[0.18em] text-brand-100/50 uppercase">
+          <div key={section.title} className="mt-4">
+            <p className="px-3 text-[10px] font-semibold tracking-[0.18em] text-brand-100/45 uppercase">
               {section.title}
             </p>
             <ul className="mt-1.5 space-y-0.5">
@@ -137,17 +137,17 @@ export function Sidebar({
                     ) : item.unlocked ? (
                       <Link
                         href={item.href}
-                        className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
+                        className={`flex items-center justify-between rounded-md px-3 py-1.5 text-[13px] transition-colors ${
                           active
-                            ? "bg-brand-700 font-medium text-white"
-                            : "text-brand-100/85 hover:bg-brand-800 hover:text-white"
+                            ? "bg-white/10 font-medium text-white shadow-[inset_2px_0_0_0_var(--color-accent-400)]"
+                            : "text-brand-100/80 hover:bg-white/5 hover:text-white"
                         }`}
                       >
                         {item.label}
                       </Link>
                     ) : (
                       <span
-                        className="flex cursor-not-allowed items-center justify-between rounded-lg px-3 py-2 text-sm text-brand-100/40"
+                        className="flex cursor-not-allowed items-center justify-between rounded-md px-3 py-1.5 text-[13px] text-brand-100/35"
                         title="You don't have access to this section"
                       >
                         {item.label}

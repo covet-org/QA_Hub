@@ -52,7 +52,7 @@ export function CycleTimeCard({ cycles }: { cycles: StatusCycle[] }) {
   );
 
   return (
-    <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+    <section className="rounded-xl bg-surface-card p-5 shadow-card ring-1 ring-hairline">
       <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
         Bug cycle time by status
       </h2>

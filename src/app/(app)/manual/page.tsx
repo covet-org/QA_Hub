@@ -18,7 +18,7 @@ function DistributionCard({
   const max = Math.max(1, ...entries.map(([, v]) => v));
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+    <div className="rounded-xl bg-surface-card p-4 shadow-card ring-1 ring-hairline">
       <h3 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
         {title}
       </h3>
@@ -57,7 +57,7 @@ export default async function ManualTestingPage() {
         description="The manual test inventory in Testiny — coverage by feature area, case types and priorities. This is the effort base that automation will progressively take over."
         footnote={`Testiny · ${snapshot.projectName}`}
       />
-      <div className="mx-auto max-w-5xl space-y-6 px-6 py-8 sm:px-10">
+      <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
         {snapshot.isSample && <SampleDataNotice />}
 
         <div className="grid gap-4 sm:grid-cols-3">
