@@ -77,6 +77,17 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
   flattened onto their top-most in-group ancestor (one indent level, nothing hidden); a
   parent known only by id — no `parent` object, as in the current fixture — stays a flat row.
 - `src/lib/bugs.ts` — Linear bugs grouped by release, active/closed derived from Testiny.
+- `src/lib/linear/descope-rules.ts` — pure descope detection; `descope.ts` wraps it with the
+  Linear issue-history query. Rules agreed with QA: ANY move out of a release counts as a
+  descope of that release (including straight into another release — the scope shrank either
+  way); moving INTO a release never counts, so a re-scoped feature is not flagged for the
+  pick-up; history is kept per release, so a feature descoped from 3.35 and again from 3.36
+  appears under both, with no "recovered" state; within ONE release a feature appears once —
+  latest exit wins — which is what keeps the release filter free of duplicate rows.
+  Window: `DESCOPE_WINDOW_DAYS` (180), and the issues filter is updatedAt-based, so a feature
+  parked in a squad project and untouched since is not detected.
+  `getDescopeSnapshot()` never throws: a Linear failure degrades to a notice on the page,
+  because it must not take the Releases pages down.
 - `src/lib/release-utils.ts` — shared `RELEASE_NAME` regex + `releaseRank`/`versionRank`.
 - `src/lib/worktime.ts` — 8-hour-workday math (weekends excluded) for cycle time.
 - `src/content/initiatives.ts` — hand-maintained effort-allocation initiatives (Home/Automation).
