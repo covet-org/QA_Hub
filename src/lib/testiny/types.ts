@@ -42,21 +42,17 @@ export interface TestinyRunResultValues {
   result_status: string | null; // PASSED | FAILED | BLOCKED | SKIPPED | NOTRUN
   /** Set when the case was removed from the run (don't count those). */
   deleted_at?: string | null;
-  /** Who the case is assigned to WITHIN this run (Testiny's own field). */
+  /** Who the case is assigned to WITHIN this run, so the same case can
+   *  have different owners in different runs. */
   assigned_user_id?: number | null;
-}
-
-/**
- * A Testiny user, as returned by the user entity. The name fields vary by
- * instance, so every one is optional and the display name falls back
- * through them — see userDisplayName().
- */
-export interface TestinyUser {
-  id: number;
-  name?: string | null;
-  firstname?: string | null;
-  lastname?: string | null;
-  email?: string | null;
+  /** "USER" when assigned to a person; null when unassigned. */
+  assigned_to?: string | null;
+  /**
+   * Display name, resolved by Testiny itself. Verified against the live
+   * API: the run/testcase mapping returns this computed field, so no
+   * separate user lookup is needed. ($-prefixed = computed server-side.)
+   */
+  $assignee_name?: string | null;
 }
 
 export interface TestinyTestRun {
