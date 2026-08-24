@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ReleaseTrend, TrendPoint } from "@/lib/bug-trend";
+import { smoothPath } from "@/lib/smooth-path";
 
 /**
  * Bugs found per release, as cumulative discovery curves.
@@ -12,8 +13,8 @@ import type { ReleaseTrend, TrendPoint } from "@/lib/bug-trend";
  * toggling a series off never repaints the others.
  *
  * Three of the seven fail 3:1 contrast against white, which obliges the
- * relief this chart already carries: a legend, direct end labels, and a
- * tooltip listing every visible series.
+ * relief this chart carries: a legend, direct end labels, and a tooltip
+ * listing every visible series.
  */
 const SERIES_COLORS = [
   "#2a78d6", // blue
@@ -40,7 +41,7 @@ const DEFAULT_VISIBLE = 3;
  */
 const DEFAULT_WINDOW_DAYS = 30;
 
-const PAD = { top: 16, right: 68, bottom: 28, left: 38 };
+const PAD = { top: 18, right: 76, bottom: 30, left: 42 };
 const W = 900;
 const H = 300;
 
@@ -81,10 +82,10 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
     ...shown.flatMap((t) => t.points.map((p) => p.day)),
   );
   const maxDay = fullRange ? fullDay : Math.min(fullDay, DEFAULT_WINDOW_DAYS);
-  // A clipped line is drawn only to the edge, so the y-axis reflects what
-  // is actually on screen rather than counts the reader cannot see.
   const maxCount = Math.max(1, ...shown.map((t) => countAtDay(t, maxDay)));
-  const clipped = shown.filter((t) => t.points[t.points.length - 1].day > maxDay);
+  const clipped = shown.filter(
+    (t) => t.points[t.points.length - 1].day > maxDay,
+  );
 
   const x = (day: number) =>
     PAD.left + (day / maxDay) * (W - PAD.left - PAD.right);
@@ -95,18 +96,32 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
   const visiblePoints = (trend: ReleaseTrend): TrendPoint[] => {
     const inside = trend.points.filter((p) => p.day <= maxDay);
     const last = trend.points[trend.points.length - 1];
-    if (last.day > maxDay) inside.push({ day: maxDay, count: countAtDay(trend, maxDay) });
+    if (last.day > maxDay) {
+      inside.push({ day: maxDay, count: countAtDay(trend, maxDay) });
+    }
     return inside;
   };
 
-  const path = (trend: ReleaseTrend) => {
-    const pts = [{ day: 0, count: 0 }, ...visiblePoints(trend)];
-    return pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(p.day)},${y(p.count)}`).join(" ");
-  };
+  const coords = (trend: ReleaseTrend) =>
+    [{ day: 0, count: 0 }, ...visiblePoints(trend)].map((p) => ({
+      x: x(p.day),
+      y: y(p.count),
+    }));
 
-  // Recessive gridlines: four horizontal steps, labelled at the axis.
+  // Headline: the current release, and whether it is running hotter than
+  // the one before it — the question the chart is asked most often.
+  const current = trends[0];
+  const previous = trends[1];
+  const delta =
+    current && previous ? current.total - previous.total : null;
+
   const ticks = Array.from({ length: 5 }, (_, i) =>
     Math.round((maxCount / 4) * i),
+  );
+  const dayStep = maxDay <= 10 ? 2 : maxDay <= 30 ? 5 : Math.ceil(maxDay / 6);
+  const dayTicks = Array.from(
+    { length: Math.floor(maxDay / dayStep) + 1 },
+    (_, i) => i * dayStep,
   );
 
   function onMove(event: React.MouseEvent<SVGSVGElement>) {
@@ -150,7 +165,45 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      {/* Hero figure: the number people came for, with its comparison. */}
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div className="flex items-baseline gap-2.5">
+          <span
+            className="font-display nums text-3xl leading-none font-semibold"
+            style={{ color: colorOf.get(current.release) }}
+          >
+            {current.total}
+          </span>
+          <span className="text-[13px] text-slate-600">
+            bugs in {current.release}
+          </span>
+          {delta !== null && (
+            <span
+              className={`nums rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${
+                delta > 0
+                  ? "bg-rose-50 text-rose-700 ring-rose-200"
+                  : delta < 0
+                    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                    : "bg-slate-100 text-slate-600 ring-slate-200"
+              }`}
+              title={`${current.release} versus ${previous.release}`}
+            >
+              {delta > 0 ? "▲" : delta < 0 ? "▼" : "="} {Math.abs(delta)} vs{" "}
+              {previous.release}
+            </span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setFullRange((f) => !f)}
+          className="rounded-md px-2 py-1 text-[11px] font-medium text-brand-700 ring-1 ring-hairline ring-inset transition-colors hover:bg-surface-sunken"
+        >
+          {fullRange ? `First ${DEFAULT_WINDOW_DAYS} days` : "Full range"}
+        </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
         {offered.map((trend) => {
           const color = colorOf.get(trend.release)!;
           const on = !hidden.has(trend.release);
@@ -160,13 +213,15 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
               type="button"
               onClick={() => toggle(trend.release)}
               aria-pressed={on}
-              className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[11px] transition-opacity ${
-                on ? "text-slate-700" : "text-slate-400 opacity-60"
+              className={`inline-flex items-center gap-1.5 rounded-full py-0.5 pr-2 pl-1.5 text-[11px] font-medium ring-1 ring-inset transition-colors ${
+                on
+                  ? "bg-surface-card text-slate-700 ring-hairline"
+                  : "text-slate-400 ring-transparent hover:bg-surface-sunken"
               }`}
             >
               <span
                 aria-hidden
-                className="h-[3px] w-4 rounded-full"
+                className="size-2 rounded-full"
                 style={{ background: on ? color : "#cbd5e1" }}
               />
               {trend.release}
@@ -178,28 +233,23 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
           <button
             type="button"
             onClick={() => setExpanded((e) => !e)}
-            className="text-[11px] font-medium text-brand-700 hover:underline"
+            className="ml-1 text-[11px] font-medium text-brand-700 hover:underline"
           >
-            {expanded ? "Show fewer" : `+ More (${trends.length - DEFAULT_VISIBLE})`}
+            {expanded
+              ? "Show fewer"
+              : `+ More (${trends.length - DEFAULT_VISIBLE})`}
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => setFullRange((f) => !f)}
-          className="ml-auto text-[11px] font-medium text-brand-700 hover:underline"
-        >
-          {fullRange ? `First ${DEFAULT_WINDOW_DAYS} days` : "Full range"}
-        </button>
       </div>
 
       {!fullRange && clipped.length > 0 && (
-        <p className="mt-1 text-[10px] text-slate-400">
+        <p className="mt-1.5 text-[10px] text-slate-400">
           {clipped.map((t) => t.release).join(", ")} continued past day{" "}
           {DEFAULT_WINDOW_DAYS} — arrows show each release&apos;s final total.
         </p>
       )}
 
-      <div className="relative mt-3">
+      <div className="relative mt-2">
         <svg
           viewBox={`0 0 ${W} ${H}`}
           className="w-full"
@@ -208,6 +258,25 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
           onMouseMove={onMove}
           onMouseLeave={() => setHover(null)}
         >
+          <defs>
+            {shown.map((trend) => {
+              const color = colorOf.get(trend.release)!;
+              return (
+                <linearGradient
+                  key={trend.release}
+                  id={`trend-fill-${trend.release.replace(".", "-")}`}
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="0%" stopColor={color} stopOpacity={0.18} />
+                  <stop offset="100%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              );
+            })}
+          </defs>
+
           {ticks.map((tick) => (
             <g key={tick}>
               <line
@@ -217,13 +286,14 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
                 y2={y(tick)}
                 stroke="#e3e9ee"
                 strokeWidth={1}
+                strokeDasharray={tick === 0 ? undefined : "2 4"}
               />
               <text
-                x={PAD.left - 8}
+                x={PAD.left - 10}
                 y={y(tick) + 4}
                 textAnchor="end"
                 className="nums"
-                fontSize={11}
+                fontSize={10}
                 fill="#94a3b8"
               >
                 {tick}
@@ -231,23 +301,19 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
             </g>
           ))}
 
-          <text
-            x={PAD.left}
-            y={H - 8}
-            fontSize={11}
-            fill="#94a3b8"
-          >
-            day 0
-          </text>
-          <text
-            x={W - PAD.right}
-            y={H - 8}
-            textAnchor="end"
-            fontSize={11}
-            fill="#94a3b8"
-          >
-            day {maxDay}
-          </text>
+          {dayTicks.map((day) => (
+            <text
+              key={day}
+              x={x(day)}
+              y={H - 10}
+              textAnchor="middle"
+              className="nums"
+              fontSize={10}
+              fill="#94a3b8"
+            >
+              {day === 0 ? "day 0" : day}
+            </text>
+          ))}
 
           {hover && (
             <line
@@ -261,29 +327,61 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
             />
           )}
 
+          {/* Only the current release gets a fill: more than one stacked
+              wash turns into mud and hides the lines underneath. */}
+          {shown
+            .filter((t) => t.release === current.release)
+            .map((trend) => {
+              const pts = coords(trend);
+              const area =
+                smoothPath(pts) +
+                ` L${pts[pts.length - 1].x},${y(0)} L${pts[0].x},${y(0)} Z`;
+              return (
+                <path
+                  key={`area-${trend.release}`}
+                  className="trend-area"
+                  d={area}
+                  fill={`url(#trend-fill-${trend.release.replace(".", "-")})`}
+                />
+              );
+            })}
+
           {shown.map((trend) => {
             const color = colorOf.get(trend.release)!;
+            const pts = coords(trend);
             const inWindow = visiblePoints(trend);
             const last = inWindow[inWindow.length - 1] ?? { day: 0, count: 0 };
             const cut = trend.points[trend.points.length - 1].day > maxDay;
+            const isCurrent = trend.release === current.release;
             return (
               <g key={trend.release}>
                 <path
-                  d={path(trend)}
+                  className="trend-line"
+                  pathLength={1}
+                  d={smoothPath(pts)}
                   fill="none"
                   stroke={color}
-                  strokeWidth={2}
+                  strokeWidth={isCurrent ? 2.5 : 2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  opacity={isCurrent ? 1 : 0.85}
                 />
-                {/* Direct labels up to four series; beyond that they can
-                    collide when two releases end on similar totals, and
-                    the legend plus tooltip already carry identity. */}
+                {/* End cap: a 2px surface ring keeps it legible where
+                    lines cross. */}
+                <circle
+                  cx={x(last.day)}
+                  cy={y(last.count)}
+                  r={4}
+                  fill={color}
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                />
                 {shown.length <= 4 && (
                   <text
-                    x={x(last.day) + 8}
+                    x={x(last.day) + 10}
                     y={y(last.count) + 4}
                     fontSize={11}
+                    fontWeight={isCurrent ? 600 : 400}
                     fill={color}
                     className="nums"
                   >
@@ -308,7 +406,7 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
 
         {hover && hover.values.length > 0 && (
           <div
-            className="pointer-events-none absolute top-2 rounded-lg bg-surface-card px-2.5 py-2 shadow-card ring-1 ring-hairline"
+            className="pointer-events-none absolute top-1 rounded-lg bg-surface-card px-2.5 py-2 shadow-panel ring-1 ring-hairline"
             style={{
               left: `${(hover.x / W) * 100}%`,
               transform:
