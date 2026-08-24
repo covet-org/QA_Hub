@@ -50,6 +50,15 @@ const ISSUES_QUERY = /* GraphQL */ `
         }
         parent {
           identifier
+          title
+          url
+          state {
+            name
+            type
+          }
+          project {
+            name
+          }
         }
       }
     }
@@ -69,7 +78,13 @@ interface IssuesPage {
         state: { name: string; type: string };
         labels: { nodes: { name: string }[] };
         project: { name: string } | null;
-        parent: { identifier: string } | null;
+        parent: {
+          identifier: string;
+          title: string;
+          url: string;
+          state: { name: string; type: string };
+          project: { name: string } | null;
+        } | null;
       }[];
     };
   };
@@ -122,6 +137,16 @@ export async function fetchIssuesWithLabels(
         project: node.project?.name ?? null,
         priorityName: node.priority > 0 ? node.priorityLabel : null,
         parentId: node.parent?.identifier ?? null,
+        parent: node.parent
+          ? {
+              id: node.parent.identifier,
+              title: node.parent.title,
+              url: node.parent.url,
+              status: node.parent.state.name,
+              statusType: node.parent.state.type,
+              project: node.parent.project?.name ?? null,
+            }
+          : null,
         allLabels,
       });
     }

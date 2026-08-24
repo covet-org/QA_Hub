@@ -4,11 +4,13 @@ import { fetchRoadmapIssues, linearConfigured, LinearError } from "@/lib/linear/
 import { sampleTickets } from "@/lib/linear/sample-data";
 import type {
   CoveredTicket,
+  ParentRef,
   ReleaseGroup,
   RoadmapSnapshot,
   RoadmapTicket,
 } from "@/lib/linear/types";
 import { RELEASE_NAME, releaseRank } from "@/lib/release-utils";
+import { buildRoadmapNodes } from "@/lib/roadmap-tree";
 import { getCoverageIndex } from "@/lib/testiny/coverage";
 
 /**
@@ -35,15 +37,28 @@ export async function getRoadmapSnapshot(): Promise<RoadmapSnapshot> {
 
   const coverage = await getCoverageIndex();
 
-  const covered: CoveredTicket[] = tickets.map((ticket) => {
-    const folders = coverage.get(ticket.id.toUpperCase()) ?? [];
+  const coverageOf = (id: string) => {
+    const folders = coverage.get(id.toUpperCase()) ?? [];
     const caseCount = folders.reduce((sum, f) => sum + f.caseCount, 0);
     return {
-      ...ticket,
       hasTestCases: caseCount > 0,
       caseCount,
       folders: folders.map((f) => f.folderTitle),
     };
+  };
+
+  const covered: CoveredTicket[] = tickets.map((ticket) => ({
+    ...ticket,
+    ...coverageOf(ticket.id),
+  }));
+
+  // A parent issue without a roadmap label still needs a row to hold its
+  // sub-issues. It gets the same coverage lookup, but the board marks it
+  // context-only so it stays out of the counts above.
+  const contextTicket = (parent: ParentRef): CoveredTicket => ({
+    ...parent,
+    labels: [],
+    ...coverageOf(parent.id),
   });
 
   // Group by project; release projects first, newest release on top.
@@ -54,13 +69,17 @@ export async function getRoadmapSnapshot(): Promise<RoadmapSnapshot> {
   }
 
   const groups: ReleaseGroup[] = [...byProject.entries()]
-    .map(([name, list]) => ({
-      name,
-      isRelease: RELEASE_NAME.test(name),
-      tickets: list.sort((a, b) =>
+    .map(([name, list]) => {
+      const tickets = list.sort((a, b) =>
         Number(a.hasTestCases) - Number(b.hasTestCases) || a.id.localeCompare(b.id),
-      ),
-    }))
+      );
+      return {
+        name,
+        isRelease: RELEASE_NAME.test(name),
+        tickets,
+        nodes: buildRoadmapNodes(tickets, contextTicket),
+      };
+    })
     .sort((a, b) => releaseRank(b.name) - releaseRank(a.name));
 
   return {
