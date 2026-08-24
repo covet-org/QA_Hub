@@ -145,8 +145,11 @@ export async function fetchIssuesWithLabels(
         labels: allLabels.filter((l) => labels.includes(l)),
         project: node.project?.name ?? null,
         priorityName: node.priority > 0 ? node.priorityLabel : null,
+        // `name` is the full name; `displayName` is the short handle
+        // ("aurbano"). Prefer the full name so bug assignees read like the
+        // Testiny ones on the Releases pages.
         assigneeName:
-          node.assignee?.displayName || node.assignee?.name || null,
+          node.assignee?.name || node.assignee?.displayName || null,
         parentId: node.parent?.identifier ?? null,
         parent: node.parent
           ? {
