@@ -1,16 +1,16 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/auth.config";
-import { ensureAccessRequest } from "@/lib/access/requests";
+import { isBlockedEmail, notifySignIn } from "@/lib/access/members";
 import { isAllowedEmail } from "@/lib/roles";
 
 /**
  * Full Auth.js instance (node runtime). Extends the edge-safe base
- * config: a verified account on the allowed domain is admitted, its
- * record is created as approved, and the QA lead is emailed on the first
- * arrival. Only an explicit `denied` record blocks a domain member.
+ * config with the sign-in notification.
  *
- * A store failure must not lock people out — the record write is
- * best-effort, and access is decided from the email domain.
+ * Access is pure configuration — domain + env lists, no database — so
+ * nothing here can fail because a store is unreachable. That was the
+ * cause of the "Access Denied" screen: the old callback awaited a KV
+ * read that threw while Upstash was down.
  */
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -24,21 +24,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       ) {
         return false;
       }
-      try {
-        const record = await ensureAccessRequest(
-          profile.email,
-          typeof profile.name === "string" ? profile.name : "",
-        );
-        return record.status !== "denied";
-      } catch (error) {
-        // Store unreachable: admit the domain member anyway. Being
-        // unable to write a record is not a reason to reject a
-        // colleague, and this used to send everyone to /pending.
-        console.error(
-          `Access record unavailable for ${profile.email}: ${error instanceof Error ? error.message : error}`,
-        );
-        return true;
+      if (isBlockedEmail(profile.email)) {
+        console.warn(`Blocked sign-in attempt: ${profile.email}`);
+        return false;
       }
+      // Fire and forget: the notification must never delay or block a
+      // sign-in, and notifySignIn swallows its own failures.
+      void notifySignIn(
+        profile.email,
+        typeof profile.name === "string" ? profile.name : "",
+      );
+      return true;
     },
   },
 });

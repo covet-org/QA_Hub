@@ -18,9 +18,8 @@ function prepareSections(viewer: Viewer): PreparedNavSection[] {
           unlocked: allowed.has(item.href),
           children: item.children,
         }))
-        // Members see locked items (with a lock icon, like Product
-        // Brain); guests only see what their link unlocks.
-        .filter((item) => viewer.kind === "member" || item.unlocked),
+        // Locked items stay visible with a lock icon, like Product Brain.
+        .filter(() => true),
     }))
     .filter((section) => section.items.some((i) => i.unlocked));
 }
@@ -30,20 +29,16 @@ export default async function AppLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const viewer = await getViewer();
   if (!viewer) redirect("/sign-in");
-  if (viewer.kind === "member" && viewer.status !== "approved") {
-    redirect("/pending");
-  }
-
-  const isMember = viewer.kind === "member";
+  if (viewer.status === "blocked") redirect("/no-access");
 
   return (
     <div className="flex min-h-screen">
       <Sidebar
         sections={prepareSections(viewer)}
-        userLabel={isMember ? viewer.name : "Guest"}
-        userSub={isMember ? viewer.email : `Shared link · ${viewer.label}`}
-        badge={isMember ? viewer.role : "guest"}
-        canSignOut={isMember}
+        userLabel={viewer.name}
+        userSub={viewer.email}
+        badge={viewer.role}
+        canSignOut
       />
       <main className="min-w-0 flex-1">{children}</main>
     </div>

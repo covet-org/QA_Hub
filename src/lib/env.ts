@@ -31,6 +31,14 @@ export const env = {
   get qaTeamEmails(): string[] {
     return emailList("QA_TEAM_EMAILS");
   },
+  /** Demoted to viewer: signed in, but no testing sections. */
+  get viewerEmails(): string[] {
+    return emailList("QA_VIEWER_EMAILS");
+  },
+  /** Refused outright, even on the allowed domain. */
+  get blockedEmails(): string[] {
+    return emailList("QA_BLOCKED_EMAILS");
+  },
   get testinyApiKey(): string | undefined {
     return process.env.TESTINY_API_KEY || undefined;
   },
