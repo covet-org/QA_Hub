@@ -2,11 +2,8 @@
 
 import { useState } from "react";
 import { DescopeList } from "@/components/DescopeList";
-import {
-  loadDescopes,
-  loadReleaseContent,
-  type DescopeResult,
-} from "@/lib/release-actions";
+import { fetchDescopes } from "@/lib/descope-cache";
+import { loadReleaseContent, type DescopeResult } from "@/lib/release-actions";
 import type { ReleaseBug, ReleaseContent } from "@/lib/release-content";
 import type { CaseRef, RunSummary } from "@/lib/testiny/types";
 import { Tag } from "@/components/Tag";
@@ -312,7 +309,9 @@ export function RunCard({
     if (!next || descopes || descopeState === "loading") return;
     setDescopeState("loading");
     try {
-      setDescopes(await loadDescopes(releaseNumber!));
+      // Shared per release, so the dev and regression cards of one
+      // release do not each fetch the same list.
+      setDescopes(await fetchDescopes(releaseNumber!));
       setDescopeState("idle");
     } catch {
       setDescopeState("error");
