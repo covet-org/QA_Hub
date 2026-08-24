@@ -50,7 +50,7 @@ export function ReleaseCycleCards({ releases }: { releases: ReleaseCycle[] }) {
 
   return (
     <section>
-      <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
+      <h2 className="font-display text-[15px] leading-tight font-semibold text-slate-800">
         Bug cycle time per release
       </h2>
       <p className="mt-1 text-sm text-slate-500">
