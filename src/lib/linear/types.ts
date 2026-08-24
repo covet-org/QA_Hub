@@ -22,6 +22,8 @@ export interface RoadmapTicket {
   id: string;
   title: string;
   url: string;
+  /** ISO timestamp the ticket was filed — drives the bug trend chart. */
+  createdAt?: string;
   /** Workflow state name, e.g. "Ready for QA". */
   status: string;
   /** Workflow state category: backlog | unstarted | started | completed | canceled. */

@@ -7,10 +7,12 @@ import { ReleaseDurationsCard } from "@/components/ReleaseDurationsCard";
 import { StatCard } from "@/components/StatCard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { initiatives, overallEffortSplit } from "@/content/initiatives";
+import { BugTrendChart } from "@/components/BugTrendChart";
+import { getBugTrends } from "@/lib/bugs";
 import { getBugCycleStats, getReleaseCycleStats } from "@/lib/linear/cycle";
 import {
-  getManualTestingSnapshot,
   getReleaseDurations,
+  getRunSummariesByState,
 } from "@/lib/testiny/queries";
 import { requireAccess } from "@/lib/viewer";
 
@@ -19,19 +21,28 @@ interface HomePageProps {
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const [viewer, snapshot, durations, cycleStats, releaseCycles, { denied }] =
-    await Promise.all([
-      requireAccess("/"),
-      getManualTestingSnapshot(),
-      getReleaseDurations(),
-      getBugCycleStats(),
-      getReleaseCycleStats(),
-      searchParams,
-    ]);
+  const [
+    viewer,
+    activeRunsResult,
+    durations,
+    cycleStats,
+    releaseCycles,
+    trends,
+    { denied },
+  ] = await Promise.all([
+    requireAccess("/"),
+    getRunSummariesByState("active"),
+    getReleaseDurations(),
+    getBugCycleStats(),
+    getReleaseCycleStats(),
+    getBugTrends(),
+    searchParams,
+  ]);
 
   const split = overallEffortSplit();
   const inProgress = initiatives.filter((i) => i.status === "in-progress").length;
-  const activeRuns = snapshot.runs.filter((r) => !r.isClosed).length;
+  const activeRuns = activeRunsResult.runs.length;
+  const currentRelease = trends[0];
   const firstName = viewer.name.split(" ")[0] || "there";
 
   return (
@@ -40,7 +51,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         kicker="QA Department"
         title="QA Brain"
         description={`Welcome back, ${firstName}. Everything the QA team is working on — manual coverage, automation progress and release readiness in one place.`}
-        footnote={`Testiny · ${snapshot.projectName}`}
+        footnote="Linear · Testiny"
       />
 
       <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
@@ -50,7 +61,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             think you should.
           </div>
         )}
-        {snapshot.isSample && <SampleDataNotice />}
+        {activeRunsResult.isSample && <SampleDataNotice />}
 
         <div className="grid gap-4 sm:grid-cols-3">
           <StatCard
@@ -59,9 +70,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             hint={`${initiatives.length} total on the roadmap`}
           />
           <StatCard
-            label="Manual test cases"
-            value={snapshot.totalTestCases}
-            hint="In Testiny"
+            label={`Bugs in ${currentRelease?.release ?? "this release"}`}
+            value={currentRelease?.total ?? 0}
+            hint="Filed against the current release"
+            tone={currentRelease && currentRelease.total > 0 ? "danger" : "brand"}
           />
           <StatCard
             label="Active test runs"
@@ -80,6 +92,16 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               manual={split.manual}
               automation={split.automation}
             />
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Bugs found per release"
+            subtitle="Cumulative bugs filed against each release, counted from its first bug so the curves compare directly. A steeper line means bugs surfacing faster."
+          />
+          <CardBody>
+            <BugTrendChart trends={trends} />
           </CardBody>
         </Card>
 
