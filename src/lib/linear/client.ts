@@ -52,6 +52,8 @@ const ISSUES_QUERY = /* GraphQL */ `
           identifier
           title
           url
+          priority
+          priorityLabel
           state {
             name
             type
@@ -82,6 +84,8 @@ interface IssuesPage {
           identifier: string;
           title: string;
           url: string;
+          priority: number;
+          priorityLabel: string;
           state: { name: string; type: string };
           project: { name: string } | null;
         } | null;
@@ -144,6 +148,8 @@ export async function fetchIssuesWithLabels(
               url: node.parent.url,
               status: node.parent.state.name,
               statusType: node.parent.state.type,
+              priorityName:
+                node.parent.priority > 0 ? node.parent.priorityLabel : null,
               project: node.parent.project?.name ?? null,
             }
           : null,

@@ -13,6 +13,8 @@ export interface ParentRef {
   status: string;
   statusType: string;
   project: string | null;
+  /** Linear priority label when triaged (e.g. "Urgent"), else null. */
+  priorityName: string | null;
 }
 
 export interface RoadmapTicket {
