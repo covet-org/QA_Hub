@@ -69,6 +69,13 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
   summaries, release durations), `coverage.ts` (folder-title → ticket-id index), `types.ts`,
   `sample-data.ts`.
 - `src/lib/roadmap.ts` — joins Linear roadmap tickets with Testiny coverage.
+- `src/lib/roadmap-tree.ts` — pure builder that nests sub-issues under their parent for
+  the Roadmap board. Rules: nesting happens INSIDE a release group (a ticket never moves
+  group because of its parent, so a parent spanning releases appears in each with only that
+  release's children); a parent carrying no roadmap label is still drawn but flagged
+  `contextOnly` so it stays OUT of the coverage counts; chains deeper than one level are
+  flattened onto their top-most in-group ancestor (one indent level, nothing hidden); a
+  parent known only by id — no `parent` object, as in the current fixture — stays a flat row.
 - `src/lib/bugs.ts` — Linear bugs grouped by release, active/closed derived from Testiny.
 - `src/lib/release-utils.ts` — shared `RELEASE_NAME` regex + `releaseRank`/`versionRank`.
 - `src/lib/worktime.ts` — 8-hour-workday math (weekends excluded) for cycle time.
@@ -113,6 +120,17 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
   active-pipeline statuses (backlog/unstarted/started/triage), 8h workdays via `worktime.ts`.
   Empty env label values are dangerous: `??` only catches null/undefined, so an empty string in
   Vercel overrides the code default — always set real values, never blank.
+
+### Parent / sub-issue hierarchy (Roadmap)
+The issues query pulls the parent's own fields (`parent { identifier title url state project }`)
+in the SAME request, because a parent epic usually does NOT carry a roadmap label and so never
+appears in the label-filtered result set. `RoadmapTicket.parent` is that ref; `parentId` is kept
+for the Releases detail panel, which only needs the id. Coverage stats stay "roadmap-labeled
+tickets only" — context parent rows are excluded, so the Roadmap totals did not change when the
+board became a tree.
+**The bundled Linear fixture has no parent fields at all** (it predates them, and
+`scripts/build-linear-fixture.mjs` does not emit them), so with no `LINEAR_API_KEY` the board
+renders flat — hierarchy is only visible against live Linear data.
 
 ### Coverage matching (Roadmap)
 A ticket "has test cases" when a Testiny folder whose TITLE mentions its id (regex `COV[-\s]?\d+`,

@@ -1,7 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { CoveredTicket, ReleaseGroup } from "@/lib/linear/types";
+import type {
+  CoveredTicket,
+  ReleaseGroup,
+  RoadmapNode,
+} from "@/lib/linear/types";
 import { Tag } from "@/components/Tag";
 
 type CoverageFilter = "all" | "covered" | "missing";
@@ -20,6 +24,20 @@ const statusTone: Record<string, string> = {
   canceled: "bg-slate-100 text-slate-400 ring-slate-200",
 };
 
+/** A board row after filtering: the node plus the sub-issues still shown. */
+interface VisibleNode {
+  node: RoadmapNode;
+  children: CoveredTicket[];
+  /** True when the parent row is only there to hold matching sub-issues. */
+  containerOnly: boolean;
+}
+
+interface VisibleGroup extends ReleaseGroup {
+  rows: VisibleNode[];
+  counted: number;
+  covered: number;
+}
+
 function CoverageTag({ ticket }: { ticket: CoveredTicket }) {
   if (ticket.hasTestCases) {
     return (
@@ -36,7 +54,7 @@ function CoverageTag({ ticket }: { ticket: CoveredTicket }) {
 function Chevron({ open }: { open: boolean }) {
   return (
     <svg
-      className={`size-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+      className={`size-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
       viewBox="0 0 16 16"
       fill="currentColor"
     >
@@ -45,17 +63,47 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
-function TicketRow({ ticket }: { ticket: CoveredTicket }) {
+function TicketLink({ ticket }: { ticket: CoveredTicket }) {
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-white px-5 py-3.5">
-      <a
-        href={ticket.url}
-        target="_blank"
-        rel="noreferrer"
-        className="font-mono text-xs font-semibold text-brand-700 hover:underline"
-      >
-        {ticket.id}
-      </a>
+    <a
+      href={ticket.url}
+      target="_blank"
+      rel="noreferrer"
+      className="font-mono text-xs font-semibold text-brand-700 hover:underline"
+    >
+      {ticket.id}
+    </a>
+  );
+}
+
+function FolderHint({ ticket }: { ticket: CoveredTicket }) {
+  if (ticket.folders.length === 0) return null;
+  return (
+    <span
+      className="text-xs text-slate-400"
+      title={`Testiny folders: ${ticket.folders.join(", ")}`}
+    >
+      {ticket.folders.length} folder{ticket.folders.length === 1 ? "" : "s"}
+    </span>
+  );
+}
+
+function TicketRow({
+  ticket,
+  nested = false,
+}: {
+  ticket: CoveredTicket;
+  nested?: boolean;
+}) {
+  return (
+    <li
+      className={
+        nested
+          ? "flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5 pr-5 pl-4"
+          : "flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-white px-5 py-3.5"
+      }
+    >
+      <TicketLink ticket={ticket} />
       <span
         className="min-w-0 flex-1 truncate text-sm text-slate-800"
         title={ticket.title}
@@ -66,21 +114,77 @@ function TicketRow({ ticket }: { ticket: CoveredTicket }) {
         {ticket.status}
       </Tag>
       <CoverageTag ticket={ticket} />
-      {ticket.folders.length > 0 && (
-        <span
-          className="text-xs text-slate-400"
-          title={`Testiny folders: ${ticket.folders.join(", ")}`}
+      <FolderHint ticket={ticket} />
+    </li>
+  );
+}
+
+/** A parent issue: click the row to reveal its sub-issues, indented. */
+function ParentRow({
+  row,
+  startOpen,
+}: {
+  row: VisibleNode;
+  startOpen: boolean;
+}) {
+  const [open, setOpen] = useState(startOpen);
+  const { node, children, containerOnly } = row;
+  const { ticket } = node;
+  const covered = children.filter((c) => c.hasTestCases).length;
+
+  return (
+    <li className="bg-white">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-3.5">
+        <TicketLink ticket={ticket} />
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 text-left"
         >
-          {ticket.folders.length} folder{ticket.folders.length === 1 ? "" : "s"}
-        </span>
+          <span
+            className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800"
+            title={ticket.title}
+          >
+            {ticket.title}
+          </span>
+          <Tag className={statusTone[ticket.statusType] ?? statusTone.backlog}>
+            {ticket.status}
+          </Tag>
+          {containerOnly ? (
+            <Tag className="bg-slate-100 text-slate-500 ring-slate-200">
+              Parent issue
+            </Tag>
+          ) : (
+            <CoverageTag ticket={ticket} />
+          )}
+          {!containerOnly && <FolderHint ticket={ticket} />}
+          <span className="text-xs whitespace-nowrap text-slate-500">
+            {children.length} sub-issue{children.length === 1 ? "" : "s"} ·{" "}
+            {covered} with test cases
+          </span>
+          <Chevron open={open} />
+        </button>
+      </div>
+      {open && (
+        <ul className="divide-y divide-slate-100 border-t border-slate-100 bg-slate-50/60 pl-5">
+          {children.map((child) => (
+            <TicketRow key={child.id} ticket={child} nested />
+          ))}
+        </ul>
       )}
     </li>
   );
 }
 
-function CollapsibleReleaseGroup({ group }: { group: ReleaseGroup }) {
+function CollapsibleReleaseGroup({
+  group,
+  filter,
+}: {
+  group: VisibleGroup;
+  filter: CoverageFilter;
+}) {
   const [open, setOpen] = useState(true);
-  const covered = group.tickets.filter((t) => t.hasTestCases).length;
 
   return (
     <section className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-200">
@@ -95,16 +199,25 @@ function CollapsibleReleaseGroup({ group }: { group: ReleaseGroup }) {
         </h2>
         <span className="flex items-center gap-3">
           <span className="text-xs text-slate-500">
-            {covered}/{group.tickets.length} with test cases
+            {group.covered}/{group.counted} with test cases
           </span>
           <Chevron open={open} />
         </span>
       </button>
       {open && (
         <ul className="divide-y divide-slate-100 border-t border-slate-100">
-          {group.tickets.map((ticket) => (
-            <TicketRow key={ticket.id} ticket={ticket} />
-          ))}
+          {group.rows.map((row) =>
+            row.children.length > 0 ? (
+              // Remounted per filter so a filtered view opens on its matches.
+              <ParentRow
+                key={`${row.node.ticket.id}:${filter}`}
+                row={row}
+                startOpen={filter !== "all"}
+              />
+            ) : (
+              <TicketRow key={row.node.ticket.id} ticket={row.node.ticket} />
+            ),
+          )}
         </ul>
       )}
     </section>
@@ -114,22 +227,37 @@ function CollapsibleReleaseGroup({ group }: { group: ReleaseGroup }) {
 export function ReleaseBoard({ groups }: { groups: ReleaseGroup[] }) {
   const [filter, setFilter] = useState<CoverageFilter>("all");
 
-  const visible = useMemo(
-    () =>
-      groups
-        .map((group) => ({
-          ...group,
-          tickets: group.tickets.filter((t) =>
-            filter === "all"
-              ? true
-              : filter === "covered"
-                ? t.hasTestCases
-                : !t.hasTestCases,
-          ),
-        }))
-        .filter((group) => group.tickets.length > 0),
-    [groups, filter],
-  );
+  const visible = useMemo<VisibleGroup[]>(() => {
+    const matches = (t: CoveredTicket) =>
+      filter === "all"
+        ? true
+        : filter === "covered"
+          ? t.hasTestCases
+          : !t.hasTestCases;
+
+    return groups
+      .map((group) => {
+        const rows: VisibleNode[] = [];
+        let counted = 0;
+        let covered = 0;
+
+        for (const node of group.nodes) {
+          const children = node.children.filter(matches);
+          const selfShown = !node.contextOnly && matches(node.ticket);
+          if (!selfShown && children.length === 0) continue;
+
+          rows.push({ node, children, containerOnly: !selfShown });
+          // Only rows passing the filter on their own merit are counted; a
+          // parent kept just to hold matching sub-issues is not.
+          const tallied = selfShown ? [node.ticket, ...children] : children;
+          counted += tallied.length;
+          covered += tallied.filter((t) => t.hasTestCases).length;
+        }
+
+        return { ...group, rows, counted, covered };
+      })
+      .filter((group) => group.rows.length > 0);
+  }, [groups, filter]);
 
   return (
     <div>
@@ -152,7 +280,11 @@ export function ReleaseBoard({ groups }: { groups: ReleaseGroup[] }) {
 
       <div className="mt-5 space-y-4">
         {visible.map((group) => (
-          <CollapsibleReleaseGroup key={group.name} group={group} />
+          <CollapsibleReleaseGroup
+            key={group.name}
+            group={group}
+            filter={filter}
+          />
         ))}
         {visible.length === 0 && (
           <p className="rounded-2xl bg-white px-5 py-10 text-center text-sm text-slate-500 ring-1 ring-slate-200">
