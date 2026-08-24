@@ -67,7 +67,7 @@ function NavGroup({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className={`flex w-full items-center justify-between rounded-md px-3 py-1.5 text-[13px] transition-colors ${
+        className={`flex w-full items-center justify-between rounded-md px-3 py-1.5 text-xs transition-colors ${
           inGroup
             ? "font-medium text-white"
             : "text-brand-100/80 hover:bg-white/5 hover:text-white"
@@ -87,7 +87,7 @@ function NavGroup({
                   // See the note on the top-level links: prefetching these
                   // would run each page's Linear/Testiny queries unbidden.
                   prefetch={false}
-                  className={`block rounded-md py-1.5 pr-3 pl-7 text-[13px] transition-colors ${
+                  className={`block rounded-md py-1.5 pr-3 pl-7 text-xs transition-colors ${
                     active
                       ? "bg-white/10 font-medium text-white shadow-[inset_2px_0_0_0_var(--color-accent-400)]"
                       : "text-brand-100/70 hover:bg-white/5 hover:text-white"
@@ -116,10 +116,10 @@ export function Sidebar({
   return (
     <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-white/5 bg-gradient-to-b from-brand-900 to-brand-950 text-brand-100 max-lg:hidden">
       <div className="px-5 pt-5 pb-3">
-        <span className="font-display text-xl font-semibold text-white">
+        <span className="font-display text-lg font-semibold text-white">
           co<span className="text-accent-400">·</span>vet
         </span>
-        <span className="mt-0.5 block text-[11px] tracking-wide text-brand-100/70">
+        <span className="mt-0.5 block text-[10px] tracking-wide text-brand-100/70">
           QA Brain
         </span>
       </div>
@@ -148,7 +148,7 @@ export function Sidebar({
                          * nobody opened. Data is fetched on navigation.
                          */
                         prefetch={false}
-                        className={`flex items-center justify-between rounded-md px-3 py-1.5 text-[13px] transition-colors ${
+                        className={`flex items-center justify-between rounded-md px-3 py-1.5 text-xs transition-colors ${
                           active
                             ? "bg-white/10 font-medium text-white shadow-[inset_2px_0_0_0_var(--color-accent-400)]"
                             : "text-brand-100/80 hover:bg-white/5 hover:text-white"
@@ -158,7 +158,7 @@ export function Sidebar({
                       </Link>
                     ) : (
                       <span
-                        className="flex cursor-not-allowed items-center justify-between rounded-md px-3 py-1.5 text-[13px] text-brand-100/35"
+                        className="flex cursor-not-allowed items-center justify-between rounded-md px-3 py-1.5 text-xs text-brand-100/35"
                         title="You don't have access to this section"
                       >
                         {item.label}
@@ -174,8 +174,8 @@ export function Sidebar({
       </nav>
 
       <div className="border-t border-white/10 px-4 py-4">
-        <p className="truncate text-sm font-medium text-white">{userLabel}</p>
-        <p className="truncate text-xs text-brand-100/60">{userSub}</p>
+        <p className="truncate text-[13px] font-medium text-white">{userLabel}</p>
+        <p className="truncate text-[11px] text-brand-100/60">{userSub}</p>
         <div className="mt-2 flex items-center justify-between">
           <span className="rounded-full bg-brand-700 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-accent-300 uppercase">
             {badge}
@@ -184,7 +184,7 @@ export function Sidebar({
             <form action={signOutAction}>
               <button
                 type="submit"
-                className="text-xs text-brand-100/60 hover:text-white"
+                className="text-[11px] text-brand-100/60 hover:text-white"
               >
                 Sign out
               </button>

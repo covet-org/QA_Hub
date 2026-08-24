@@ -36,7 +36,7 @@ function PriorityBar({
           style={{ width: `${Math.max(2, (slice.avgHours / maxHours) * 100)}%` }}
         />
       </div>
-      <span className="w-14 shrink-0 text-right text-xs text-slate-600">
+      <span className="w-14 shrink-0 text-right text-[11px] text-slate-600">
         {formatWorkingHours(slice.avgHours)}
       </span>
     </div>
@@ -53,15 +53,15 @@ export function CycleTimeCard({ cycles }: { cycles: StatusCycle[] }) {
 
   return (
     <section className="rounded-xl bg-surface-card p-5 shadow-card ring-1 ring-hairline">
-      <h2 className="font-display text-[15px] leading-tight font-semibold text-slate-800">
+      <h2 className="font-display text-sm leading-tight font-semibold text-slate-800">
         Bug cycle time by status
       </h2>
-      <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+      <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
         Average working time a bug spends in each status before moving on —
         8-hour workdays, weekends excluded, last {CYCLE_WINDOW_DAYS} days.
       </p>
 
-      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
+      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500">
         {Object.entries(PRIORITY_COLORS).map(([label, color]) => (
           <span key={label} className="inline-flex items-center gap-1.5">
             <span className={`size-2 rounded-full ${color}`} />
@@ -73,7 +73,7 @@ export function CycleTimeCard({ cycles }: { cycles: StatusCycle[] }) {
       <div className="mt-5 space-y-5">
         {cycles.map((cycle) => (
           <div key={cycle.status}>
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-[13px]">
               <span className="font-medium text-slate-700">{cycle.status}</span>
               <span className="text-slate-400">
                 avg {formatWorkingHours(cycle.avgHours)} · {cycle.samples} moves
@@ -91,7 +91,7 @@ export function CycleTimeCard({ cycles }: { cycles: StatusCycle[] }) {
           </div>
         ))}
         {cycles.length === 0 && (
-          <p className="text-sm text-slate-500">
+          <p className="text-[13px] text-slate-500">
             Not enough status changes in the window yet.
           </p>
         )}

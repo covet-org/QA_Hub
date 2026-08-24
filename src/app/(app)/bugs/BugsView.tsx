@@ -21,9 +21,9 @@ export async function BugsView({ kind }: { kind: BugKind }) {
       />
       <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
         {snapshot.isSample && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
             <span className="font-semibold">Linear not connected.</span> Set{" "}
-            <code className="rounded bg-amber-100 px-1 py-0.5 text-[12px]">
+            <code className="rounded bg-amber-100 px-1 py-0.5 text-[11px]">
               LINEAR_API_KEY
             </code>{" "}
             to list bugs.

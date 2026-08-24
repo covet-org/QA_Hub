@@ -42,7 +42,7 @@ export function MultiSelectFilter({
             type="button"
             onClick={() => onToggle(option.value)}
             aria-pressed={on}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[13px] font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
               on
                 ? "bg-brand-800 text-white shadow-card"
                 : "bg-surface-card text-slate-500 ring-1 ring-hairline hover:bg-surface-sunken"
@@ -51,7 +51,7 @@ export function MultiSelectFilter({
             {option.label}
             {option.count !== undefined && (
               <span
-                className={`nums text-[11px] ${on ? "text-brand-100" : "text-slate-400"}`}
+                className={`nums text-[10px] ${on ? "text-brand-100" : "text-slate-400"}`}
               >
                 {option.count}
               </span>
@@ -62,7 +62,7 @@ export function MultiSelectFilter({
       <button
         type="button"
         onClick={allSelected ? onClear : onAll}
-        className="ml-0.5 text-[12px] font-medium text-brand-700 hover:underline"
+        className="ml-0.5 text-[11px] font-medium text-brand-700 hover:underline"
       >
         {allSelected ? "Clear" : "Select all"}
       </button>

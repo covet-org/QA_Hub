@@ -19,13 +19,13 @@ function DistributionCard({
 
   return (
     <div className="rounded-xl bg-surface-card p-4 shadow-card ring-1 ring-hairline">
-      <h3 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
+      <h3 className="text-[13px] font-semibold tracking-wide text-slate-500 uppercase">
         {title}
       </h3>
       <ul className="mt-4 space-y-2.5">
         {entries.map(([label, value]) => (
           <li key={label}>
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-[13px]">
               <span className="text-slate-700">{label}</span>
               <span className="font-medium text-slate-500">{value}</span>
             </div>
@@ -38,7 +38,7 @@ function DistributionCard({
           </li>
         ))}
         {entries.length === 0 && (
-          <li className="text-sm text-slate-500">No data.</li>
+          <li className="text-[13px] text-slate-500">No data.</li>
         )}
       </ul>
     </div>

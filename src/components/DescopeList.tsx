@@ -42,7 +42,7 @@ export function DescopeList({
 }) {
   if (events.length === 0) {
     return (
-      <p className="text-[13px] text-slate-500">
+      <p className="text-xs text-slate-500">
         No features left {release}&apos;s scope in Linear.
       </p>
     );
@@ -50,7 +50,7 @@ export function DescopeList({
 
   return (
     <div>
-      <p className="font-display text-sm font-semibold text-slate-800">
+      <p className="font-display text-[13px] font-semibold text-slate-800">
         {events.length} feature{events.length === 1 ? "" : "s"} descoped from{" "}
         {release}
       </p>
@@ -66,7 +66,7 @@ export function DescopeList({
               href={event.url}
               target="_blank"
               rel="noreferrer"
-              className="w-[68px] shrink-0 font-mono text-xs font-semibold text-brand-700 hover:underline"
+              className="w-[68px] shrink-0 font-mono text-[11px] font-semibold text-brand-700 hover:underline"
             >
               {event.id}
             </a>
@@ -80,19 +80,19 @@ export function DescopeList({
                   {event.priorityName}
                 </Tag>
               ) : (
-                <span className="block text-center text-xs text-slate-300">
+                <span className="block text-center text-[11px] text-slate-300">
                   —
                 </span>
               )}
             </span>
             <span
-              className="min-w-[12rem] flex-1 truncate text-sm text-slate-800"
+              className="min-w-[12rem] flex-1 truncate text-[13px] text-slate-800"
               title={event.title}
             >
               {event.title}
             </span>
             <span
-              className="shrink-0 text-xs text-slate-500"
+              className="shrink-0 text-[11px] text-slate-500"
               title={`Left ${release} on ${event.at}`}
             >
               →{" "}
@@ -103,7 +103,7 @@ export function DescopeList({
             <Tag className={statusTone[event.statusType] ?? statusTone.backlog}>
               {event.status}
             </Tag>
-            <span className="nums w-[52px] shrink-0 text-right text-xs text-slate-400">
+            <span className="nums w-[52px] shrink-0 text-right text-[11px] text-slate-400">
               {movedAt(event.at)}
             </span>
           </li>

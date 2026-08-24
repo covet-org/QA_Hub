@@ -17,7 +17,6 @@ import type {
   TestinyRunResultValues,
   TestinyTestCase,
   TestinyTestRun,
-  TestinyUser,
 } from "@/lib/testiny/types";
 
 const PRIORITY_LABELS: Record<number, string> = {
@@ -37,43 +36,11 @@ function asArray<T>(value: T | T[] | undefined | null): T[] {
   return Array.isArray(value) ? value : [value];
 }
 
-/** Best available display name for a Testiny user. */
-function userDisplayName(user: TestinyUser): string {
-  const full = [user.firstname, user.lastname].filter(Boolean).join(" ").trim();
-  return user.name?.trim() || full || user.email || `User ${user.id}`;
-}
-
-/**
- * Names for the users a run's cases are assigned to.
- *
- * Deliberately forgiving: the user entity is not documented alongside the
- * run mapping, so a rejected query yields an empty map and the UI simply
- * shows no assignee, rather than failing the whole Releases page.
- */
-async function resolveUserNames(
-  ids: Set<number>,
-): Promise<Map<number, string>> {
-  const names = new Map<number, string>();
-  if (ids.size === 0) return names;
-  try {
-    const users = await findAllEntities<TestinyUser>("user", {
-      ids: [...ids],
-    });
-    for (const user of users) names.set(user.id, userDisplayName(user));
-  } catch (error) {
-    console.warn(
-      `Could not resolve Testiny assignees: ${error instanceof Error ? error.message : error}`,
-    );
-  }
-  return names;
-}
-
 function summarizeRun(
   run: TestinyTestRun,
   allResults: TestinyRunResultValues[],
   caseTitles: Map<number, string>,
   projectKey: string,
-  userNames: Map<number, string>,
 ): RunSummary {
   // Rows with deleted_at were removed from the run — don't count them.
   const results = allResults.filter((r) => !r.deleted_at);
@@ -86,9 +53,11 @@ function summarizeRun(
     id: r.testcase_id,
     title: caseTitles.get(r.testcase_id) ?? `TC-${r.testcase_id}`,
     url: `https://app.testiny.io/${projectKey}/testruns/tr/${run.id}/tc/${r.testcase_id}`,
-    assignee: r.assigned_user_id
-      ? (userNames.get(r.assigned_user_id) ?? null)
-      : null,
+    // Testiny resolves the name for us on the mapping row; the id is the
+    // fallback so an assigned case never reads as unassigned.
+    assignee:
+      r.$assignee_name ??
+      (r.assigned_user_id ? `User ${r.assigned_user_id}` : null),
   });
 
   for (const r of results) {
@@ -173,20 +142,12 @@ async function summarizeRunsWithResults(
     }
   }
 
-  const userIds = new Set<number>();
-  for (const rows of resultsByRun.values()) {
-    for (const row of rows) {
-      if (row.assigned_user_id) userIds.add(row.assigned_user_id);
-    }
-  }
-
   const projectKey = await getProjectKey();
-  const userNames = await resolveUserNames(userIds);
   return runs.map((run) => {
     const rows = (resultsByRun.get(run.id) ?? []).filter(
       (r) => !deletedCaseIds.has(r.testcase_id),
     );
-    return summarizeRun(run, rows, caseTitles, projectKey, userNames);
+    return summarizeRun(run, rows, caseTitles, projectKey);
   });
 }
 

@@ -31,7 +31,7 @@ interface TagProps {
 export function Tag({ children, tone = "neutral", className }: TagProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ring-1 ring-inset ${
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ring-1 ring-inset ${
         className ?? toneClass[tone]
       }`}
     >

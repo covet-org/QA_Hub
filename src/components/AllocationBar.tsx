@@ -9,7 +9,7 @@ export function AllocationBar({ manual, automation, showLabels = true }: Allocat
   return (
     <div>
       {showLabels && (
-        <div className="mb-1 flex justify-between text-[11px] font-medium text-slate-500">
+        <div className="mb-1 flex justify-between text-[10px] font-medium text-slate-500">
           <span>
             Manual <span className="text-slate-700">{manual}%</span>
           </span>
