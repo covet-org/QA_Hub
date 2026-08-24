@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { Hero } from "@/components/Hero";
-import { StatCard } from "@/components/StatCard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { getManualTestingSnapshot } from "@/lib/testiny/queries";
 import { requireAccess } from "@/lib/viewer";
+import { PageHeader, PageShell, StatCard } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Manual Testing" };
 
@@ -51,13 +50,13 @@ export default async function ManualTestingPage() {
 
   return (
     <div>
-      <Hero
+      <PageHeader
         kicker="Testing · Manual"
         title="Manual Testing"
         description="The manual test inventory in Testiny — coverage by feature area, case types and priorities. This is the effort base that automation will progressively take over."
         footnote={`Testiny · ${snapshot.projectName}`}
       />
-      <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
+      <PageShell>
         {snapshot.isSample && <SampleDataNotice />}
 
         <div className="grid gap-4 sm:grid-cols-3">
@@ -88,7 +87,7 @@ export default async function ManualTestingPage() {
             data={snapshot.casesByPriority}
           />
         </div>
-      </div>
+      </PageShell>
     </div>
   );
 }

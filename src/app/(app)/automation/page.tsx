@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { Hero } from "@/components/Hero";
 import { InitiativeList } from "@/components/InitiativeList";
-import { Tag } from "@/components/Tag";
 import { initiatives } from "@/content/initiatives";
 import { getAutomationStatus } from "@/lib/automation/provider";
 import { requireAccess } from "@/lib/viewer";
+import { PageHeader, PageShell, Tag } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Automation" };
 
@@ -18,7 +17,7 @@ export default async function AutomationPage() {
 
   return (
     <div>
-      <Hero
+      <PageHeader
         kicker="Testing · Automation"
         title="Automation"
         description="Where test automation stands today and where it's headed. Suite results will appear here automatically once the CI provider is connected."
@@ -26,9 +25,9 @@ export default async function AutomationPage() {
         <Tag className="bg-white/10 text-accent-300 ring-white/20">
           {status.available ? "CI connected" : "Phase 2 — CI not connected yet"}
         </Tag>
-      </Hero>
+      </PageHeader>
 
-      <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
+      <PageShell>
         {!status.available && (
           <section className="rounded-xl border border-dashed border-brand-600/30 bg-brand-50 p-6">
             <h2 className="font-display text-base font-semibold text-brand-900">
@@ -59,7 +58,7 @@ export default async function AutomationPage() {
           </p>
           <InitiativeList initiatives={automationInitiatives} />
         </section>
-      </div>
+      </PageShell>
     </div>
   );
 }

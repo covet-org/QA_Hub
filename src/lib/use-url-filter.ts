@@ -36,6 +36,8 @@ export function useUrlFilter(
   all: string[],
 ): {
   selected: Set<string>;
+  /** Replace the whole selection — what the FilterGroup component calls. */
+  set: (values: string[]) => void;
   toggle: (value: string) => void;
   setAll: () => void;
   clear: () => void;
@@ -80,8 +82,17 @@ export function useUrlFilter(
     [effective, all, sync],
   );
 
+  const set = useCallback(
+    (values: string[]) => {
+      // Selecting everything collapses back to a clean URL.
+      sync(values.length === all.length ? null : new Set(values));
+    },
+    [all.length, sync],
+  );
+
   return {
     selected: effective,
+    set,
     toggle,
     setAll: useCallback(() => sync(null), [sync]),
     clear: useCallback(() => sync(new Set()), [sync]),

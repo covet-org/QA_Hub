@@ -1,8 +1,8 @@
-import { Hero } from "@/components/Hero";
 import { RunsBoard } from "@/app/(app)/releases/RunsBoard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { getRunSummariesByState } from "@/lib/testiny/queries";
 import { requireAccess } from "@/lib/viewer";
+import { PageHeader, PageShell } from "@/components/ui";
 
 /**
  * Shared server view for the Active / Closed release pages.
@@ -19,7 +19,7 @@ export async function RunsView({ state }: { state: "active" | "closed" }) {
 
   return (
     <div>
-      <Hero
+      <PageHeader
         kicker={`Release Readiness · ${isActive ? "Active" : "Closed"}`}
         title={isActive ? "Active Runs" : "Closed Runs"}
         description={
@@ -29,14 +29,14 @@ export async function RunsView({ state }: { state: "active" | "closed" }) {
         }
         footnote="Testiny · QA CoVet"
       />
-      <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
+      <PageShell>
         {isSample && <SampleDataNotice />}
 
         <RunsBoard
           runs={runs}
           emptyLabel={`No ${isActive ? "active" : "closed"} test runs.`}
         />
-      </div>
+      </PageShell>
     </div>
   );
 }

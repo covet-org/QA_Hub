@@ -1,10 +1,7 @@
-import { Card, CardBody, CardHeader } from "@/components/Card";
-import { Hero } from "@/components/Hero";
 import { AllocationBar } from "@/components/AllocationBar";
 import { CycleTimeCard } from "@/components/CycleTimeCard";
 import { ReleaseCycleCards } from "@/components/ReleaseCycleCards";
 import { ReleaseDurationsCard } from "@/components/ReleaseDurationsCard";
-import { StatCard } from "@/components/StatCard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { initiatives, overallEffortSplit } from "@/content/initiatives";
 import { BugTrendChart } from "@/components/BugTrendChart";
@@ -15,6 +12,14 @@ import {
   getRunSummariesByState,
 } from "@/lib/testiny/queries";
 import { requireAccess } from "@/lib/viewer";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  PageHeader,
+  PageShell,
+  StatCard,
+} from "@/components/ui";
 
 interface HomePageProps {
   searchParams: Promise<{ denied?: string }>;
@@ -40,21 +45,23 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   ]);
 
   const split = overallEffortSplit();
-  const inProgress = initiatives.filter((i) => i.status === "in-progress").length;
+  const inProgress = initiatives.filter(
+    (i) => i.status === "in-progress",
+  ).length;
   const activeRuns = activeRunsResult.runs.length;
   const currentRelease = trends[0];
   const firstName = viewer.name.split(" ")[0] || "there";
 
   return (
     <div>
-      <Hero
+      <PageHeader
         kicker="QA Department"
         title="QA Brain"
         description={`Welcome back, ${firstName}. Everything the QA team is working on — manual coverage, automation progress and release readiness in one place.`}
         footnote="Linear · Testiny"
       />
 
-      <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
+      <PageShell>
         {denied && (
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
             You don&apos;t have access to that section. Ask a QA lead if you
@@ -73,7 +80,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             label={`Bugs in ${currentRelease?.release ?? "this release"}`}
             value={currentRelease?.total ?? 0}
             hint="Filed against the current release"
-            tone={currentRelease && currentRelease.total > 0 ? "danger" : "brand"}
+            tone={
+              currentRelease && currentRelease.total > 0 ? "danger" : "brand"
+            }
           />
           <StatCard
             label="Active test runs"
@@ -111,7 +120,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </div>
 
         <ReleaseCycleCards releases={releaseCycles.releases} />
-      </div>
+      </PageShell>
     </div>
   );
 }
