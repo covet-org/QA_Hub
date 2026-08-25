@@ -21,13 +21,9 @@ export function linearConfigured(): boolean {
   return Boolean(env.linearApiKey);
 }
 
-const ISSUES_QUERY = /* GraphQL */ `
-  query IssuesByLabels($labels: [String!]!, $after: String) {
-    issues(
-      first: 100
-      after: $after
-      filter: { labels: { name: { in: $labels } } }
-    ) {
+const issuesQuery = (filter: string) => /* GraphQL */ `
+  query Issues($keys: [String!]!, $after: String) {
+    issues(first: 100, after: $after, filter: ${filter}) {
       pageInfo {
         hasNextPage
         endCursor
@@ -112,8 +108,15 @@ interface IssuesPage {
  * React cache() compares arguments by identity, and every caller builds
  * a fresh array.
  */
-async function readIssuesWithLabels(
-  labels: string[],
+async function readIssues(
+  query: string,
+  keys: string[],
+  /**
+   * Labels to keep on each ticket for display. Null keeps every label,
+   * which is what the project query wants: an issue in a release is
+   * content regardless of how it happens to be tagged.
+   */
+  displayLabels: string[] | null,
 ): Promise<RoadmapTicket[]> {
   const apiKey = env.linearApiKey;
   if (!apiKey) throw new LinearError("LINEAR_API_KEY is not configured");
@@ -129,8 +132,8 @@ async function readIssuesWithLabels(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        query: ISSUES_QUERY,
-        variables: { labels, after },
+        query,
+        variables: { keys, after },
       }),
       next: { revalidate: LINEAR_REVALIDATE_SECONDS },
     });
@@ -154,7 +157,9 @@ async function readIssuesWithLabels(
         url: node.url,
         status: node.state.name,
         statusType: node.state.type,
-        labels: allLabels.filter((l) => labels.includes(l)),
+        labels: displayLabels
+          ? allLabels.filter((l) => displayLabels.includes(l))
+          : allLabels,
         project: node.project?.name ?? null,
         priorityName: node.priority > 0 ? node.priorityLabel : null,
         // `name` is the full name; `displayName` is the short handle
@@ -186,10 +191,29 @@ async function readIssuesWithLabels(
   return tickets;
 }
 
+const ISSUES_BY_LABEL_QUERY = issuesQuery("{ labels: { name: { in: $keys } } }");
+const ISSUES_BY_PROJECT_QUERY = issuesQuery(
+  "{ project: { name: { in: $keys } } }",
+);
+
 const cachedIssuesByLabelKey = unstable_cache(
-  async (labelKey: string) => readIssuesWithLabels(labelKey.split("|")),
+  async (labelKey: string) => {
+    const labels = labelKey.split("|");
+    return readIssues(ISSUES_BY_LABEL_QUERY, labels, labels);
+  },
   ["linear-issues-by-label"],
   { revalidate: LINEAR_REVALIDATE_SECONDS },
+);
+
+const cachedIssuesByProjectKey = unstable_cache(
+  async (projectKey: string) =>
+    readIssues(ISSUES_BY_PROJECT_QUERY, projectKey.split("|"), null),
+  ["linear-issues-by-project"],
+  { revalidate: LINEAR_REVALIDATE_SECONDS },
+);
+
+const issuesByProjectKey = cache((projectKey: string) =>
+  cachedIssuesByProjectKey(projectKey),
 );
 
 const issuesByLabelKey = cache((labelKey: string) =>
@@ -200,6 +224,19 @@ export function fetchIssuesWithLabels(
   labels: string[],
 ): Promise<RoadmapTicket[]> {
   return issuesByLabelKey([...labels].sort().join("|"));
+}
+
+/**
+ * Every issue sitting in the given projects, whatever its labels.
+ *
+ * What actually shipped in a release is the release project's contents —
+ * not the roadmap-labelled subset. Shipped work loses its roadmap label,
+ * so "3.35 Release" reads as empty by label and full by project.
+ */
+export function fetchIssuesInProjects(
+  projects: string[],
+): Promise<RoadmapTicket[]> {
+  return issuesByProjectKey([...projects].sort().join("|"));
 }
 
 const PROJECTS_QUERY = /* GraphQL */ `
