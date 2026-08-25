@@ -197,20 +197,12 @@ export async function getCsBugTrends(): Promise<CsBugTrends> {
 }
 
 /**
- * The group for CS bugs that fall outside every release window.
- *
- * Named with the boundary in it, because the honest reading matters more
- * than the short one: this bucket held 550 tickets on the day it shipped,
- * and "Cross Product 550" next to "3.35 11" invites the conclusion that
- * 550 customer bugs are cross-product issues. They are not — they are
- * older than the earliest go-live we can see, which is a statement about
- * our data, not about the bugs.
+ * Once every bug that can be attributed sits under its release, a
+ * "cross product" bucket stops meaning anything: what was left in it was
+ * not a kind of bug, only the stretch of history before the release
+ * pipeline starts. The board covers the releases it can speak about and
+ * says so; the count of what falls outside lives in `outsideWindows`.
  */
-export function csUnattributedName(oldestRelease: string | null): string {
-  return oldestRelease === null
-    ? "Cross Product"
-    : `Cross Product · before ${oldestRelease}`;
-}
 
 /**
  * The CS board, grouped the way the Home chart counts.
@@ -228,15 +220,18 @@ export async function getCsBugBoard(): Promise<{
   groups: BugGroup[];
   source: "pipeline" | "table" | "none";
   isSample: boolean;
-  /** The unattributed group's name, for the board to pin in its filter. */
-  unattributed: string;
+  /** The oldest release the board can attribute anything to. */
+  oldestRelease: string | null;
+  /** CS bugs filed before that release shipped, so not shown here. */
+  outsideWindows: number;
 }> {
   if (!linearConfigured()) {
     return {
       groups: [],
       source: "none",
       isSample: true,
-      unattributed: csUnattributedName(null),
+      oldestRelease: null,
+      outsideWindows: 0,
     };
   }
 
@@ -265,7 +260,8 @@ export async function getCsBugBoard(): Promise<{
       groups: [],
       source: "none",
       isSample: true,
-      unattributed: csUnattributedName(null),
+      oldestRelease: null,
+      outsideWindows: 0,
     };
   }
 
@@ -273,17 +269,22 @@ export async function getCsBugBoard(): Promise<{
   // Windows come back newest-first, so the last one is the oldest release
   // we can attribute anything to.
   const oldest = windows.length > 0 ? windows[windows.length - 1].release : null;
-  const unattributed = csUnattributedName(oldest);
+  const outsideWindows =
+    grouped.find((entry) => entry.release === null)?.tickets.length ?? 0;
 
-  const groups: BugGroup[] = grouped.map((entry) => {
+  const groups: BugGroup[] = grouped
+    // Attributable bugs only. What is left over is not a category, just
+    // the history before the release pipeline begins — reported as a
+    // number in the header rather than as a 550-row group nobody opens.
+    .filter((entry) => entry.release !== null)
+    .map((entry) => {
     const sorted = [...entry.tickets].sort(
       (a, b) =>
         Number(isOpen(b)) - Number(isOpen(a)) ||
         b.id.localeCompare(a.id, undefined, { numeric: true }),
     );
     return {
-      name:
-        entry.release === null ? unattributed : `${entry.release} Release`,
+      name: `${entry.release} Release`,
       isRelease: entry.release !== null,
       // Every window is worth reading on this board; "active" is a
       // testing-phase idea and these releases are already in production.
@@ -293,5 +294,5 @@ export async function getCsBugBoard(): Promise<{
     };
   });
 
-  return { groups, source, isSample: false, unattributed };
+  return { groups, source, isSample: false, oldestRelease: oldest, outsideWindows };
 }

@@ -27,7 +27,14 @@ export async function BugsView({ kind }: { kind: BugKind }) {
         }
         footnote={
           isCs
-            ? `Linear · go-live from the production release pipeline · ${csBoard?.unattributed ?? "Cross Product"} holds customer bugs older than any release we can attribute`
+            ? [
+                "Linear · go-live from the production release pipeline",
+                csBoard && csBoard.outsideWindows > 0 && csBoard.oldestRelease
+                  ? `${csBoard.outsideWindows} older customer bugs predate ${csBoard.oldestRelease} and are not shown`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")
             : "Linear · active releases derived from open Testiny runs"
         }
       />
@@ -43,11 +50,7 @@ export async function BugsView({ kind }: { kind: BugKind }) {
         )}
 
         {isCs && csBoard ? (
-          <BugBoard
-            groups={snapshot.groups}
-            revealAfter={2}
-            pinned={[csBoard.unattributed]}
-          />
+          <BugBoard groups={snapshot.groups} revealAfter={2} />
         ) : (
           <BugBoard groups={snapshot.groups} />
         )}

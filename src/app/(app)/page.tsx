@@ -137,40 +137,39 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </CardBody>
         </Card>
 
-        <div className="grid items-start gap-4 xl:grid-cols-2">
-          <Card>
-            <CardHeader
-              title="Bugs found per release"
-              subtitle="Cumulative bugs filed against each release, counted from its first bug so the curves compare directly. A steeper line means bugs surfacing faster."
-            />
-            <CardBody>
-              <BugTrendChart trends={trends} />
-            </CardBody>
-          </Card>
-          <Card>
-            <CardHeader
-              title="CS bugs per release"
-              subtitle="Bugs reported by customer service while each release was the version in production. CS bugs are filed cross-product, so they are attributed by date: a release owns production from its go-live until the next release's. Day 0 is go-live, so the curves compare week for week."
-              footnote={
-                csBugs.source === "pipeline"
-                  ? "Go-live from Linear's production release pipeline"
-                  : csBugs.source === "table"
-                    ? "Go-live from the checked-in release table — Linear's release pipeline was unavailable"
-                    : undefined
-              }
-            />
-            <CardBody>
-              {csBugs.trends.length > 0 ? (
-                <BugTrendChart trends={csBugs.trends} />
-              ) : (
-                <EmptyState>
-                  No release has a recorded go-live date, so there is no
-                  production window to attribute CS bugs to yet.
-                </EmptyState>
-              )}
-            </CardBody>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader
+            title="Bugs found per release"
+            subtitle="Cumulative bugs filed against each release, counted from its first bug so the curves compare directly. A steeper line means bugs surfacing faster."
+          />
+          <CardBody>
+            <BugTrendChart trends={trends} />
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="CS bugs per release"
+            subtitle="Bugs reported by customer service while each release was the version in production. CS bugs are filed cross-product, so they are attributed by date: a release owns production from its go-live until the next release's. Day 0 is go-live, so the curves compare week for week."
+            footnote={
+              csBugs.source === "pipeline"
+                ? "Go-live from Linear's production release pipeline"
+                : csBugs.source === "table"
+                  ? "Go-live from the checked-in release table — Linear's release pipeline was unavailable"
+                  : undefined
+            }
+          />
+          <CardBody>
+            {csBugs.trends.length > 0 ? (
+              <BugTrendChart trends={csBugs.trends} />
+            ) : (
+              <EmptyState>
+                No release has a recorded go-live date, so there is no
+                production window to attribute CS bugs to yet.
+              </EmptyState>
+            )}
+          </CardBody>
+        </Card>
 
         <Card>
           <CardHeader
