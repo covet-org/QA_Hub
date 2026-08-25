@@ -6,7 +6,11 @@ import { fetchDescopes } from "@/lib/descope-cache";
 import { loadReleaseContent, type DescopeResult } from "@/lib/release-actions";
 import type { ReleaseBug, ReleaseContent } from "@/lib/release-content";
 import type { CaseRef, RunSummary } from "@/lib/testiny/types";
-import { Tag } from "@/components/ui";
+import {
+  RunProgressBar,
+  RunProgressLegend,
+  Tag,
+} from "@/components/ui";
 
 const STORY_LABEL: Record<string, string> = {
   "Medium to Big Size Features": "Medium/Big",
@@ -210,13 +214,8 @@ function ReleaseDetail({
   );
 }
 
-const SEGMENTS = [
-  { key: "passed", className: "bg-emerald-500", label: "Passed" },
-  { key: "failed", className: "bg-rose-500", label: "Failed" },
-  { key: "blocked", className: "bg-amber-400", label: "Blocked" },
-  { key: "skipped", className: "bg-slate-300", label: "Skipped" },
-  { key: "notRun", className: "bg-slate-200", label: "Not run" },
-] as const;
+// The bar and legend live in the library so Home's progression card and
+// this card cannot disagree about one run's progress.
 
 function CaseList({
   label,
@@ -356,40 +355,9 @@ export function RunCard({
         </div>
       </div>
 
-      <div className="mx-4 mt-2.5 flex h-2 overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200/70">
-        {SEGMENTS.map(({ key, className }) => {
-          const value = run[key];
-          if (!value || run.total === 0) return null;
-          return (
-            <div
-              key={key}
-              className={className}
-              style={{ width: `${(value / run.total) * 100}%` }}
-            />
-          );
-        })}
-      </div>
+      <RunProgressBar run={run} className="mx-4 mt-2.5" />
 
-      <div className="mt-2.5 flex flex-wrap gap-1.5 px-4">
-        {SEGMENTS.map(({ key, className, label }) => {
-          const value = run[key];
-          return (
-            <span
-              key={key}
-              className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] ring-1 ring-inset ${
-                value
-                  ? "bg-slate-50 text-slate-600 ring-slate-200"
-                  : "text-slate-300 ring-transparent"
-              }`}
-            >
-              <span
-                className={`size-1.5 rounded-full ${value ? className : "bg-slate-200"}`}
-              />
-              {label} <span className="nums font-semibold">{value}</span>
-            </span>
-          );
-        })}
-      </div>
+      <RunProgressLegend run={run} className="mt-2.5 px-4" />
 
       <div aria-hidden className="pb-3" />
 
