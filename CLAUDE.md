@@ -116,7 +116,11 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
   its project held 7 that shipped. `fetchIssuesInProjects` in the Linear client reuses the
   same selection set and cache layers as `fetchIssuesWithLabels`, keyed by project instead
   of label. Roadmap-labelled stories are still merged in, so a story parked outside the
-  release project is not lost.
+  release project is not lost. **An issue whose parent is also in the release is dropped** —
+  it is a step of that feature, not a feature. Without that rule 3.36 listed 21 features, a
+  third of them "QA Review" / "Gabriel Review" and numbered platform sub-tasks; the real
+  number is 5. A sub-issue whose parent lives elsewhere keeps its row, since nothing in the
+  release speaks for it.
 - `src/lib/smooth-path.ts` — monotone cubic (Fritsch-Carlson) SVG paths. Monotone specifically:
   a plain spline overshoots, and on a cumulative series that draws the curve dipping below a
   total already reached, which is the chart lying about the data.
