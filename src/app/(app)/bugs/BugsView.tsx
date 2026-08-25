@@ -1,10 +1,5 @@
 import { BugBoard } from "@/components/BugBoard";
-import {
-  CS_UNATTRIBUTED,
-  getBugsSnapshot,
-  getCsBugBoard,
-  type BugKind,
-} from "@/lib/bugs";
+import { getBugsSnapshot, getCsBugBoard, type BugKind } from "@/lib/bugs";
 import { env } from "@/lib/env";
 import { requireAccess } from "@/lib/viewer";
 import { PageHeader, PageShell } from "@/components/ui";
@@ -17,7 +12,8 @@ export async function BugsView({ kind }: { kind: BugKind }) {
   // CS bugs are grouped by which release was in production when they
   // arrived — the same attribution the Home chart draws. Product bugs
   // carry their release on the ticket, so they keep their own grouping.
-  const snapshot = isCs ? await getCsBugBoard() : await getBugsSnapshot(kind);
+  const csBoard = isCs ? await getCsBugBoard() : null;
+  const snapshot = csBoard ?? (await getBugsSnapshot(kind));
 
   return (
     <div>
@@ -31,7 +27,7 @@ export async function BugsView({ kind }: { kind: BugKind }) {
         }
         footnote={
           isCs
-            ? `Linear · go-live from the production release pipeline · ${CS_UNATTRIBUTED} holds bugs filed before the earliest known go-live`
+            ? `Linear · go-live from the production release pipeline · ${csBoard?.unattributed ?? "Cross Product"} holds customer bugs older than any release we can attribute`
             : "Linear · active releases derived from open Testiny runs"
         }
       />
@@ -46,11 +42,11 @@ export async function BugsView({ kind }: { kind: BugKind }) {
           </div>
         )}
 
-        {isCs ? (
+        {isCs && csBoard ? (
           <BugBoard
             groups={snapshot.groups}
             revealAfter={2}
-            pinned={[CS_UNATTRIBUTED]}
+            pinned={[csBoard.unattributed]}
           />
         ) : (
           <BugBoard groups={snapshot.groups} />
