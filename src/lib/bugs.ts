@@ -12,6 +12,8 @@ import { buildBugTrends, type ReleaseTrend } from "@/lib/bug-trend";
 import {
   buildCsBugTrends,
   buildReleaseWindows,
+  groupCsBugsByWindow,
+  type ReleaseWindow,
 } from "@/lib/cs-bug-trend";
 import { RELEASE_NAME, releaseRank } from "@/lib/release-utils";
 import { fetchProductionReleases } from "@/lib/linear/releases";
@@ -192,4 +194,77 @@ export async function getCsBugTrends(): Promise<CsBugTrends> {
     );
     return { trends: [], source: "none" };
   }
+}
+
+/** The label used for CS bugs that fall outside every release window. */
+export const CS_UNATTRIBUTED = "Cross Product";
+
+/**
+ * The CS board, grouped the way the Home chart counts.
+ *
+ * Not getBugsSnapshot: that groups by Linear project and scopes itself to
+ * release projects, Cross-Product and unassigned, which on this label
+ * showed 15 of 60-odd bugs under seventeen empty release headings. A
+ * customer bug's project says where it was triaged; only its date says
+ * which release was in front of customers when it arrived.
+ *
+ * Bugs older than the earliest go-live are grouped under Cross Product
+ * rather than dropped — they are real, we just cannot attribute them.
+ */
+export async function getCsBugBoard(): Promise<{
+  groups: BugGroup[];
+  source: "pipeline" | "table" | "none";
+  isSample: boolean;
+}> {
+  if (!linearConfigured()) {
+    return { groups: [], source: "none", isSample: true };
+  }
+
+  let tickets: RoadmapTicket[];
+  let windows: ReleaseWindow[];
+  let source: "pipeline" | "table" | "none";
+  try {
+    const [all, pipeline] = await Promise.all([
+      fetchIssuesWithLabels([env.csBugLabel]),
+      fetchProductionReleases().catch(() => null),
+    ]);
+    tickets = all;
+    const goLive =
+      pipeline && pipeline.length > 0
+        ? pipeline
+        : Object.entries(RELEASE_GO_LIVE).map(([release, liveAt]) => ({
+            release,
+            liveAt,
+          }));
+    source = pipeline && pipeline.length > 0 ? "pipeline" : "table";
+    windows = buildReleaseWindows(goLive, Date.now());
+  } catch (error) {
+    if (!(error instanceof LinearError)) throw error;
+    console.warn(`CS bugs unavailable: ${error.message}`);
+    return { groups: [], source: "none", isSample: true };
+  }
+
+  const grouped = groupCsBugsByWindow(tickets, windows);
+
+  const groups: BugGroup[] = grouped.map((entry) => {
+    const sorted = [...entry.tickets].sort(
+      (a, b) =>
+        Number(isOpen(b)) - Number(isOpen(a)) ||
+        b.id.localeCompare(a.id, undefined, { numeric: true }),
+    );
+    return {
+      name:
+        entry.release === null
+          ? CS_UNATTRIBUTED
+          : `${entry.release} Release`,
+      isRelease: entry.release !== null,
+      // Every window is worth reading on this board; "active" is a
+      // testing-phase idea and these releases are already in production.
+      isActiveRelease: true,
+      openCount: sorted.filter(isOpen).length,
+      tickets: sorted,
+    };
+  });
+
+  return { groups, source, isSample: false };
 }
