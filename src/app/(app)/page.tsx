@@ -6,6 +6,8 @@ import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { overallEffortSplit } from "@/content/initiatives";
 import { BugTrendChart } from "@/components/BugTrendChart";
 import { ReleaseFeatures } from "@/components/ReleaseFeatures";
+import { ReleaseProgressionPanel } from "@/components/ReleaseProgression";
+import { pickReleaseProgression } from "@/lib/release-progression";
 import { getBugTrends, getCsBugTrends } from "@/lib/bugs";
 import { getReleaseContent } from "@/lib/release-content";
 import { versionRank } from "@/lib/release-utils";
@@ -64,6 +66,19 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   const split = overallEffortSplit();
   const activeRuns = activeRunsResult.runs.length;
+
+  /**
+   * Closed runs are only fetched when nothing is in testing. Summarising
+   * them means a results call per run, so paying for it on every Home
+   * load — to answer a question the active runs already answer — would
+   * be the kind of cost that made this page slow in the first place.
+   */
+  const closedRuns =
+    activeRuns > 0 ? [] : (await getRunSummariesByState("closed")).runs;
+  const progression = pickReleaseProgression(
+    activeRunsResult.runs,
+    closedRuns,
+  );
   const currentRelease = trends[0];
 
   // Only link where this viewer may actually go: access is by parent
@@ -188,6 +203,26 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             href={runsHref(activeRunVersions)}
           />
         </div>
+
+        <Card>
+          <CardHeader
+            title="Release progression"
+            /**
+             * Straight to the board holding this release, filtered to it:
+             * runsHref picks active or closed by whether the release has
+             * an open run, so a shipped release lands on the closed board
+             * showing its dev and regression runs rather than an empty
+             * active one.
+             */
+            titleHref={
+              progression ? runsHref([progression.release]) : undefined
+            }
+            subtitle="How far the release in testing has got, dev and regression side by side. With nothing in testing it shows the last release that shipped."
+          />
+          <CardBody>
+            <ReleaseProgressionPanel progression={progression} />
+          </CardBody>
+        </Card>
 
         <Card>
           <CardHeader
