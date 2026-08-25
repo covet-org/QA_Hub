@@ -148,8 +148,14 @@ export async function getBugTrends(): Promise<ReleaseTrend[]> {
  * production release pipeline, falling back to the checked-in table when
  * that API surface is unavailable — see content/release-go-live.ts.
  *
- * The CS tickets are the same ones the CS bug board fetches, so they cost
- * nothing beyond it.
+ * Takes the label's tickets directly rather than the CS board's snapshot.
+ * The board scopes itself to release projects, Cross-Product and
+ * unassigned, which is right for a QA board and wrong here: customer
+ * bugs are triaged into projects like "Bugs" and "Recording Issues", and
+ * that filter dropped nine of 3.35's eleven. The label is the whole
+ * definition of a CS bug; where it was triaged afterwards is not.
+ *
+ * Same cached fetch the board uses, so it costs nothing beyond it.
  */
 export interface CsBugTrends {
   trends: ReleaseTrend[];
@@ -159,8 +165,8 @@ export interface CsBugTrends {
 
 export async function getCsBugTrends(): Promise<CsBugTrends> {
   try {
-    const [snapshot, pipeline] = await Promise.all([
-      getBugsSnapshot("cs"),
+    const [tickets, pipeline] = await Promise.all([
+      fetchIssuesWithLabels([env.csBugLabel]),
       // Never let the newer release API take the card down with it.
       fetchProductionReleases().catch(() => null),
     ]);
@@ -177,10 +183,7 @@ export async function getCsBugTrends(): Promise<CsBugTrends> {
 
     const windows = buildReleaseWindows(goLive, Date.now());
     return {
-      trends: buildCsBugTrends(
-        snapshot.groups.flatMap((g) => g.tickets),
-        windows,
-      ),
+      trends: buildCsBugTrends(tickets, windows),
       source,
     };
   } catch (error) {
