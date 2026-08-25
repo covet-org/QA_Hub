@@ -69,7 +69,7 @@ export function StatCard({
   );
 
   const shell =
-    "relative block overflow-hidden rounded-xl bg-surface-card px-4 py-3.5 shadow-card ring-1 ring-hairline";
+    "relative flex h-full flex-col justify-center overflow-hidden rounded-xl bg-surface-card px-4 py-3.5 shadow-card ring-1 ring-hairline";
 
   if (!href) return <div className={shell}>{body}</div>;
 
