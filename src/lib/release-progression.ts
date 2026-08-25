@@ -82,3 +82,32 @@ function newest(runs: RunSummary[]): RunSummary | null {
   if (runs.length === 0) return null;
   return runs.reduce((latest, run) => (run.id > latest.id ? run : latest));
 }
+
+export interface CurrentPhase {
+  label: string;
+  run: RunSummary;
+}
+
+/**
+ * The phase the release is actually in.
+ *
+ * Dev and regression never run at the same time, so one number tells the
+ * story — but only if it is the right one. Regression wins as soon as it
+ * has a single executed case: the moment regression starts, dev is done
+ * and its percentage stops being the news. Before that it is dev.
+ *
+ * Which phase a percentage belongs to is not decoration: 8% of dev and
+ * 8% of regression are opposite ends of a release.
+ */
+export function currentPhase(
+  progression: ReleaseProgression,
+): CurrentPhase | null {
+  const { dev, regression } = progression;
+  const started = (run: RunSummary | null) =>
+    run !== null && run.total - run.notRun > 0;
+
+  if (started(regression)) return { label: "Regression", run: regression! };
+  if (dev) return { label: "Dev / Sandbox", run: dev };
+  if (regression) return { label: "Regression", run: regression };
+  return null;
+}
