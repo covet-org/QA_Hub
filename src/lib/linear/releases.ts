@@ -16,6 +16,9 @@ export interface ProductionRelease {
 
 const LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql";
 
+/** "3.36.0" and "3.36" both name release 3.36. */
+const RELEASE_VERSION = /(\d+\.\d+)/;
+
 /**
  * Releases in the production pipeline, newest first.
  *
@@ -27,33 +30,49 @@ const LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql";
  * rather than throwing or guessing: a wrong go-live date silently
  * reassigns a week of customer bugs to the wrong release.
  */
+/**
+ * Scoped to pipelines, not to releases.
+ *
+ * Asking `releases(first: 50)` looked equivalent and was not: releases
+ * come back newest-first across *every* pipeline, and the Dev pipeline
+ * creates one per push ("Dev 3.37.0 (#2157)"). Fifty of those buried
+ * every production release except the newest, so the chart showed one
+ * window where there were four. Walking the pipelines instead bounds the
+ * result by construction.
+ */
 const RELEASES_QUERY = /* GraphQL */ `
   query ProductionReleases {
-    releases(first: 50) {
+    releasePipelines(first: 20) {
       nodes {
-        version
-        startedAt
-        completedAt
-        stage {
-          type
-        }
-        pipeline {
-          isProduction
+        isProduction
+        releases(first: 30) {
+          nodes {
+            version
+            startedAt
+            completedAt
+            stage {
+              type
+            }
+          }
         }
       }
     }
   }
 `;
 
+interface ReleaseNode {
+  version: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  stage: { type: string } | null;
+}
+
 interface ReleasesResponse {
   data?: {
-    releases?: {
+    releasePipelines?: {
       nodes: {
-        version: string | null;
-        startedAt: string | null;
-        completedAt: string | null;
-        stage: { type: string } | null;
-        pipeline: { isProduction: boolean } | null;
+        isProduction: boolean;
+        releases: { nodes: ReleaseNode[] } | null;
       }[];
     } | null;
   };
@@ -87,20 +106,22 @@ async function readProductionReleases(): Promise<ProductionRelease[] | null> {
     return null;
   }
 
-  const nodes = page.data?.releases?.nodes;
-  if (!nodes) return null;
+  const pipelines = page.data?.releasePipelines?.nodes;
+  if (!pipelines) return null;
 
   const out: ProductionRelease[] = [];
-  for (const node of nodes) {
-    if (!node.pipeline?.isProduction) continue;
-    // Released, not merely started: a release sitting in staging is not
-    // in front of customers yet.
-    if (node.stage?.type !== "completed") continue;
-    const liveAt = node.completedAt;
-    if (!liveAt || !node.version) continue;
-    const release = node.version.match(/(\d+\.\d+)/)?.[1];
-    if (!release) continue;
-    out.push({ release, liveAt });
+  for (const pipeline of pipelines) {
+    if (!pipeline.isProduction) continue;
+    for (const node of pipeline.releases?.nodes ?? []) {
+      // Released, not merely started: a release sitting in staging is not
+      // in front of customers yet.
+      if (node.stage?.type !== "completed") continue;
+      const liveAt = node.completedAt;
+      if (!liveAt || !node.version) continue;
+      const release = node.version.match(RELEASE_VERSION)?.[1];
+      if (!release) continue;
+      out.push({ release, liveAt });
+    }
   }
 
   // Newest first, and one entry per release: a version re-released keeps
