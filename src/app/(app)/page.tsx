@@ -66,7 +66,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   const split = overallEffortSplit();
   const activeRuns = activeRunsResult.runs.length;
-
   /**
    * Closed runs are only fetched when nothing is in testing. Summarising
    * them means a results call per run, so paying for it on every Home
@@ -182,7 +181,31 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         )}
         {activeRunsResult.isSample && <SampleDataNotice />}
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        {/* Progression first: "how far is the release" comes before "how
+            many bugs did it produce". Dev and regression never run at the
+            same time, so this fits a half-width card and no longer needs
+            a band of its own. */}
+        <div className="grid items-start gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader
+              title="Release progression"
+              /**
+               * Straight to the board holding this release, filtered to
+               * it: runsHref picks active or closed by whether the
+               * release has an open run, so a shipped release lands on
+               * the closed board showing its dev and regression runs
+               * rather than an empty active one.
+               */
+              titleHref={
+                progression ? runsHref([progression.release]) : undefined
+              }
+              subtitle="Dev then regression for the release in testing, or the last release to ship."
+            />
+            <CardBody>
+              <ReleaseProgressionPanel progression={progression} />
+            </CardBody>
+          </Card>
+
           <StatCard
             label={`Bugs in ${currentRelease?.release ?? "this release"}`}
             value={currentRelease?.total ?? 0}
@@ -196,33 +219,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               currentRelease ? [currentRelease.release] : [],
             )}
           />
-          <StatCard
-            label="Active test runs"
-            value={activeRuns}
-            hint="Open in Testiny"
-            href={runsHref(activeRunVersions)}
-          />
         </div>
-
-        <Card>
-          <CardHeader
-            title="Release progression"
-            /**
-             * Straight to the board holding this release, filtered to it:
-             * runsHref picks active or closed by whether the release has
-             * an open run, so a shipped release lands on the closed board
-             * showing its dev and regression runs rather than an empty
-             * active one.
-             */
-            titleHref={
-              progression ? runsHref([progression.release]) : undefined
-            }
-            subtitle="How far the release in testing has got, dev and regression side by side. With nothing in testing it shows the last release that shipped."
-          />
-          <CardBody>
-            <ReleaseProgressionPanel progression={progression} />
-          </CardBody>
-        </Card>
 
         <Card>
           <CardHeader
