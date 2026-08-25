@@ -7,7 +7,7 @@ import {
   type InitiativeStatus,
 } from "@/content/initiatives";
 import { AllocationBar } from "@/components/AllocationBar";
-import { Tag } from "@/components/Tag";
+import { Chevron, FilterGroup, Tag } from "@/components/ui";
 
 const STATUS_FILTERS: { value: InitiativeStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
@@ -16,18 +16,6 @@ const STATUS_FILTERS: { value: InitiativeStatus | "all"; label: string }[] = [
   { value: "investigation", label: "Investigation" },
   { value: "delivered", label: "Delivered" },
 ];
-
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      className={`size-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
-      viewBox="0 0 16 16"
-      fill="currentColor"
-    >
-      <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
-    </svg>
-  );
-}
 
 function InitiativeRow({ initiative }: { initiative: Initiative }) {
   const [open, setOpen] = useState(false);
@@ -62,7 +50,10 @@ function InitiativeRow({ initiative }: { initiative: Initiative }) {
           {initiative.tags && initiative.tags.length > 0 && (
             <div className="mt-3 flex gap-1.5">
               {initiative.tags.map((tag) => (
-                <Tag key={tag} className="bg-brand-50 text-brand-700 ring-brand-100">
+                <Tag
+                  key={tag}
+                  className="bg-brand-50 text-brand-700 ring-brand-100"
+                >
                   {tag}
                 </Tag>
               ))}
@@ -87,22 +78,20 @@ export function InitiativeList({ initiatives }: { initiatives: Initiative[] }) {
 
   return (
     <div>
-      <div className="flex flex-wrap gap-2">
-        {STATUS_FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => setFilter(f.value)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-              filter === f.value
-                ? "bg-brand-800 text-white shadow-card"
-                : "bg-surface-card text-slate-600 ring-1 ring-hairline hover:bg-surface-sunken"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {/* The same FilterGroup the boards use — single-select here, with an
+          explicit All chip because empty means "no filter". */}
+      <FilterGroup
+        label="Status"
+        options={STATUS_FILTERS.filter((f) => f.value !== "all").map((f) => ({
+          value: f.value,
+          label: f.label,
+        }))}
+        selected={filter === "all" ? [] : [filter]}
+        onChange={(next) => setFilter((next[0] as InitiativeStatus) ?? "all")}
+        mode="single"
+        emptyMeans="all"
+        allLabel="All"
+      />
 
       <ul className="mt-4 divide-y divide-hairline overflow-hidden rounded-xl bg-surface-card shadow-card ring-1 ring-hairline">
         {visible.map((initiative) => (

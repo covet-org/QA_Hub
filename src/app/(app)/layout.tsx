@@ -1,8 +1,5 @@
 import { redirect } from "next/navigation";
-import {
-  Sidebar,
-  type PreparedNavSection,
-} from "@/components/Sidebar";
+import { Sidebar, type PreparedNavSection } from "@/components/Sidebar";
 import { navigation } from "@/config/navigation";
 import { allowedHrefs, getViewer, type Viewer } from "@/lib/viewer";
 

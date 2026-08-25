@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
-import { Card, CardBody, CardHeader } from "@/components/Card";
-import { Hero } from "@/components/Hero";
-import { Tag } from "@/components/Tag";
 import { env } from "@/lib/env";
 import { requireAccess } from "@/lib/viewer";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  PageHeader,
+  PageShell,
+  Tag,
+} from "@/components/ui";
 
 export const metadata: Metadata = { title: "Access" };
 
@@ -51,13 +56,13 @@ export default async function AccessPage() {
 
   return (
     <div>
-      <Hero
+      <PageHeader
         kicker="Admin"
         title="Access"
         description="Who can open QA Brain, and with which role. Permissions come from configuration — there is no database behind this page, so access cannot break when a service goes down."
         footnote={`Domain · @${env.allowedEmailDomain}`}
       />
-      <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
+      <PageShell>
         <Card>
           <CardHeader
             title="Everyone on the domain"
@@ -125,14 +130,14 @@ export default async function AccessPage() {
           />
           <CardBody>
             <p className="text-[13px] leading-relaxed text-slate-600">
-              Share links were removed along with the KV store: only{" "}
-              @{env.allowedEmailDomain} accounts can reach QA Brain now. If
-              somebody outside the domain needs a view, that needs a
-              deliberate feature rather than a link.
+              Share links were removed along with the KV store: only @
+              {env.allowedEmailDomain} accounts can reach QA Brain now. If
+              somebody outside the domain needs a view, that needs a deliberate
+              feature rather than a link.
             </p>
           </CardBody>
         </Card>
-      </div>
+      </PageShell>
     </div>
   );
 }

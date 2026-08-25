@@ -3,13 +3,18 @@
 import { useMemo, useState } from "react";
 import type { BugGroup } from "@/lib/bugs";
 import type { RoadmapTicket } from "@/lib/linear/types";
-import {
-  FilterBar,
-  MultiSelectFilter,
-  type FilterOption,
-} from "@/components/MultiSelectFilter";
-import { Tag } from "@/components/Tag";
 import { useUrlFilter } from "@/lib/use-url-filter";
+import {
+  DataRow,
+  Disclosure,
+  FilterBar,
+  FilterGroup,
+  Meta,
+  Slot,
+  Tag,
+  TicketLink,
+  type FilterOption,
+} from "@/components/ui";
 
 const PRIORITY_ORDER = ["Urgent", "High", "Medium", "Low", "No priority"];
 
@@ -51,144 +56,43 @@ function priorityOf(t: RoadmapTicket): string {
   return t.priorityName ?? "No priority";
 }
 
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      className={`size-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
-      viewBox="0 0 16 16"
-      fill="currentColor"
-    >
-      <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
-    </svg>
-  );
-}
-
-/** Single-select pill row (release, status). */
-function FilterPills<T extends string>({
-  title,
-  options,
-  selected,
-  onSelect,
-}: {
-  title: string;
-  options: { value: T; label: string }[];
-  selected: T | "all";
-  onSelect: (value: T | "all") => void;
-}) {
-  const all = [{ value: "all" as const, label: "All" }, ...options];
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="w-16 text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
-        {title}
-      </span>
-      {all.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onSelect(option.value)}
-          className={`rounded-full px-3.5 py-1 text-xs font-medium transition-colors ${
-            selected === option.value
-              ? "bg-brand-800 text-white"
-              : "bg-white text-slate-600 ring-1 ring-hairline hover:bg-slate-50"
-          }`}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** Multi-select pill row for priorities. Empty selection = all. */
-function PriorityPills({
-  selected,
-  onToggle,
-  onClear,
-}: {
-  selected: Set<string>;
-  onToggle: (p: string) => void;
-  onClear: () => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="w-16 text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
-        Priority
-      </span>
-      <button
-        type="button"
-        onClick={onClear}
-        className={`rounded-full px-3.5 py-1 text-xs font-medium transition-colors ${
-          selected.size === 0
-            ? "bg-brand-800 text-white"
-            : "bg-white text-slate-600 ring-1 ring-hairline hover:bg-slate-50"
-        }`}
-      >
-        All
-      </button>
-      {PRIORITY_ORDER.map((p) => {
-        const on = selected.has(p);
-        return (
-          <button
-            key={p}
-            type="button"
-            onClick={() => onToggle(p)}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-medium transition-colors ${
-              on
-                ? "bg-brand-800 text-white"
-                : "bg-white text-slate-600 ring-1 ring-hairline hover:bg-slate-50"
-            }`}
-          >
-            <span className={`size-2 rounded-full ${priorityDot[p]}`} />
-            {p}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function BugRow({ ticket }: { ticket: RoadmapTicket }) {
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5 transition-colors hover:bg-surface-sunken">
-      <a
-        href={ticket.url}
-        target="_blank"
-        rel="noreferrer"
-        className="w-[68px] shrink-0 font-mono text-[11px] font-semibold text-brand-700 hover:underline"
-      >
-        {ticket.id}
-      </a>
-      <span
-        className="min-w-0 flex-1 truncate text-[13px] text-slate-800"
-        title={ticket.title}
-      >
-        {ticket.title}
-      </span>
-      {ticket.priorityName && (
-        <Tag className={priorityTone[ticket.priorityName] ?? priorityTone.Low}>
-          {ticket.priorityName}
-        </Tag>
-      )}
-      {/* Assignee from Linear — who actually owns fixing this bug. */}
-      {ticket.assigneeName ? (
-        <span
-          className="w-[104px] shrink-0 truncate text-right text-[11px] text-slate-500"
-          title={`Assigned to ${ticket.assigneeName} in Linear`}
-        >
-          {ticket.assigneeName}
-        </span>
-      ) : (
-        <span
-          className="w-[104px] shrink-0 text-right text-[11px] text-slate-300"
-          title="Unassigned in Linear"
-        >
-          unassigned
-        </span>
-      )}
-      <Tag className={statusTone[ticket.statusType] ?? statusTone.backlog}>
-        {ticket.status}
-      </Tag>
-    </li>
+    <DataRow
+      leading={<TicketLink id={ticket.id} url={ticket.url} />}
+      slots={
+        <Slot>
+          {ticket.priorityName && (
+            <Tag
+              className={priorityTone[ticket.priorityName] ?? priorityTone.Low}
+            >
+              {ticket.priorityName}
+            </Tag>
+          )}
+        </Slot>
+      }
+      title={ticket.title}
+      titleAttr={ticket.title}
+      trailing={
+        <>
+          {/* Assignee from Linear — who actually owns fixing this bug. */}
+          <Meta
+            width={104}
+            muted={!ticket.assigneeName}
+            title={
+              ticket.assigneeName
+                ? `Assigned to ${ticket.assigneeName} in Linear`
+                : "Unassigned in Linear"
+            }
+          >
+            {ticket.assigneeName ?? "unassigned"}
+          </Meta>
+          <Tag className={statusTone[ticket.statusType] ?? statusTone.backlog}>
+            {ticket.status}
+          </Tag>
+        </>
+      }
+    />
   );
 }
 
@@ -199,33 +103,22 @@ function CollapsibleGroup({
   group: BugGroup;
   defaultOpen: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="overflow-hidden rounded-xl bg-surface-card shadow-card ring-1 ring-hairline">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-sunken"
-      >
-        <span className="flex items-baseline gap-2.5">
-          <h2 className="font-display text-sm font-semibold text-slate-800">
-            {group.name}
-          </h2>
-          <span className="nums text-[11px] text-slate-400">
-            {group.openCount} open · {group.tickets.length} total
-          </span>
+    <Disclosure
+      title={group.name}
+      defaultOpen={defaultOpen}
+      summary={
+        <span className="nums text-[11px] text-slate-400">
+          {group.openCount} open · {group.tickets.length} total
         </span>
-        <Chevron open={open} />
-      </button>
-      {open && (
-        <ul className="divide-y divide-hairline border-t border-hairline">
-          {group.tickets.map((ticket) => (
-            <BugRow key={ticket.id} ticket={ticket} />
-          ))}
-        </ul>
-      )}
-    </section>
+      }
+    >
+      <ul className="divide-y divide-hairline">
+        {group.tickets.map((ticket) => (
+          <BugRow key={ticket.id} ticket={ticket} />
+        ))}
+      </ul>
+    </Disclosure>
   );
 }
 
@@ -246,15 +139,6 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
   );
 
   const filtering = priorities.size > 0 || status !== "all";
-
-  function togglePriority(p: string) {
-    setPriorities((prev) => {
-      const next = new Set(prev);
-      if (next.has(p)) next.delete(p);
-      else next.add(p);
-      return next;
-    });
-  }
 
   /** Release groups filtered by the current release/status and an
    *  optional single priority (null = all priorities). */
@@ -283,24 +167,36 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
   return (
     <div>
       <FilterBar>
-        <MultiSelectFilter
+        <FilterGroup
           label="Release"
           options={releaseOptions}
-          selected={release.selected}
-          onToggle={release.toggle}
-          onAll={release.setAll}
-          onClear={release.clear}
+          selected={[...release.selected]}
+          onChange={release.set}
+          bulk
         />
-        <PriorityPills
-          selected={priorities}
-          onToggle={togglePriority}
-          onClear={() => setPriorities(new Set())}
+        <FilterGroup
+          label="Priority"
+          options={PRIORITY_ORDER.map((p) => ({
+            value: p,
+            label: p,
+            dotClass: priorityDot[p],
+          }))}
+          selected={[...priorities]}
+          onChange={(next) => setPriorities(new Set(next))}
+          emptyMeans="all"
+          allLabel="All"
         />
-        <FilterPills
-          title="Status"
-          options={STATUS_FILTERS}
-          selected={status}
-          onSelect={setStatus}
+        <FilterGroup
+          label="Status"
+          options={STATUS_FILTERS.map((s) => ({
+            value: s.value,
+            label: s.label,
+          }))}
+          selected={status === "all" ? [] : [status]}
+          onChange={(next) => setStatus(next[0] ?? "all")}
+          mode="single"
+          emptyMeans="all"
+          allLabel="All"
         />
       </FilterBar>
 
@@ -321,7 +217,9 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
                   }`}
                 >
                   <span className={`size-2.5 rounded-full ${priorityDot[p]}`} />
-                  <h3 className="font-display text-[13px] font-semibold">{p}</h3>
+                  <h3 className="font-display text-[13px] font-semibold">
+                    {p}
+                  </h3>
                   <span className="text-[11px] opacity-70">{total} bugs</span>
                 </div>
                 <div className="space-y-3 bg-slate-50/50 p-3">

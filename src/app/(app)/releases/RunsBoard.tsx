@@ -1,14 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  FilterBar,
-  MultiSelectFilter,
-  type FilterOption,
-} from "@/components/MultiSelectFilter";
 import { RunCard } from "@/components/RunCard";
 import type { RunSummary } from "@/lib/testiny/types";
 import { useUrlFilter } from "@/lib/use-url-filter";
+import { FilterBar, FilterGroup, type FilterOption } from "@/components/ui";
 
 /** Runs are named "Regression 3.36", "3.36 Dev/Sandbox", etc. */
 const versionOf = (title: string): string =>
@@ -56,13 +52,12 @@ export function RunsBoard({
   return (
     <div className="space-y-4">
       <FilterBar>
-        <MultiSelectFilter
+        <FilterGroup
           label="Release"
           options={options}
-          selected={release.selected}
-          onToggle={release.toggle}
-          onAll={release.setAll}
-          onClear={release.clear}
+          selected={[...release.selected]}
+          onChange={release.set}
+          bulk
         />
       </FilterBar>
 
@@ -74,7 +69,11 @@ export function RunsBoard({
           <RunCard
             key={run.id}
             run={run}
-            releaseNumber={versionOf(run.title) === "Other" ? undefined : versionOf(run.title)}
+            releaseNumber={
+              versionOf(run.title) === "Other"
+                ? undefined
+                : versionOf(run.title)
+            }
           />
         ))}
       </div>

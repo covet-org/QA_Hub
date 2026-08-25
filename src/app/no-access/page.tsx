@@ -20,8 +20,8 @@ export default function NoAccessPage() {
           Access removed
         </h1>
         <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
-          This account has been blocked from QA Brain. If that looks wrong,
-          ask a QA lead at{" "}
+          This account has been blocked from QA Brain. If that looks wrong, ask
+          a QA lead at{" "}
           <a
             href={`mailto:${env.notifyEmail}`}
             className="text-brand-700 hover:underline"

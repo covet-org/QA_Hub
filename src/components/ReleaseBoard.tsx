@@ -8,11 +8,12 @@ import type {
 } from "@/lib/linear/types";
 import { useUrlFilter } from "@/lib/use-url-filter";
 import {
+  Chevron,
   FilterBar,
-  MultiSelectFilter,
+  FilterGroup,
+  Tag,
   type FilterOption,
-} from "@/components/MultiSelectFilter";
-import { Tag } from "@/components/Tag";
+} from "@/components/ui";
 
 /** Coverage boxes: both selected by default, either can stand alone. */
 const COVERAGE_VALUES = ["has", "none"];
@@ -59,18 +60,6 @@ function CoverageTag({ ticket }: { ticket: CoveredTicket }) {
     );
   }
   return <Tag tone="danger">No test cases</Tag>;
-}
-
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      className={`size-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
-      viewBox="0 0 16 16"
-      fill="currentColor"
-    >
-      <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
-    </svg>
-  );
 }
 
 function TicketLink({ ticket }: { ticket: CoveredTicket }) {
@@ -216,7 +205,13 @@ function ParentRow({
 }
 
 /** Slim coverage meter shown on each release group header. */
-function CoverageMeter({ covered, counted }: { covered: number; counted: number }) {
+function CoverageMeter({
+  covered,
+  counted,
+}: {
+  covered: number;
+  counted: number;
+}) {
   const pct = counted > 0 ? Math.round((covered / counted) * 100) : 0;
   return (
     <span className="flex items-center gap-2">
@@ -350,21 +345,19 @@ export function ReleaseBoard({ groups }: { groups: ReleaseGroup[] }) {
   return (
     <div>
       <FilterBar>
-        <MultiSelectFilter
+        <FilterGroup
           label="Release"
           options={releaseOptions}
-          selected={release.selected}
-          onToggle={release.toggle}
-          onAll={release.setAll}
-          onClear={release.clear}
+          selected={[...release.selected]}
+          onChange={release.set}
+          bulk
         />
-        <MultiSelectFilter
+        <FilterGroup
           label="Test cases"
           options={coverageOptions}
-          selected={coverage.selected}
-          onToggle={coverage.toggle}
-          onAll={coverage.setAll}
-          onClear={coverage.clear}
+          selected={[...coverage.selected]}
+          onChange={coverage.set}
+          bulk
         />
       </FilterBar>
 

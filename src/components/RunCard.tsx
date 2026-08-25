@@ -6,7 +6,7 @@ import { fetchDescopes } from "@/lib/descope-cache";
 import { loadReleaseContent, type DescopeResult } from "@/lib/release-actions";
 import type { ReleaseBug, ReleaseContent } from "@/lib/release-content";
 import type { CaseRef, RunSummary } from "@/lib/testiny/types";
-import { Tag } from "@/components/Tag";
+import { Tag } from "@/components/ui";
 
 const STORY_LABEL: Record<string, string> = {
   "Medium to Big Size Features": "Medium/Big",

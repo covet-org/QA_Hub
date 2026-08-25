@@ -1,4 +1,4 @@
-interface HeroProps {
+interface PageHeaderProps {
   kicker: string;
   title: string;
   description: string;
@@ -12,13 +12,13 @@ interface HeroProps {
  * fold. Extra bottom padding lets the page shell pull its first row up
  * over the band edge (see `page-shell` usage in the pages).
  */
-export function Hero({
+export function PageHeader({
   kicker,
   title,
   description,
   children,
   footnote,
-}: HeroProps) {
+}: PageHeaderProps) {
   return (
     <header className="relative overflow-hidden bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 text-white">
       {/* Soft highlight so the flat teal reads as a lit surface. */}

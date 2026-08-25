@@ -4,18 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { signOutAction } from "@/lib/actions";
-
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      className={`size-3.5 opacity-60 transition-transform ${open ? "rotate-180" : ""}`}
-      viewBox="0 0 16 16"
-      fill="currentColor"
-    >
-      <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
-    </svg>
-  );
-}
+import { Chevron } from "@/components/ui";
 
 function LockIcon() {
   return (
@@ -74,7 +63,7 @@ function NavGroup({
         }`}
       >
         {item.label}
-        <Chevron open={open} />
+        <Chevron open={open} className="size-3.5 opacity-60" />
       </button>
       {open && (
         <ul className="mt-0.5 space-y-0.5">
@@ -174,7 +163,9 @@ export function Sidebar({
       </nav>
 
       <div className="border-t border-white/10 px-4 py-4">
-        <p className="truncate text-[13px] font-medium text-white">{userLabel}</p>
+        <p className="truncate text-[13px] font-medium text-white">
+          {userLabel}
+        </p>
         <p className="truncate text-[11px] text-brand-100/60">{userSub}</p>
         <div className="mt-2 flex items-center justify-between">
           <span className="rounded-full bg-brand-700 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-accent-300 uppercase">

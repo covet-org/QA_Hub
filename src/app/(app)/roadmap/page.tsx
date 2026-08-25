@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { Hero } from "@/components/Hero";
 import { ReleaseBoard } from "@/components/ReleaseBoard";
-import { StatCard } from "@/components/StatCard";
 import { getRoadmapSnapshot } from "@/lib/roadmap";
 import { requireAccess } from "@/lib/viewer";
+import { PageHeader, PageShell, StatCard } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Roadmap" };
 
@@ -18,13 +17,13 @@ export default async function RoadmapPage() {
 
   return (
     <div>
-      <Hero
+      <PageHeader
         kicker="QA Vision"
         title="QA Roadmap"
         description="Feature tickets from Linear releases — Medium to Big Size Features and Quick wins — matched against Testiny to show which already have test cases and which still need them."
         footnote="Linear releases · Testiny coverage by COV-id folders"
       />
-      <div className="relative z-10 mx-auto w-full max-w-[1440px] -mt-11 space-y-4 px-6 pb-12 sm:px-8">
+      <PageShell>
         {snapshot.isSample && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
             <span className="font-semibold">Linear snapshot data.</span> Set{" "}
@@ -55,7 +54,7 @@ export default async function RoadmapPage() {
         </div>
 
         <ReleaseBoard groups={snapshot.groups} />
-      </div>
+      </PageShell>
     </div>
   );
 }

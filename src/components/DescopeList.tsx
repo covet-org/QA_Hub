@@ -1,7 +1,7 @@
 "use client";
 
 import type { DescopeEvent } from "@/lib/linear/descope";
-import { Tag } from "@/components/Tag";
+import { Tag } from "@/components/ui";
 
 const priorityTone: Record<string, string> = {
   Urgent: "bg-rose-100 text-rose-700 ring-rose-200",

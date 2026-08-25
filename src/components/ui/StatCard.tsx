@@ -25,7 +25,12 @@ interface StatCardProps {
 }
 
 /** A single headline figure. The accent rule carries the tone at a glance. */
-export function StatCard({ label, value, hint, tone = "brand" }: StatCardProps) {
+export function StatCard({
+  label,
+  value,
+  hint,
+  tone = "brand",
+}: StatCardProps) {
   return (
     <div className="relative overflow-hidden rounded-xl bg-surface-card px-4 py-3.5 shadow-card ring-1 ring-hairline">
       <span
