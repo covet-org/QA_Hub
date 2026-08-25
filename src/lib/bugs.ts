@@ -196,8 +196,21 @@ export async function getCsBugTrends(): Promise<CsBugTrends> {
   }
 }
 
-/** The label used for CS bugs that fall outside every release window. */
-export const CS_UNATTRIBUTED = "Cross Product";
+/**
+ * The group for CS bugs that fall outside every release window.
+ *
+ * Named with the boundary in it, because the honest reading matters more
+ * than the short one: this bucket held 550 tickets on the day it shipped,
+ * and "Cross Product 550" next to "3.35 11" invites the conclusion that
+ * 550 customer bugs are cross-product issues. They are not — they are
+ * older than the earliest go-live we can see, which is a statement about
+ * our data, not about the bugs.
+ */
+export function csUnattributedName(oldestRelease: string | null): string {
+  return oldestRelease === null
+    ? "Cross Product"
+    : `Cross Product · before ${oldestRelease}`;
+}
 
 /**
  * The CS board, grouped the way the Home chart counts.
@@ -215,9 +228,16 @@ export async function getCsBugBoard(): Promise<{
   groups: BugGroup[];
   source: "pipeline" | "table" | "none";
   isSample: boolean;
+  /** The unattributed group's name, for the board to pin in its filter. */
+  unattributed: string;
 }> {
   if (!linearConfigured()) {
-    return { groups: [], source: "none", isSample: true };
+    return {
+      groups: [],
+      source: "none",
+      isSample: true,
+      unattributed: csUnattributedName(null),
+    };
   }
 
   let tickets: RoadmapTicket[];
@@ -241,10 +261,19 @@ export async function getCsBugBoard(): Promise<{
   } catch (error) {
     if (!(error instanceof LinearError)) throw error;
     console.warn(`CS bugs unavailable: ${error.message}`);
-    return { groups: [], source: "none", isSample: true };
+    return {
+      groups: [],
+      source: "none",
+      isSample: true,
+      unattributed: csUnattributedName(null),
+    };
   }
 
   const grouped = groupCsBugsByWindow(tickets, windows);
+  // Windows come back newest-first, so the last one is the oldest release
+  // we can attribute anything to.
+  const oldest = windows.length > 0 ? windows[windows.length - 1].release : null;
+  const unattributed = csUnattributedName(oldest);
 
   const groups: BugGroup[] = grouped.map((entry) => {
     const sorted = [...entry.tickets].sort(
@@ -254,9 +283,7 @@ export async function getCsBugBoard(): Promise<{
     );
     return {
       name:
-        entry.release === null
-          ? CS_UNATTRIBUTED
-          : `${entry.release} Release`,
+        entry.release === null ? unattributed : `${entry.release} Release`,
       isRelease: entry.release !== null,
       // Every window is worth reading on this board; "active" is a
       // testing-phase idea and these releases are already in production.
@@ -266,5 +293,5 @@ export async function getCsBugBoard(): Promise<{
     };
   });
 
-  return { groups, source, isSample: false };
+  return { groups, source, isSample: false, unattributed };
 }
