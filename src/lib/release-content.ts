@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getBugsSnapshot } from "@/lib/bugs";
+import { getBugsSnapshot, isOpenStatus } from "@/lib/bugs";
 import {
   fetchIssuesInProjects,
   linearConfigured,
@@ -177,7 +177,14 @@ export async function getReleaseContent(): Promise<
         Number(a.hasTestCases) - Number(b.hasTestCases) ||
         a.id.localeCompare(b.id),
     );
-    content.bugs.sort((a, b) => byPriority(a, b) || a.id.localeCompare(b.id));
+    // Open first here too, so a release panel and the bug board agree.
+    content.bugs.sort(
+      (a, b) =>
+        Number(isOpenStatus(b.statusType)) -
+          Number(isOpenStatus(a.statusType)) ||
+        byPriority(a, b) ||
+        a.id.localeCompare(b.id),
+    );
   }
 
   for (const group of bugs.groups) {

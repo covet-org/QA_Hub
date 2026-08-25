@@ -46,8 +46,13 @@ export interface BugsSnapshot {
 
 const OPEN_STATUS_TYPES = new Set(["backlog", "unstarted", "started"]);
 
+/** Still needs work: not done, not cancelled. */
+export function isOpenStatus(statusType: string): boolean {
+  return OPEN_STATUS_TYPES.has(statusType);
+}
+
 function isOpen(ticket: RoadmapTicket): boolean {
-  return OPEN_STATUS_TYPES.has(ticket.statusType);
+  return isOpenStatus(ticket.statusType);
 }
 
 /**
@@ -99,12 +104,13 @@ export async function getBugsSnapshot(kind: BugKind): Promise<BugsSnapshot> {
   const groups: BugGroup[] = [...byProject.entries()]
     .map(([name, list]) => {
       const isRelease = RELEASE_NAME.test(name);
-      // Priority first: a board is read as "what needs attention now".
-      // Open before closed, then newest, still break the ties.
+      // Open first, and urgent first within the open ones. A closed
+      // Urgent bug is history; an open one is work, and no amount of
+      // priority makes a finished ticket the thing to look at first.
       const sorted = list.sort(
         (a, b) =>
-          byPriority(a, b) ||
           Number(isOpen(b)) - Number(isOpen(a)) ||
+          byPriority(a, b) ||
           b.id.localeCompare(a.id, undefined, { numeric: true }),
       );
       return {
@@ -284,8 +290,8 @@ export async function getCsBugBoard(): Promise<{
     .map((entry) => {
     const sorted = [...entry.tickets].sort(
       (a, b) =>
-        byPriority(a, b) ||
         Number(isOpen(b)) - Number(isOpen(a)) ||
+        byPriority(a, b) ||
         b.id.localeCompare(a.id, undefined, { numeric: true }),
     );
     return {
