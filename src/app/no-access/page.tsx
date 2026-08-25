@@ -14,13 +14,13 @@ export default function NoAccessPage() {
       <div className="w-full max-w-md rounded-xl bg-surface-card p-6 text-center shadow-card ring-1 ring-hairline">
         <p className="font-display text-lg font-semibold text-brand-800">
           co<span className="text-accent-400">·</span>vet{" "}
-          <span className="font-normal text-slate-500">QA Brain</span>
+          <span className="font-normal text-slate-500">QA Hub</span>
         </p>
         <h1 className="font-display mt-4 text-xl font-semibold text-slate-800">
           Access removed
         </h1>
         <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
-          This account has been blocked from QA Brain. If that looks wrong, ask
+          This account has been blocked from QA Hub. If that looks wrong, ask
           a QA lead at{" "}
           <a
             href={`mailto:${env.notifyEmail}`}

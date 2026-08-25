@@ -1,11 +1,11 @@
-# CLAUDE.md — CoVet QA Brain
+# CLAUDE.md — CoVet QA Hub
 
 Handoff notes for any future Claude session working in this repo. Read this first.
 Human-facing docs: `README.md` (overview), `HOW_TO_START_SERVER.txt`, `HOW_TO_DEPLOY_VERCEL.txt`.
 
 ## What this is
 
-The QA department's internal web app ("QA Brain"), modeled on CoVet's Product Brain page.
+The QA department's internal web app ("QA Hub"), modeled on CoVet's Product Brain page.
 It surfaces, from live data:
 - **Roadmap** — Linear tickets labeled *Medium to Big Size Features* / *Quick wins*, grouped by
   release, each checked against Testiny for test-case coverage (has tests / missing tests).
@@ -215,6 +215,24 @@ QA_BUG_LABEL · QA_CS_BUG_LABEL · TESTINY_API_KEY · TESTINY_PROJECT_ID.
 All have code defaults except the secrets/keys. `APP_URL` must be the prod URL in Vercel
 (used in email links). Changing role/label env vars in Vercel requires a redeploy to take effect.
 
+## Shipping a change
+
+```
+work → push to preview → look at it → merge preview into main → verify prod
+```
+
+`preview` is a long-lived branch whose Vercel URL is stable —
+**https://qahub-git-preview-qa-2001.vercel.app** — so its OAuth callback was whitelisted once and
+keeps working for every future push. Use it for anything UI-observable, and do not delete the
+branch: deleting it invalidates that whitelisted URL.
+
+Preview deployments sit behind Vercel deployment protection, so a reviewer needs a Vercel login as
+well as an `@co.vet` account.
+
+The reason this exists: on 24 Aug every change went straight to production, and three cosmetic
+bugs (truncated descope rows, a ragged Home row, every bug reading "unassigned") were caught only
+after the department could see them.
+
 ## Conventions & environment quirks (Windows author machine)
 
 - Shell is **PowerShell 5.1** — no `&&`/`||`/ternary; chain with `;` or `if ($?){}`. Node is at
@@ -242,10 +260,10 @@ All have code defaults except the secrets/keys. `APP_URL` must be the prod URL i
   (`3.36-release`), Releases writes bare versions (`3.36`). Carrying a filtered URL from one to
   the other silently matches nothing. Give them page-distinct keys.
 - **Manual Testing has no filters** — the only board without them.
-- **No preview verification.** Every change today went to production and was checked there, which
-  is how three cosmetic bugs reached the team before they were caught. A long-lived `preview`
-  branch with its callback URL whitelisted in Google Cloud Console would let a change be seen
-  before `main`. This is the single highest-value process fix outstanding.
+- **Custom domain `covetqahub.app`** is wanted but not registered yet (NXDOMAIN). Buying it is a
+  payment step for a human. Afterwards: add it in Vercel, set `APP_URL`, and add
+  `https://covetqahub.app/api/auth/callback/google` to the Google OAuth client — sign-in breaks on
+  the new domain until that last step lands.
 - **No automated tests.** The pure modules (`roadmap-tree`, `descope-rules`, `bug-trend`,
   `smooth-path`) are covered by ad-hoc Node assertion scripts run during development, not by a
   suite in the repo. Worth adding `node --test` and committing them.

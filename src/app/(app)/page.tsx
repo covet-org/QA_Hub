@@ -56,7 +56,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     <div>
       <PageHeader
         kicker="QA Department"
-        title="QA Brain"
+        title="QA Hub"
         description={`Welcome back, ${firstName}. Everything the QA team is working on — manual coverage, automation progress and release readiness in one place.`}
         footnote="Linear · Testiny"
       />

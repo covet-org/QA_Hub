@@ -74,10 +74,10 @@ export async function notifySignIn(email: string, name: string): Promise<void> {
 
   const html = `
   <div style="font-family:Segoe UI,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;border:1px solid #e2e8f0;border-radius:16px">
-    <p style="font-size:18px;font-weight:700;color:#0b4a60;margin:0">co·vet <span style="font-weight:400;color:#64748b">QA Brain</span></p>
+    <p style="font-size:18px;font-weight:700;color:#0b4a60;margin:0">co·vet <span style="font-weight:400;color:#64748b">QA Hub</span></p>
     <h2 style="font-size:16px;color:#0f172a">Sign-in</h2>
     <p style="font-size:14px;color:#334155;line-height:1.6">
-      <strong>${name || email}</strong> (${email}) signed in to QA Brain as
+      <strong>${name || email}</strong> (${email}) signed in to QA Hub as
       <strong>${roleLabel}</strong>, admitted automatically because the
       address is on the ${env.allowedEmailDomain} domain.
     </p>
@@ -91,7 +91,7 @@ export async function notifySignIn(email: string, name: string): Promise<void> {
   try {
     await sendEmail({
       to: env.notifyEmail,
-      subject: `QA Brain — ${name || email} signed in`,
+      subject: `QA Hub — ${name || email} signed in`,
       html,
     });
   } catch (error) {

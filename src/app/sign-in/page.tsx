@@ -19,7 +19,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           co<span className="text-accent-400">·</span>vet
         </p>
         <h1 className="mt-6 text-base font-semibold text-slate-800">
-          QA Brain
+          QA Hub
         </h1>
         <p className="mt-1 text-[13px] text-slate-500">
           Roadmap, effort allocation and testing visibility for the QA
