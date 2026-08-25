@@ -97,6 +97,18 @@ export async function getReleaseContent(): Promise<
     bucket(version).stories.push(story);
   };
 
+  // Gathered before anything is added, because whether an issue is a
+  // feature depends on what else is in the release: a sub-issue whose
+  // parent is here too is a step of that feature, not a feature. Without
+  // this, 3.36 listed "QA Review", "Gabriel Review" and "1. Recording
+  // Widget" as features of their own. The parent row stands for them,
+  // exactly as the roadmap board nests them.
+  const candidates: {
+    version: string;
+    parentId: string | null;
+    story: ReleaseStory;
+  }[] = [];
+
   for (const ticket of projectIssues) {
     const version = ticket.project ? versionOf(ticket.project) : null;
     if (!version) continue;
@@ -106,14 +118,18 @@ export async function getReleaseContent(): Promise<
     if (labels.some((l) => BUG_LABELS.has(l))) continue;
     // Cancelled work never shipped, so it is not a feature of the release.
     if (ticket.statusType === "canceled") continue;
-    addStory(version, {
-      id: ticket.id,
-      title: ticket.title,
-      url: ticket.url,
-      labels: ticket.labels,
-      status: ticket.status,
-      statusType: ticket.statusType,
-      hasTestCases: hasCases(ticket.id),
+    candidates.push({
+      version,
+      parentId: ticket.parentId ?? null,
+      story: {
+        id: ticket.id,
+        title: ticket.title,
+        url: ticket.url,
+        labels: ticket.labels,
+        status: ticket.status,
+        statusType: ticket.statusType,
+        hasTestCases: hasCases(ticket.id),
+      },
     });
   }
 
@@ -123,16 +139,28 @@ export async function getReleaseContent(): Promise<
     const version = versionOf(group.name);
     if (!version) continue;
     for (const t of group.tickets) {
-      addStory(version, {
-        id: t.id,
-        title: t.title,
-        url: t.url,
-        labels: t.labels,
-        status: t.status,
-        statusType: t.statusType,
-        hasTestCases: t.hasTestCases,
+      candidates.push({
+        version,
+        parentId: t.parentId ?? null,
+        story: {
+          id: t.id,
+          title: t.title,
+          url: t.url,
+          labels: t.labels,
+          status: t.status,
+          statusType: t.statusType,
+          hasTestCases: t.hasTestCases,
+        },
       });
     }
+  }
+
+  const present = new Set(candidates.map((c) => `${c.version}:${c.story.id}`));
+  for (const c of candidates) {
+    // A sub-issue whose parent is elsewhere still needs its own row —
+    // nothing in this release speaks for it.
+    if (c.parentId && present.has(`${c.version}:${c.parentId}`)) continue;
+    addStory(c.version, c.story);
   }
 
   // Same order as the roadmap board: uncovered first, so the gaps read.
