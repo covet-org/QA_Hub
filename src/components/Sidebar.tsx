@@ -24,6 +24,18 @@ export interface PreparedNavItem {
   href: string;
   unlocked: boolean;
   children?: { label: string; href: string }[];
+  /** Short status badge, e.g. "being reworked". */
+  note?: string;
+}
+
+/** Quiet enough not to compete with the active-page marker. */
+function NavNote({ note }: { note?: string }) {
+  if (!note) return null;
+  return (
+    <span className="ml-2 shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-medium tracking-wide text-brand-100/70">
+      {note}
+    </span>
+  );
 }
 
 export interface PreparedNavSection {
@@ -143,7 +155,8 @@ export function Sidebar({
                             : "text-brand-100/80 hover:bg-white/5 hover:text-white"
                         }`}
                       >
-                        {item.label}
+                        <span className="truncate">{item.label}</span>
+                        <NavNote note={item.note} />
                       </Link>
                     ) : (
                       <span
