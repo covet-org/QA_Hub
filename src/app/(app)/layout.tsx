@@ -14,6 +14,7 @@ function prepareSections(viewer: Viewer): PreparedNavSection[] {
           href: item.href,
           unlocked: allowed.has(item.href),
           children: item.children,
+          note: item.note,
         }))
         // Locked items stay visible with a lock icon, like Product Brain.
         .filter(() => true),

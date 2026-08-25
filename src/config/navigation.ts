@@ -10,6 +10,12 @@ export interface NavItem {
    * Access is governed by the parent href (also for share links).
    */
   children?: { label: string; href: string }[];
+  /**
+   * Short status shown beside the label, e.g. "being reworked". Lives
+   * here so the sidebar badge and the page's own notice cannot disagree
+   * about which pages are unfinished.
+   */
+  note?: string;
 }
 
 export interface NavSection {
@@ -51,8 +57,18 @@ export const navigation: NavSection[] = [
   {
     title: "Testing",
     items: [
-      { label: "Manual Testing", href: "/manual", minRole: "qa" },
-      { label: "Automation", href: "/automation", minRole: "qa" },
+      {
+        label: "Manual Testing",
+        href: "/manual",
+        minRole: "qa",
+        note: "being reworked",
+      },
+      {
+        label: "Automation",
+        href: "/automation",
+        minRole: "qa",
+        note: "being reworked",
+      },
     ],
   },
   {

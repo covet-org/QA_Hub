@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { getManualTestingSnapshot } from "@/lib/testiny/queries";
 import { requireAccess } from "@/lib/viewer";
-import { PageHeader, PageShell, StatCard } from "@/components/ui";
+import {
+  PageHeader,
+  PageShell,
+  StatCard,
+  UnderDevelopment,
+} from "@/components/ui";
 
 export const metadata: Metadata = { title: "Manual Testing" };
 
@@ -56,38 +61,40 @@ export default async function ManualTestingPage() {
         description="The manual test inventory in Testiny — coverage by feature area, case types and priorities. This is the effort base that automation will progressively take over."
         footnote={`Testiny · ${snapshot.projectName}`}
       />
-      <PageShell>
-        {snapshot.isSample && <SampleDataNotice />}
+      <UnderDevelopment>
+        <PageShell>
+          {snapshot.isSample && <SampleDataNotice />}
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard label="Total test cases" value={snapshot.totalTestCases} />
-          <StatCard
-            label="Feature areas"
-            value={snapshot.topFolders.length}
-            hint="Top-level Testiny folders"
-          />
-          <StatCard
-            label="Test runs tracked"
-            value={snapshot.runs.length}
-            hint="Recent runs"
-          />
-        </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <StatCard label="Total test cases" value={snapshot.totalTestCases} />
+            <StatCard
+              label="Feature areas"
+              value={snapshot.topFolders.length}
+              hint="Top-level Testiny folders"
+            />
+            <StatCard
+              label="Test runs tracked"
+              value={snapshot.runs.length}
+              hint="Recent runs"
+            />
+          </div>
 
-        <DistributionCard
-          title="Cases by feature area"
-          data={Object.fromEntries(
-            snapshot.topFolders.map((f) => [f.title, f.caseCount]),
-          )}
-        />
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <DistributionCard title="Cases by type" data={snapshot.casesByType} />
           <DistributionCard
-            title="Cases by priority"
-            data={snapshot.casesByPriority}
+            title="Cases by feature area"
+            data={Object.fromEntries(
+              snapshot.topFolders.map((f) => [f.title, f.caseCount]),
+            )}
           />
-        </div>
-      </PageShell>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <DistributionCard title="Cases by type" data={snapshot.casesByType} />
+            <DistributionCard
+              title="Cases by priority"
+              data={snapshot.casesByPriority}
+            />
+          </div>
+        </PageShell>
+      </UnderDevelopment>
     </div>
   );
 }

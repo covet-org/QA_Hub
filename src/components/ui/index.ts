@@ -23,6 +23,7 @@ export {
   useRevealMore,
 } from "./RevealMore";
 export { StatCard } from "./StatCard";
+export { UnderDevelopment } from "./UnderDevelopment";
 export type { StatTone } from "./StatCard";
 export { DotTag, Tag } from "./Tag";
 export type { TagTone } from "./Tag";
