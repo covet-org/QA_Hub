@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export type StatTone = "brand" | "success" | "danger" | "warn" | "neutral";
 
 const accentBar: Record<StatTone, string> = {
@@ -22,6 +24,12 @@ interface StatCardProps {
   hint?: string;
   /** Colours the accent rule and the figure — use it to flag problems. */
   tone?: StatTone;
+  /**
+   * Where the figure came from. A headline number invites the question
+   * "which ones?", and the answer is always a board in this app, so the
+   * whole tile becomes the link rather than some word inside it.
+   */
+  href?: string;
 }
 
 /** A single headline figure. The accent rule carries the tone at a glance. */
@@ -30,9 +38,10 @@ export function StatCard({
   value,
   hint,
   tone = "brand",
+  href,
 }: StatCardProps) {
-  return (
-    <div className="relative overflow-hidden rounded-xl bg-surface-card px-4 py-3.5 shadow-card ring-1 ring-hairline">
+  const body = (
+    <>
       <span
         aria-hidden
         className={`absolute inset-y-0 left-0 w-[3px] ${accentBar[tone]}`}
@@ -48,6 +57,26 @@ export function StatCard({
         </p>
         {hint && <p className="text-[11px] text-slate-500">{hint}</p>}
       </div>
-    </div>
+    </>
+  );
+
+  const shell =
+    "relative block overflow-hidden rounded-xl bg-surface-card px-4 py-3.5 shadow-card ring-1 ring-hairline";
+
+  if (!href) return <div className={shell}>{body}</div>;
+
+  return (
+    <Link
+      href={href}
+      className={`${shell} group transition-shadow hover:shadow-card-hover hover:ring-brand-200`}
+    >
+      {body}
+      <span
+        aria-hidden
+        className="absolute top-3 right-3 text-[11px] text-slate-300 transition-colors group-hover:text-brand-600"
+      >
+        →
+      </span>
+    </Link>
   );
 }
