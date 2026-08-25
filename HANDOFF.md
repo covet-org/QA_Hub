@@ -91,6 +91,9 @@ before touching it — the lesson there cost three deploys. Two anchors that loo
 numbers, and the card names its go-live source on screen precisely so a silent fallback cannot
 masquerade as a real answer.
 
+Home's headline figures link to their boards, and its initiative count comes from Linear.
+The one hand-maintained number left on the page is the manual/automation effort split.
+
 **Access** — rewritten as described in §1.
 
 **App-wide** — a visual refresh (wider shell, layered surfaces, tighter type scale) and then a
