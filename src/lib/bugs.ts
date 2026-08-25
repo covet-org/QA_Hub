@@ -9,8 +9,12 @@ import {
 } from "@/lib/linear/client";
 import type { RoadmapTicket } from "@/lib/linear/types";
 import { buildBugTrends, type ReleaseTrend } from "@/lib/bug-trend";
+import {
+  buildCsBugTrends,
+  buildReleaseWindows,
+} from "@/lib/cs-bug-trend";
 import { RELEASE_NAME, releaseRank } from "@/lib/release-utils";
-import { getActiveReleaseFloor } from "@/lib/testiny/queries";
+import { getActiveReleaseFloor, listTestRuns } from "@/lib/testiny/queries";
 
 export type BugKind = "product" | "cs";
 
@@ -128,6 +132,35 @@ export async function getBugTrends(): Promise<ReleaseTrend[]> {
   } catch (error) {
     console.error(
       `Bug trends unavailable: ${error instanceof Error ? error.message : error}`,
+    );
+    return [];
+  }
+}
+
+/**
+ * CS bugs per release, attributed by date rather than by project.
+ *
+ * A CS bug is filed cross-product, so the only thing tying it to a
+ * release is when it arrived: a release owns production from its own
+ * regression close until the next release's. Both reads underneath are
+ * already cached and shared with other cards, so this costs no extra
+ * request — the CS bug board fetches the same tickets, and the release
+ * testing card the same runs.
+ */
+export async function getCsBugTrends(): Promise<ReleaseTrend[]> {
+  try {
+    const [snapshot, runs] = await Promise.all([
+      getBugsSnapshot("cs"),
+      listTestRuns(),
+    ]);
+    const windows = buildReleaseWindows(runs, Date.now());
+    return buildCsBugTrends(
+      snapshot.groups.flatMap((g) => g.tickets),
+      windows,
+    );
+  } catch (error) {
+    console.error(
+      `CS bug trends unavailable: ${error instanceof Error ? error.message : error}`,
     );
     return [];
   }
