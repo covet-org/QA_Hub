@@ -236,7 +236,8 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
             {current.total}
           </span>
           <span className="text-[13px] text-slate-600">
-            bugs in {current.release}
+            {/* Singular matters here: the CS chart routinely sits at one. */}
+            bug{current.total === 1 ? "" : "s"} in {current.release}
           </span>
           {delta !== null && (
             <span

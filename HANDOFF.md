@@ -84,6 +84,13 @@ Both cards show the last two releases with "+ More", from one shared library pie
 note on `release-content.ts` in `CLAUDE.md` for why features are counted by project and not by
 roadmap label.
 
+**Home** also carries **CS bugs per release**: customer-service bugs attributed to whichever
+release was in production when they arrived. Read the `cs-bug-trend.ts` note in `CLAUDE.md`
+before touching it — the lesson there cost three deploys. Two anchors that look correct
+(Testiny regression closes, and `releases(first: 50)`) both produce plausible, badly wrong
+numbers, and the card names its go-live source on screen precisely so a silent fallback cannot
+masquerade as a real answer.
+
 **Access** — rewritten as described in §1.
 
 **App-wide** — a visual refresh (wider shell, layered surfaces, tighter type scale) and then a

@@ -121,6 +121,23 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
   third of them "QA Review" / "Gabriel Review" and numbered platform sub-tasks; the real
   number is 5. A sub-issue whose parent lives elsewhere keeps its row, since nothing in the
   release speaks for it.
+- `src/lib/cs-bug-trend.ts` + `src/lib/linear/releases.ts` + `src/content/release-go-live.ts`
+  — **CS bugs per release.** A CS bug is filed cross-product, so nothing on the ticket says
+  which release caused it; it is attributed by *when* it arrived. A release owns production
+  from its go-live until the next release's.
+  - **Go-live is Linear's production release pipeline**, nothing else. The release *projects*
+    ("3.36 Release") carry no dates at all — startDate, targetDate and completedAt are null
+    and every one sits in Backlog. Testiny's regression runs look right and are not: they are
+    closed in batches (3.33 and 3.34 both on 2026-08-12; 3.35 and 3.36 both on 2026-08-24),
+    which makes two windows zero days wide. The first version of this chart shipped on that
+    anchor and reported 1 CS bug where there were 11.
+  - Query `releasePipelines`, **not** `releases(first: n)`: releases come back newest-first
+    across every pipeline and the Dev pipeline creates one per push, so a page of 50 is all
+    Dev builds and hides every production release but the newest.
+  - Counted straight from the **CS Bug label**, not from `getBugsSnapshot("cs")`. The board
+    scopes itself to release projects, Cross-Product and unassigned; customer bugs are triaged
+    into "Bugs" and "Recording Issues", so that filter dropped nine of 3.35's eleven.
+  - Verified against hand counts from Linear: 3.36 → 1, 3.35 → 11, 3.34 → 9, 3.33 → 23.
 - `src/lib/smooth-path.ts` — monotone cubic (Fritsch-Carlson) SVG paths. Monotone specifically:
   a plain spline overshoots, and on a cumulative series that draws the curve dipping below a
   total already reached, which is the chart lying about the data.
