@@ -1,7 +1,17 @@
 import "server-only";
 
 import { getBugsSnapshot } from "@/lib/bugs";
+import {
+  fetchIssuesInProjects,
+  linearConfigured,
+  LinearError,
+} from "@/lib/linear/client";
+import type { RoadmapTicket } from "@/lib/linear/types";
 import { getRoadmapSnapshot } from "@/lib/roadmap";
+import { getCoverageIndex } from "@/lib/testiny/coverage";
+
+/** Bugs get their own list, so they are never counted as features. */
+const BUG_LABELS = new Set(["Bug", "CS Bug"]);
 
 /** A roadmap ticket (user story) shown in a release's detail. */
 export interface ReleaseStory {
@@ -52,19 +62,86 @@ export async function getReleaseContent(): Promise<
   const bucket = (version: string): ReleaseContent =>
     (out[version] ??= { stories: [], bugs: [] });
 
+  // What shipped in a release is the release project's contents minus its
+  // bugs — not the roadmap-labelled subset. Shipped work loses its roadmap
+  // label, so a past release reads as empty by label and full by project.
+  const releaseNames = [
+    ...new Set(
+      [...roadmap.groups, ...bugs.groups]
+        .filter((g) => g.isRelease)
+        .map((g) => g.name),
+    ),
+  ];
+
+  let projectIssues: RoadmapTicket[] = [];
+  if (releaseNames.length > 0 && linearConfigured()) {
+    try {
+      projectIssues = await fetchIssuesInProjects(releaseNames);
+    } catch (error) {
+      if (!(error instanceof LinearError)) throw error;
+      // Features degrade to the roadmap-labelled set below rather than
+      // taking the whole page down with them.
+      console.warn(`Release features unavailable: ${error.message}`);
+    }
+  }
+
+  const coverage = await getCoverageIndex();
+  const hasCases = (id: string): boolean =>
+    (coverage.get(id.toUpperCase()) ?? []).some((f) => f.caseCount > 0);
+
+  const seen = new Set<string>();
+  const addStory = (version: string, story: ReleaseStory): void => {
+    const key = `${version}:${story.id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    bucket(version).stories.push(story);
+  };
+
+  for (const ticket of projectIssues) {
+    const version = ticket.project ? versionOf(ticket.project) : null;
+    if (!version) continue;
+    // allLabels is optional on the type (fixtures omit it), so fall back
+    // to the display labels rather than treating a bug as a feature.
+    const labels = ticket.allLabels ?? ticket.labels;
+    if (labels.some((l) => BUG_LABELS.has(l))) continue;
+    // Cancelled work never shipped, so it is not a feature of the release.
+    if (ticket.statusType === "canceled") continue;
+    addStory(version, {
+      id: ticket.id,
+      title: ticket.title,
+      url: ticket.url,
+      labels: ticket.labels,
+      status: ticket.status,
+      statusType: ticket.statusType,
+      hasTestCases: hasCases(ticket.id),
+    });
+  }
+
+  // A roadmap story parked outside the release project still belongs to it.
   for (const group of roadmap.groups) {
     if (!group.isRelease) continue;
     const version = versionOf(group.name);
     if (!version) continue;
-    bucket(version).stories = group.tickets.map((t) => ({
-      id: t.id,
-      title: t.title,
-      url: t.url,
-      labels: t.labels,
-      status: t.status,
-      statusType: t.statusType,
-      hasTestCases: t.hasTestCases,
-    }));
+    for (const t of group.tickets) {
+      addStory(version, {
+        id: t.id,
+        title: t.title,
+        url: t.url,
+        labels: t.labels,
+        status: t.status,
+        statusType: t.statusType,
+        hasTestCases: t.hasTestCases,
+      });
+    }
+  }
+
+  // Same order as the roadmap board: uncovered first, so the gaps read.
+  for (const content of Object.values(out)) {
+    content.stories.sort(
+      (a, b) =>
+        Number(a.hasTestCases) - Number(b.hasTestCases) ||
+        a.id.localeCompare(b.id),
+    );
   }
 
   for (const group of bugs.groups) {

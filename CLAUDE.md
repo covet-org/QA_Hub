@@ -110,6 +110,13 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
   palette has exactly 7 validated slots. `getBugTrends()` in `bugs.ts` reuses the product-bug
   snapshot, so the chart costs no extra request, and swallows its errors — a chart is not worth
   failing the landing page over.
+- `src/lib/release-content.ts` — per-release stories and bugs. **Features come from the
+  release project's contents minus bugs minus cancelled work, not from roadmap-labelled
+  issues.** Shipped work loses its roadmap label, so by label 3.35 read as 0 features while
+  its project held 7 that shipped. `fetchIssuesInProjects` in the Linear client reuses the
+  same selection set and cache layers as `fetchIssuesWithLabels`, keyed by project instead
+  of label. Roadmap-labelled stories are still merged in, so a story parked outside the
+  release project is not lost.
 - `src/lib/smooth-path.ts` — monotone cubic (Fritsch-Carlson) SVG paths. Monotone specifically:
   a plain spline overshoots, and on a cumulative series that draws the curve dipping below a
   total already reached, which is the chart lying about the data.
@@ -122,6 +129,10 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
     state the caller owns (those panels fetch on first open).
   - `DataRow` + `TicketLink` / `Slot` / `Meta` — the row every board is made of. `Slot` is
     fixed-width so a missing value still holds its column and ids line up between boards.
+  - `useRevealMore` + `RevealMoreButton` — "show the newest two, fold the rest behind
+    + More". `DEFAULT_RELEASES_SHOWN` is the shared count, and it is shared on purpose:
+    the bug chart and the feature breakdown are one story told twice, and they used to
+    disagree about which releases were on screen (three vs all).
   - `PageShell`, `PageHeader`, `Card`, `StatCard`, `Tag`, `Chevron`, `EmptyState`,
     `SectionLabel`.
   Before this there were four filter implementations, six collapsible sections, four chevrons and

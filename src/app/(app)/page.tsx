@@ -132,7 +132,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <Card>
           <CardHeader
             title="Features per release"
-            subtitle="What actually went out in each release — the same releases as the chart above, seen as content rather than counts. Newest release open; the rest fold away."
+            subtitle="What actually went out in each release — the same two releases as the chart above, seen as content rather than counts. Newest release open; use + More for older ones."
           />
           <CardBody>
             <ReleaseFeatures groups={featureGroups} />

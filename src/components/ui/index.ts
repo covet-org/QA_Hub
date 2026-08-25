@@ -17,6 +17,11 @@ export { FilterBar, FilterGroup } from "./FilterGroup";
 export type { FilterMode, FilterOption } from "./FilterGroup";
 export { PageHeader } from "./PageHeader";
 export { EmptyState, PageShell, SectionLabel } from "./PageShell";
+export {
+  DEFAULT_RELEASES_SHOWN,
+  RevealMoreButton,
+  useRevealMore,
+} from "./RevealMore";
 export { StatCard } from "./StatCard";
 export type { StatTone } from "./StatCard";
 export { DotTag, Tag } from "./Tag";

@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
 import {
   DataRow,
+  DEFAULT_RELEASES_SHOWN,
   Disclosure,
   EmptyState,
   Meta,
+  RevealMoreButton,
   Slot,
   Tag,
   TicketLink,
+  useRevealMore,
 } from "@/components/ui";
 import type { ReleaseStory } from "@/lib/release-content";
 
@@ -40,6 +42,12 @@ export interface ReleaseFeatureGroup {
  * Which features went out in each release, under the bug trend chart on
  * Home: the same releases, seen as content rather than as counts.
  *
+ * Shows the last two releases and folds the rest behind "+ More", the
+ * same affordance and the same count as the chart above — the two cards
+ * are one story told twice, so they must never disagree about which
+ * releases are on screen. A release with nothing recorded still gets its
+ * row, saying so: dropping it silently is what made them disagree.
+ *
  * Built entirely from the library — Disclosure, DataRow, Slot, Meta, Tag —
  * so it matches the roadmap and bug boards row for row, and from the
  * release content the Releases page already fetches.
@@ -49,12 +57,15 @@ export function ReleaseFeatures({
 }: {
   groups: ReleaseFeatureGroup[];
 }) {
-  const shown = useMemo(() => groups.filter((g) => g.stories.length > 0), [
-    groups,
-  ]);
+  const {
+    visible: shown,
+    expanded,
+    hiddenCount,
+    toggle,
+  } = useRevealMore(groups, DEFAULT_RELEASES_SHOWN);
 
-  if (shown.length === 0) {
-    return <EmptyState>No released features found for these releases.</EmptyState>;
+  if (groups.length === 0) {
+    return <EmptyState>No releases found.</EmptyState>;
   }
 
   return (
@@ -77,12 +88,23 @@ export function ReleaseFeatures({
             }
             summary={
               <span className="nums text-[11px] text-slate-500">
-                {group.stories.length} feature
-                {group.stories.length === 1 ? "" : "s"} · {done} done ·{" "}
-                {covered} with test cases
+                {group.stories.length === 0 ? (
+                  "no features recorded"
+                ) : (
+                  <>
+                    {group.stories.length} feature
+                    {group.stories.length === 1 ? "" : "s"} · {done} done ·{" "}
+                    {covered} with test cases
+                  </>
+                )}
               </span>
             }
           >
+            {group.stories.length === 0 && (
+              <EmptyState>
+                Nothing but bugs recorded against {group.release} in Linear.
+              </EmptyState>
+            )}
             <ul className="divide-y divide-hairline">
               {group.stories.map((story) => (
                 <DataRow
@@ -130,6 +152,11 @@ export function ReleaseFeatures({
           </Disclosure>
         );
       })}
+      <RevealMoreButton
+        expanded={expanded}
+        hiddenCount={hiddenCount}
+        onToggle={toggle}
+      />
     </div>
   );
 }

@@ -1,6 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  DEFAULT_RELEASES_SHOWN,
+  RevealMoreButton,
+  useRevealMore,
+} from "@/components/ui";
 import type { ReleaseTrend, TrendPoint } from "@/lib/bug-trend";
 import { smoothPath } from "@/lib/smooth-path";
 
@@ -26,8 +31,6 @@ const SERIES_COLORS = [
   "#4a3aa7", // violet
 ];
 
-/** Shown without pressing "+ More". */
-const DEFAULT_VISIBLE = 3;
 
 /**
  * Days of the x-axis by default.
@@ -64,7 +67,6 @@ function countAtDay(trend: ReleaseTrend, day: number): number {
 }
 
 export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
-  const [expanded, setExpanded] = useState(false);
   const [fullRange, setFullRange] = useState(false);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [hover, setHover] = useState<Hover | null>(null);
@@ -80,7 +82,14 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
     return map;
   }, [trends]);
 
-  const offered = expanded ? trends : trends.slice(0, DEFAULT_VISIBLE);
+  // Last two releases up front, the rest behind "+ More" — the same
+  // convention the feature breakdown below this chart uses.
+  const {
+    visible: offered,
+    expanded,
+    hiddenCount: moreCount,
+    toggle: toggleMore,
+  } = useRevealMore(trends, DEFAULT_RELEASES_SHOWN);
   const shown = offered.filter((t) => !hidden.has(t.release));
 
   const fullDay = Math.max(
@@ -294,17 +303,12 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
             </button>
           );
         })}
-        {trends.length > DEFAULT_VISIBLE && (
-          <button
-            type="button"
-            onClick={() => setExpanded((e) => !e)}
-            className="ml-1 text-[11px] font-medium text-brand-700 hover:underline"
-          >
-            {expanded
-              ? "Show fewer"
-              : `+ More (${trends.length - DEFAULT_VISIBLE})`}
-          </button>
-        )}
+        <RevealMoreButton
+          expanded={expanded}
+          hiddenCount={moreCount}
+          onToggle={toggleMore}
+          className="ml-1"
+        />
         <span className="ml-auto hidden text-[10px] text-slate-400 sm:block">
           {pinned ? "Pinned — click to release" : "Click to pin · ← → to step"}
         </span>
