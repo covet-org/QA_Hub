@@ -1,4 +1,5 @@
 import type { CoveredTicket, ParentRef, RoadmapNode } from "./linear/types";
+import { byPriority } from "./priority";
 
 /**
  * Turns a flat release group into parent rows with their sub-issues
@@ -63,15 +64,32 @@ export function buildRoadmapNodes(
   return nodes.sort(
     (a, b) =>
       Number(nodeFullyCovered(a)) - Number(nodeFullyCovered(b)) ||
-      a.ticket.id.localeCompare(b.ticket.id),
+      byPriority(a.ticket, b.ticket) ||
+      compareIds(a.ticket.id, b.ticket.id),
   );
 }
 
-/** Uncovered first, then by identifier — the flat board's old order. */
+/**
+ * Uncovered first, urgent first within that, then by identifier.
+ *
+ * The tree sorts again after the snapshot does, so the rule has to live
+ * here too: sorting the flat ticket list was not enough, and the board
+ * quietly showed ticket-id order until someone read it closely.
+ */
 function byCoverageThenId(a: CoveredTicket, b: CoveredTicket): number {
   return (
-    Number(a.hasTestCases) - Number(b.hasTestCases) || a.id.localeCompare(b.id)
+    Number(a.hasTestCases) - Number(b.hasTestCases) ||
+    byPriority(a, b) ||
+    compareIds(a.id, b.id)
   );
+}
+
+/**
+ * COV-9 before COV-12. Plain localeCompare puts "12" before "9" because
+ * it compares character by character.
+ */
+function compareIds(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true });
 }
 
 /**
