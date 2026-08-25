@@ -130,27 +130,19 @@ export function BugBoard({
    * has a handful and wants them all.
    */
   revealAfter,
-  /** Chips that stay visible however the list is trimmed. */
-  pinned,
 }: {
   groups: BugGroup[];
   revealAfter?: number;
-  pinned?: string[];
 }) {
   const groupNames = useMemo(() => groups.map((g) => g.name), [groups]);
   // Open on what the filter shows: the trimmed chips plus anything pinned.
   // Opening on all seventeen windows would bury the two that matter and
   // render a page nobody asked for.
-  const defaults = useMemo(() => {
-    if (revealAfter === undefined) return undefined;
-    const pinnedSet = new Set(pinned ?? []);
-    const trimmed = groupNames
-      .filter((name) => !pinnedSet.has(name))
-      .slice(0, revealAfter);
-    return groupNames.filter(
-      (name) => pinnedSet.has(name) || trimmed.includes(name),
-    );
-  }, [groupNames, revealAfter, pinned]);
+  const defaults = useMemo(
+    () =>
+      revealAfter === undefined ? undefined : groupNames.slice(0, revealAfter),
+    [groupNames, revealAfter],
+  );
   const release = useUrlFilter("release", groupNames, defaults);
   const [priorities, setPriorities] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<string | "all">("all");
@@ -200,7 +192,6 @@ export function BugBoard({
           selected={[...release.selected]}
           onChange={release.set}
           revealAfter={revealAfter}
-          pinned={pinned}
           bulk
         />
         <FilterGroup
