@@ -22,6 +22,7 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
+  UnderDevelopment,
   PageHeader,
   PageShell,
   StatCard,
@@ -191,13 +192,23 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <Card>
           <CardHeader
             title="Current effort allocation"
+            badge="being reworked"
             subtitle="Average split across active roadmap initiatives. The department goal is to grow the automation share release over release."
           />
           <CardBody>
-            <AllocationBar
-              manual={split.manual}
-              automation={split.automation}
-            />
+            {/* The last hand-maintained number on this page: it comes from
+                content/initiatives.ts, which still describes QA's world as
+                of July. Everything else here is read from Linear or
+                Testiny on each request. */}
+            <UnderDevelopment
+              compact
+              note="This split comes from a checked-in file, not from Linear or Testiny — treat it as last edited, not as current."
+            >
+              <AllocationBar
+                manual={split.manual}
+                automation={split.automation}
+              />
+            </UnderDevelopment>
           </CardBody>
         </Card>
 
