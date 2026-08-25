@@ -57,14 +57,27 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   ).length;
   const activeRuns = activeRunsResult.runs.length;
   const currentRelease = trends[0];
-  // Newest release first, and only releases that actually shipped features.
+  // One release window for both cards: the chart's order wins, so the two
+  // always open on the same releases. Sorting features by version number
+  // instead put an unreleased 3.37 — with nothing in it — above the 3.36
+  // the chart was showing.
+  const trendOrder = new Map(trends.map((t, i) => [t.release, i]));
   const featureGroups = Object.entries(releaseContent)
     .map(([release, content]) => ({
       release,
       rank: versionRank(release) ?? 0,
       stories: content.stories,
     }))
-    .sort((a, b) => b.rank - a.rank);
+    .sort((a, b) => {
+      const ai = trendOrder.get(a.release);
+      const bi = trendOrder.get(b.release);
+      if (ai !== undefined && bi !== undefined) return ai - bi;
+      // A release the chart doesn't know about (no bugs yet) sits behind
+      // the ones it does, newest of those first.
+      if (ai !== undefined) return -1;
+      if (bi !== undefined) return 1;
+      return b.rank - a.rank;
+    });
   const firstName = viewer.name.split(" ")[0] || "there";
 
   return (
