@@ -151,6 +151,13 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
   - `DataTimestamp` in the sidebar says when the data was read. It formats during render with
     `suppressHydrationWarning` — the server does not know the reader's timezone, and the lint
     rules forbid both `setState` in an effect and reading the clock during render.
+- `src/lib/priority.ts` — `PRIORITY_ORDER` and `byPriority`, the single comparator behind
+  every ticket list. Returns 0 on equal priorities so callers keep their own tie-breakers
+  (open-before-closed on bug boards, uncovered-before-covered on the roadmap). See HANDOFF §3d
+  for the rules and the re-sorting trap in `roadmap-tree.ts`.
+- `src/lib/release-progression.ts` — which release Home's first tile shows, and which phase's
+  percentage it carries. Active runs win over closed; regression takes over from dev on its
+  first executed case. Pure, and the rules are where the value is.
 - `src/lib/slug.ts` — `slugify`, in its own module with **no** directive either way.
   Both sides need it: the filters write these slugs into the query string, Home builds
   pre-filtered links to the same boards. It used to live in `use-url-filter.ts`, which is a
