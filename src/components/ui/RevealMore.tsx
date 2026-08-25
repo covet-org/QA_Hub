@@ -3,15 +3,13 @@
 import { useMemo, useState } from "react";
 
 /**
- * How many releases a card shows before you ask for more.
- *
- * Two, because the useful comparison is the release in flight against the
- * one before it. Everything older is history you go looking for. Shared
- * so the bug trend chart and the feature breakdown cannot drift apart —
- * they are the same releases seen two ways, and a card showing three
- * beside a card showing two reads as a bug.
+ * Shared so the trend charts, the feature breakdown and Home's links
+ * cannot drift apart — they are the same releases seen three ways.
+ * Defined in lib/release-window.ts because Home is a server component and
+ * cannot import a value through this client module.
  */
-export const DEFAULT_RELEASES_SHOWN = 2;
+export { DEFAULT_RELEASES_SHOWN } from "@/lib/release-window";
+import { DEFAULT_RELEASES_SHOWN } from "@/lib/release-window";
 
 /**
  * "Show the newest few, reveal the rest on request."
