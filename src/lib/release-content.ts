@@ -7,6 +7,7 @@ import {
   LinearError,
 } from "@/lib/linear/client";
 import type { RoadmapTicket } from "@/lib/linear/types";
+import { byPriority } from "@/lib/priority";
 import { getRoadmapSnapshot } from "@/lib/roadmap";
 import { getCoverageIndex } from "@/lib/testiny/coverage";
 
@@ -18,6 +19,8 @@ export interface ReleaseStory {
   id: string;
   title: string;
   url: string;
+  /** Linear priority, for ordering the list. */
+  priorityName: string | null;
   /** Roadmap labels present (e.g. "Medium to Big Size Features", "Quick wins"). */
   labels: string[];
   status: string;
@@ -126,6 +129,7 @@ export async function getReleaseContent(): Promise<
         title: ticket.title,
         url: ticket.url,
         labels: ticket.labels,
+        priorityName: ticket.priorityName ?? null,
         status: ticket.status,
         statusType: ticket.statusType,
         hasTestCases: hasCases(ticket.id),
@@ -147,6 +151,7 @@ export async function getReleaseContent(): Promise<
           title: t.title,
           url: t.url,
           labels: t.labels,
+          priorityName: t.priorityName ?? null,
           status: t.status,
           statusType: t.statusType,
           hasTestCases: t.hasTestCases,
@@ -163,13 +168,16 @@ export async function getReleaseContent(): Promise<
     addStory(c.version, c.story);
   }
 
-  // Same order as the roadmap board: uncovered first, so the gaps read.
+  // Priority first, as everywhere else; uncovered before covered still
+  // breaks the ties so the coverage gaps read within each band.
   for (const content of Object.values(out)) {
     content.stories.sort(
       (a, b) =>
+        byPriority(a, b) ||
         Number(a.hasTestCases) - Number(b.hasTestCases) ||
         a.id.localeCompare(b.id),
     );
+    content.bugs.sort((a, b) => byPriority(a, b) || a.id.localeCompare(b.id));
   }
 
   for (const group of bugs.groups) {

@@ -18,8 +18,8 @@ export async function BugsView({ kind }: { kind: BugKind }) {
   return (
     <div>
       <PageHeader
-        kicker={`Bugs · ${isCs ? "Customer Support" : "Product"}`}
-        title={isCs ? "CS Bugs" : "Bugs"}
+        kicker={`Bugs · ${isCs ? "Customer Support" : "QA"}`}
+        title={isCs ? "CS Bugs" : "QA Bugs"}
         description={
           isCs
             ? `Every Linear ticket labeled "${label}", grouped by the release that was in production when it arrived — a release owns production from its go-live until the next release's. Opens on the last two releases; use + More for older ones.`

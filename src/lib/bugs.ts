@@ -15,6 +15,7 @@ import {
   groupCsBugsByWindow,
   type ReleaseWindow,
 } from "@/lib/cs-bug-trend";
+import { byPriority } from "@/lib/priority";
 import { RELEASE_NAME, releaseRank } from "@/lib/release-utils";
 import { fetchProductionReleases } from "@/lib/linear/releases";
 import { RELEASE_GO_LIVE } from "@/content/release-go-live";
@@ -98,8 +99,11 @@ export async function getBugsSnapshot(kind: BugKind): Promise<BugsSnapshot> {
   const groups: BugGroup[] = [...byProject.entries()]
     .map(([name, list]) => {
       const isRelease = RELEASE_NAME.test(name);
+      // Priority first: a board is read as "what needs attention now".
+      // Open before closed, then newest, still break the ties.
       const sorted = list.sort(
         (a, b) =>
+          byPriority(a, b) ||
           Number(isOpen(b)) - Number(isOpen(a)) ||
           b.id.localeCompare(a.id, undefined, { numeric: true }),
       );
@@ -280,6 +284,7 @@ export async function getCsBugBoard(): Promise<{
     .map((entry) => {
     const sorted = [...entry.tickets].sort(
       (a, b) =>
+        byPriority(a, b) ||
         Number(isOpen(b)) - Number(isOpen(a)) ||
         b.id.localeCompare(a.id, undefined, { numeric: true }),
     );
