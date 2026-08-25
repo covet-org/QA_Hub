@@ -4,7 +4,7 @@ Supersedes `QA-Hub-Claude-Handoff.pdf` (24 Aug 2026). That file lived outside th
 described a machine that no longer exists; this one lives beside the code so it can be updated in
 the same commit as the change it describes.
 
-**Last updated:** 24 Aug 2026, end of the working session described below.
+**Last updated:** 25 Aug 2026.
 
 - **Production:** https://qahub-ebon.vercel.app (Vercel project `qahub`, team `qa-2001`)
 - **Repo:** https://github.com/clezama-QA/Co.Vet_QA — `main` auto-deploys on push
@@ -66,7 +66,8 @@ disagreements between the two are expected rather than bugs.
 
 ## 3. What changed in this session
 
-Seventeen PRs, each merged to `main` and verified on production.
+Eighteen PRs merged to `main` and verified on production, plus the rename and a label fix
+currently sitting on `preview`.
 
 **Roadmap** — sub-issues nest under collapsible parent rows; Linear priority column beside the
 ticket id; multi-select release and test-case filters with the selection in the URL.
@@ -142,6 +143,15 @@ In the order worth doing them.
    `covet-qa-automation` repo.
 
 ## 5. Known limitations, stated plainly
+
+- **Release matching captures `major.minor` only.** A Linear project named `3.34.1 Release`
+  would fold into `3.34` — on the bug trend chart, the roadmap and the bug board alike. Every
+  release project today is two-part (1.1 through 3.37), so nothing is currently mis-grouped, but
+  hotfix releases would need `versionRank` and the release regexes in `release-utils.ts`
+  extended to a third component.
+- **Do not put a count next to a version with a dot.** "3.34 · 1" was read as release 3.34.1 by
+  the first person who saw the chart. End labels now use spacing and the word "bugs"; legend
+  counts are parenthesised. Worth remembering for any future label.
 
 - **Descope detection has a 180-day window** and the Linear query filters on `updatedAt`, so a
   feature parked in a squad project and untouched since then is not detected.

@@ -99,6 +99,9 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
   Surfaced as a per-run-card dropdown ("Show descoped tasks for 3.36") that calls the
   `loadDescopes` server action on open, so the Releases pages still cost one Testiny query.
 - `src/lib/release-utils.ts` — shared `RELEASE_NAME` regex + `releaseRank`/`versionRank`.
+  **Captures `major.minor` only**: a project named `3.34.1 Release` folds into `3.34` on every
+  board. All release projects today are two-part (1.1 → 3.37), so nothing is mis-grouped, but
+  supporting hotfix releases means extending these to a third component.
 - `src/lib/worktime.ts` — 8-hour-workday math (weekends excluded) for cycle time.
 - `src/content/initiatives.ts` — hand-maintained effort-allocation initiatives (Home/Automation).
 - `src/lib/bug-trend.ts` — pure builder for the Home chart: one cumulative curve per release,
