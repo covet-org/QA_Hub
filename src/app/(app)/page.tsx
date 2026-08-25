@@ -6,8 +6,10 @@ import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { overallEffortSplit } from "@/content/initiatives";
 import { BugTrendChart } from "@/components/BugTrendChart";
 import { ReleaseFeatures } from "@/components/ReleaseFeatures";
-import { ReleaseProgressionPanel } from "@/components/ReleaseProgression";
-import { pickReleaseProgression } from "@/lib/release-progression";
+import {
+  currentPhase,
+  pickReleaseProgression,
+} from "@/lib/release-progression";
 import { getBugTrends, getCsBugTrends } from "@/lib/bugs";
 import { getReleaseContent } from "@/lib/release-content";
 import { versionRank } from "@/lib/release-utils";
@@ -24,6 +26,8 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
+  RunProgressBar,
+  runProgress,
   UnderDevelopment,
   PageHeader,
   PageShell,
@@ -78,6 +82,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     activeRunsResult.runs,
     closedRuns,
   );
+  // One number, and which phase it belongs to: dev and regression never
+  // run at once, so the release has a single current percentage.
+  const phase = progression ? currentPhase(progression) : null;
+  const phaseProgress = phase ? runProgress(phase.run) : null;
   const currentRelease = trends[0];
 
   // Only link where this viewer may actually go: access is by parent
@@ -181,30 +189,34 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         )}
         {activeRunsResult.isSample && <SampleDataNotice />}
 
-        {/* Progression first: "how far is the release" comes before "how
-            many bugs did it produce". Dev and regression never run at the
-            same time, so this fits a half-width card and no longer needs
-            a band of its own. */}
+        {/* Two tiles of one shape: "how far is the release" beside "what
+            did it cost us". The progression is the same StatCard as the
+            bug count, with its bar in the footer slot — a lookalike built
+            separately would drift the first time either changed. */}
         <div className="grid items-start gap-4 lg:grid-cols-2">
-          <Card>
-            <CardHeader
-              title="Release progression"
-              /**
-               * Straight to the board holding this release, filtered to
-               * it: runsHref picks active or closed by whether the
-               * release has an open run, so a shipped release lands on
-               * the closed board showing its dev and regression runs
-               * rather than an empty active one.
-               */
-              titleHref={
-                progression ? runsHref([progression.release]) : undefined
-              }
-              subtitle="Dev then regression for the release in testing, or the last release to ship."
-            />
-            <CardBody>
-              <ReleaseProgressionPanel progression={progression} />
-            </CardBody>
-          </Card>
+          <StatCard
+            label={
+              progression
+                ? `${progression.isActive ? "In testing" : "Last shipped"} · ${phase?.label ?? "no runs"}`
+                : "Release progression"
+            }
+            value={progression?.release ?? "—"}
+            hint={
+              phaseProgress
+                ? `${phaseProgress.percent}% · ${phaseProgress.executed} of ${phase!.run.total} executed`
+                : "No Testiny run carries a release number"
+            }
+            tone={progression?.isActive ? "brand" : "neutral"}
+            /**
+             * Straight to the board holding this release, filtered to it:
+             * runsHref picks active or closed by whether the release has
+             * an open run, so a shipped release lands on the closed board
+             * showing its dev and regression runs rather than an empty
+             * active one.
+             */
+            href={progression ? runsHref([progression.release]) : undefined}
+            footer={phase ? <RunProgressBar run={phase.run} /> : undefined}
+          />
 
           <StatCard
             label={`Bugs in ${currentRelease?.release ?? "this release"}`}

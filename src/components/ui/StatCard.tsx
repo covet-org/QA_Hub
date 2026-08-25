@@ -30,6 +30,12 @@ interface StatCardProps {
    * whole tile becomes the link rather than some word inside it.
    */
   href?: string;
+  /**
+   * Rendered under the figure — a progress bar, a sparkline. Keeps a tile
+   * that needs one shape-identical to the tiles beside it, which is the
+   * whole point of them being tiles.
+   */
+  footer?: React.ReactNode;
 }
 
 /** A single headline figure. The accent rule carries the tone at a glance. */
@@ -39,6 +45,7 @@ export function StatCard({
   hint,
   tone = "brand",
   href,
+  footer,
 }: StatCardProps) {
   const body = (
     <>
@@ -57,6 +64,7 @@ export function StatCard({
         </p>
         {hint && <p className="text-[11px] text-slate-500">{hint}</p>}
       </div>
+      {footer && <div className="mt-2.5">{footer}</div>}
     </>
   );
 
