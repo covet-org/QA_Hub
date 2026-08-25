@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
+import { cache } from "react";
 import { env } from "@/lib/env";
 import {
   LINEAR_REVALIDATE_SECONDS,
@@ -155,7 +157,7 @@ const MAX_PAGES = 8; // up to 400 tickets
  * state-change history. Both cycle dashboards aggregate from this
  * (the underlying requests are cached for 5 minutes).
  */
-async function fetchHistoryIssues(): Promise<HistoryIssue[]> {
+async function readHistoryIssues(): Promise<HistoryIssue[]> {
   const apiKey = env.linearApiKey;
   if (!apiKey) throw new LinearError("LINEAR_API_KEY is not configured");
 
@@ -195,6 +197,23 @@ async function fetchHistoryIssues(): Promise<HistoryIssue[]> {
   }
   return issues;
 }
+
+/**
+ * The history read, cached.
+ *
+ * getBugCycleStats() and getReleaseCycleStats() both need it and both run
+ * on Home, so this was the single most expensive Linear query in the app
+ * executed twice per page load. unstable_cache reuses it across requests
+ * (the underlying fetches are POSTs, which Next's Data Cache ignores);
+ * React cache() collapses the two calls within one render.
+ */
+const cachedHistoryIssues = unstable_cache(
+  readHistoryIssues,
+  ["linear-bug-history"],
+  { revalidate: LINEAR_REVALIDATE_SECONDS },
+);
+
+const fetchHistoryIssues = cache(cachedHistoryIssues);
 
 /** Visit every completed stay of an issue (current status excluded). */
 function forEachStay(

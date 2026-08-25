@@ -5,7 +5,10 @@ import { ReleaseDurationsCard } from "@/components/ReleaseDurationsCard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { initiatives, overallEffortSplit } from "@/content/initiatives";
 import { BugTrendChart } from "@/components/BugTrendChart";
+import { ReleaseFeatures } from "@/components/ReleaseFeatures";
 import { getBugTrends } from "@/lib/bugs";
+import { getReleaseContent } from "@/lib/release-content";
+import { versionRank } from "@/lib/release-utils";
 import { getBugCycleStats, getReleaseCycleStats } from "@/lib/linear/cycle";
 import {
   getReleaseDurations,
@@ -33,6 +36,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     cycleStats,
     releaseCycles,
     trends,
+    releaseContent,
     { denied },
   ] = await Promise.all([
     requireAccess("/"),
@@ -41,6 +45,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     getBugCycleStats(),
     getReleaseCycleStats(),
     getBugTrends(),
+    // Same release content the Releases page uses; the underlying reads
+    // are shared with the bug trends above via the request cache.
+    getReleaseContent(),
     searchParams,
   ]);
 
@@ -50,6 +57,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   ).length;
   const activeRuns = activeRunsResult.runs.length;
   const currentRelease = trends[0];
+  // Newest release first, and only releases that actually shipped features.
+  const featureGroups = Object.entries(releaseContent)
+    .map(([release, content]) => ({
+      release,
+      rank: versionRank(release) ?? 0,
+      stories: content.stories,
+    }))
+    .sort((a, b) => b.rank - a.rank);
   const firstName = viewer.name.split(" ")[0] || "there";
 
   return (
@@ -111,6 +126,16 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           />
           <CardBody>
             <BugTrendChart trends={trends} />
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Features per release"
+            subtitle="What actually went out in each release — the same releases as the chart above, seen as content rather than counts. Newest release open; the rest fold away."
+          />
+          <CardBody>
+            <ReleaseFeatures groups={featureGroups} />
           </CardBody>
         </Card>
 
