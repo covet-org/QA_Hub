@@ -3,11 +3,10 @@ import { CycleTimeCard } from "@/components/CycleTimeCard";
 import { ReleaseCycleCards } from "@/components/ReleaseCycleCards";
 import { ReleaseDurationsCard } from "@/components/ReleaseDurationsCard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
-import { initiatives, overallEffortSplit } from "@/content/initiatives";
+import { overallEffortSplit } from "@/content/initiatives";
 import { BugTrendChart } from "@/components/BugTrendChart";
 import { ReleaseFeatures } from "@/components/ReleaseFeatures";
 import { getBugTrends, getCsBugTrends } from "@/lib/bugs";
-import { fetchInitiativeStats } from "@/lib/linear/initiatives";
 import { getReleaseContent } from "@/lib/release-content";
 import { versionRank } from "@/lib/release-utils";
 import { getBugCycleStats, getReleaseCycleStats } from "@/lib/linear/cycle";
@@ -17,6 +16,7 @@ import {
 } from "@/lib/testiny/queries";
 import { allowedHrefs, requireAccess } from "@/lib/viewer";
 import { slugify } from "@/lib/slug";
+import { DEFAULT_RELEASES_SHOWN } from "@/lib/release-window";
 import {
   Card,
   CardBody,
@@ -26,6 +26,9 @@ import {
   PageShell,
   StatCard,
 } from "@/components/ui";
+
+/** "Regression 3.36" -> 3.36; run titles carry the version in prose. */
+const RELEASE_IN_TITLE = /(\d+\.\d+)/;
 
 interface HomePageProps {
   searchParams: Promise<{ denied?: string }>;
@@ -41,7 +44,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     trends,
     csBugs,
     releaseContent,
-    initiativeStats,
     { denied },
   ] = await Promise.all([
     requireAccess("/"),
@@ -56,22 +58,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     // Same release content the Releases page uses; the underlying reads
     // are shared with the bug trends above via the request cache.
     getReleaseContent(),
-    // Never let a stat tile take the landing page down with it.
-    fetchInitiativeStats().catch(() => null),
     searchParams,
   ]);
 
   const split = overallEffortSplit();
-  // Linear is the source; the checked-in initiative list is the fallback,
-  // and the tile says which one it is rather than leaving the reader to
-  // wonder why a number has not moved in seven weeks.
-  const inProgress =
-    initiativeStats?.active ??
-    initiatives.filter((i) => i.status === "in-progress").length;
-  const initiativeTotal = initiativeStats?.total ?? initiatives.length;
-  const initiativeHint = initiativeStats
-    ? `${initiativeTotal} in Linear`
-    : `${initiativeTotal} on the roadmap · Linear unavailable`;
   const activeRuns = activeRunsResult.runs.length;
   const currentRelease = trends[0];
 
@@ -81,13 +71,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const allowed = new Set(allowedHrefs(viewer));
   const linkTo = (parent: string, href: string) =>
     allowed.has(parent) ? href : undefined;
-  const bugsHref = (release: string | undefined) =>
-    linkTo(
-      "/bugs",
-      release
-        ? `/bugs/product?release=${slugify(`${release} Release`)}`
-        : "/bugs/product",
-    );
+
   // One release window for both cards: the chart's order wins, so the two
   // always open on the same releases. Sorting features by version number
   // instead put an unreleased 3.37 — with nothing in it — above the 3.36
@@ -109,6 +93,59 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       if (bi !== undefined) return 1;
       return b.rank - a.rank;
     });
+
+  // What each card is showing: the same slice its "+ More" hides, so a
+  // click lands on the releases the reader was just looking at.
+  const shownIn = (releases: string[]) =>
+    releases.slice(0, DEFAULT_RELEASES_SHOWN);
+  const trendReleases = shownIn(trends.map((t) => t.release));
+  const csReleases = shownIn(csBugs.trends.map((t) => t.release));
+  const featureReleases = shownIn(featureGroups.map((g) => g.release));
+  const activeRunVersions = [
+    ...new Set(
+      activeRunsResult.runs
+        .map((run) => run.title.match(RELEASE_IN_TITLE)?.[1])
+        .filter((v): v is string => Boolean(v)),
+    ),
+  ];
+
+  /**
+   * A link carries the card's own query, so the board opens on what the
+   * reader was just looking at rather than on everything. The two sides
+   * name releases differently and both are load-bearing: the bug boards
+   * group by Linear project ("3.36 Release"), the run boards by bare
+   * version ("3.36").
+   */
+  const releaseParam = (releases: string[], suffix: "" | " Release") =>
+    releases.map((r) => slugify(`${r}${suffix}`)).join(",");
+
+  const boardHref = (path: string, releases: string[]) =>
+    linkTo(
+      "/bugs",
+      releases.length > 0
+        ? `${path}?release=${releaseParam(releases, " Release")}`
+        : path,
+    );
+
+  /**
+   * Runs are split across two boards by whether their Testiny runs are
+   * still open, so a link has to pick the one holding these releases.
+   * Sending the feature breakdown to /releases/active looked right and
+   * landed on an empty board: only 3.37 is active, while the features
+   * shown are 3.36 and 3.35, which are closed.
+   */
+  const runsHref = (versions: string[]) => {
+    const active = versions.filter((v) => activeRunVersions.includes(v));
+    const onActiveBoard = active.length > 0;
+    const board = onActiveBoard ? "/releases/active" : "/releases/closed";
+    const scoped = onActiveBoard ? active : versions;
+    return linkTo(
+      "/releases",
+      scoped.length > 0
+        ? `${board}?release=${releaseParam(scoped, "")}`
+        : board,
+    );
+  };
   const firstName = viewer.name.split(" ")[0] || "there";
 
   return (
@@ -129,13 +166,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         )}
         {activeRunsResult.isSample && <SampleDataNotice />}
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard
-            label="Initiatives in progress"
-            value={inProgress}
-            hint={initiativeHint}
-            href={linkTo("/roadmap", "/roadmap")}
-          />
+        <div className="grid gap-4 sm:grid-cols-2">
           <StatCard
             label={`Bugs in ${currentRelease?.release ?? "this release"}`}
             value={currentRelease?.total ?? 0}
@@ -144,13 +175,16 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               currentRelease && currentRelease.total > 0 ? "danger" : "brand"
             }
             // Straight to that release's rows, not just the board.
-            href={bugsHref(currentRelease?.release)}
+            href={boardHref(
+              "/bugs/product",
+              currentRelease ? [currentRelease.release] : [],
+            )}
           />
           <StatCard
             label="Active test runs"
             value={activeRuns}
             hint="Open in Testiny"
-            href={linkTo("/releases", "/releases/active")}
+            href={runsHref(activeRunVersions)}
           />
         </div>
 
@@ -170,7 +204,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <Card>
           <CardHeader
             title="Bugs found per release"
-            titleHref={bugsHref(undefined)}
+            titleHref={boardHref("/bugs/product", trendReleases)}
             subtitle="Cumulative bugs filed against each release, counted from its first bug so the curves compare directly. A steeper line means bugs surfacing faster."
           />
           <CardBody>
@@ -181,7 +215,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <Card>
           <CardHeader
             title="CS bugs per release"
-            titleHref={linkTo("/bugs", "/bugs/cs")}
+            titleHref={boardHref("/bugs/cs", csReleases)}
             subtitle="Bugs reported by customer service while each release was the version in production. CS bugs are filed cross-product, so they are attributed by date: a release owns production from its go-live until the next release's. Day 0 is go-live, so the curves compare week for week."
             footnote={
               csBugs.source === "pipeline"
@@ -206,7 +240,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <Card>
           <CardHeader
             title="Features per release"
-            titleHref={linkTo("/releases", "/releases")}
+            titleHref={runsHref(featureReleases)}
             subtitle="What actually went out in each release — the same two releases as the chart above, seen as content rather than counts. Newest release open; use + More for older ones."
           />
           <CardBody>
