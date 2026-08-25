@@ -15,8 +15,8 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: {
-    default: "CoVet QA Brain",
-    template: "%s · CoVet QA Brain",
+    default: "CoVet QA Hub",
+    template: "%s · CoVet QA Hub",
   },
   description:
     "QA department roadmap, manual & automation effort allocation, and testing visibility.",

@@ -109,7 +109,7 @@ export function Sidebar({
           co<span className="text-accent-400">·</span>vet
         </span>
         <span className="mt-0.5 block text-[10px] tracking-wide text-brand-100/70">
-          QA Brain
+          QA Hub
         </span>
       </div>
 

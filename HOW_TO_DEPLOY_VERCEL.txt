@@ -1,5 +1,5 @@
 ============================================================
-  CoVet QA Brain — Deploy to Vercel (always-on URL)
+  CoVet QA Hub — Deploy to Vercel (always-on URL)
 ============================================================
 
 WHY
@@ -60,7 +60,7 @@ Add these (name  ->  where the value comes from):
   QA_TEAM_EMAILS           -> (leave blank, or add QA emails)
   NOTIFY_EMAIL             -> clezama@co.vet
   RESEND_API_KEY           -> copy from .env.local
-  EMAIL_FROM               -> QA Brain <onboarding@resend.dev>
+  EMAIL_FROM               -> QA Hub <onboarding@resend.dev>
   UPSTASH_REDIS_REST_URL   -> copy from .env.local
   UPSTASH_REDIS_REST_TOKEN -> copy from .env.local
   LINEAR_API_KEY           -> copy from .env.local

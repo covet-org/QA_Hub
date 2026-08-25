@@ -1,4 +1,4 @@
-# QA Brain — Handoff
+# QA Hub — Handoff
 
 Supersedes `QA-Hub-Claude-Handoff.pdf` (24 Aug 2026). That file lived outside the repo and
 described a machine that no longer exists; this one lives beside the code so it can be updated in
@@ -37,7 +37,7 @@ down — so the whole team hit `AccessDenied` on a dashboard that only reads Lin
 store was removed rather than replaced: configuration cannot have an outage.
 
 **What went with it:** share links (`/share/<id>`), the approval flow, invites, and per-user role
-edits in the UI. Only `@co.vet` accounts can reach QA Brain now; there is no guest access.
+edits in the UI. Only `@co.vet` accounts can reach QA Hub now; there is no guest access.
 
 `NOTIFY_EMAIL` (defaults to clezama@co.vet) gets one mail per sign-in. Without a store there is no
 way to know whether it is somebody's first, so it fires per session (30 days), fire-and-forget.
@@ -89,16 +89,43 @@ pasted into seven pages.
 
 ---
 
+## 3b. How to ship a change
+
+```
+work → push to preview → look at it → merge preview into main → verify prod
+```
+
+`preview` is a long-lived branch with a **stable** Vercel URL:
+
+- **Preview:** https://qahub-git-preview-qa-2001.vercel.app
+- **Production:** https://qahub-ebon.vercel.app (`main`)
+
+Every push to `preview` redeploys that same URL, so its Google OAuth callback only ever had to be
+whitelisted once:
+
+```
+https://qahub-git-preview-qa-2001.vercel.app/api/auth/callback/google
+```
+
+**Why this exists.** Everything shipped on 24 Aug went straight to production and was verified
+there. Three cosmetic bugs reached the team that way: truncated descope rows, a ragged Home row,
+and every bug reading "unassigned". None were hard to fix; all were visible to the department
+first. Use the preview branch for anything UI-observable.
+
+Preview deployments also sit behind Vercel's deployment protection, so a reviewer needs to be
+logged into Vercel as well as `@co.vet`.
+
+---
+
 ## 4. Open items
 
 In the order worth doing them.
 
-1. **Get a preview environment.** Every change this session went straight to production and was
-   verified there. Three cosmetic bugs reached the team that way — truncated descope rows, a
-   ragged Home row, and every bug showing "unassigned". Whitelisting one long-lived `preview`
-   branch callback URL in Google Cloud Console would let changes be seen before `main`.
-   **Highest-value fix outstanding, and it needs two clicks in Cloud Console that only an owner
-   can make.**
+1. **Custom domain `covetqahub.app`** is requested but **not registered** — DNS returns
+   NXDOMAIN. Someone has to buy it (Vercel → Project → Domains → Buy, or any registrar), then:
+   add it in Vercel, point DNS, set `APP_URL` to `https://covetqahub.app`, and add
+   `https://covetqahub.app/api/auth/callback/google` to the Google OAuth client. Sign-in breaks
+   on the new domain until that last step is done.
 2. **Commit the tests.** `roadmap-tree`, `descope-rules`, `bug-trend` and `smooth-path` are pure
    and were each covered by assertion scripts during development — but those scripts live in a
    scratch directory, not the repo. Port them to `node --test`.
