@@ -79,7 +79,10 @@ Testiny assignees), release stories and bugs, and **descoped features**; release
 
 **Home** — the manual test-case count was removed (it paginated 4,600+ cases per load); **bugs
 found per release** arrived as cumulative discovery curves with legend toggles, a 30-day default
-window, hover focus and keyboard stepping.
+window, hover focus and keyboard stepping; then a **features per release** breakdown beneath it.
+Both cards show the last two releases with "+ More", from one shared library piece — see the
+note on `release-content.ts` in `CLAUDE.md` for why features are counted by project and not by
+roadmap label.
 
 **Access** — rewritten as described in §1.
 
