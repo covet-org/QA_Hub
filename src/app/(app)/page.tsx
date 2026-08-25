@@ -6,7 +6,7 @@ import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { initiatives, overallEffortSplit } from "@/content/initiatives";
 import { BugTrendChart } from "@/components/BugTrendChart";
 import { ReleaseFeatures } from "@/components/ReleaseFeatures";
-import { getBugTrends } from "@/lib/bugs";
+import { getBugTrends, getCsBugTrends } from "@/lib/bugs";
 import { getReleaseContent } from "@/lib/release-content";
 import { versionRank } from "@/lib/release-utils";
 import { getBugCycleStats, getReleaseCycleStats } from "@/lib/linear/cycle";
@@ -19,6 +19,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  EmptyState,
   PageHeader,
   PageShell,
   StatCard,
@@ -36,6 +37,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     cycleStats,
     releaseCycles,
     trends,
+    csTrends,
     releaseContent,
     { denied },
   ] = await Promise.all([
@@ -45,6 +47,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     getBugCycleStats(),
     getReleaseCycleStats(),
     getBugTrends(),
+    // Same CS tickets the CS bug board reads and the same Testiny runs
+    // the release testing card reads — both already cached.
+    getCsBugTrends(),
     // Same release content the Releases page uses; the underlying reads
     // are shared with the bug trends above via the request cache.
     getReleaseContent(),
@@ -149,6 +154,23 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           />
           <CardBody>
             <ReleaseFeatures groups={featureGroups} />
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="CS bugs per release"
+            subtitle="Bugs reported by customer service while each release was the version in production, counted from the day it went live. A release goes live when QA closes its regression run and owns production until the next release's regression closes, so day 0 is go-live and the curves compare week for week."
+          />
+          <CardBody>
+            {csTrends.length > 0 ? (
+              <BugTrendChart trends={csTrends} />
+            ) : (
+              <EmptyState>
+                No release has a closed regression run in Testiny, so there is
+                no production window to attribute CS bugs to yet.
+              </EmptyState>
+            )}
           </CardBody>
         </Card>
 
