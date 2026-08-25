@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { signOutAction } from "@/lib/actions";
 import { Chevron } from "@/components/ui";
+import { DataTimestamp } from "@/components/AutoRefresh";
 
 function LockIcon() {
   return (
@@ -50,6 +51,8 @@ interface SidebarProps {
   userSub: string;
   badge: string;
   canSignOut: boolean;
+  /** ISO time the server rendered this page's data. */
+  dataAsOf?: string;
 }
 
 function NavGroup({
@@ -111,6 +114,7 @@ export function Sidebar({
   userSub,
   badge,
   canSignOut,
+  dataAsOf,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -195,6 +199,7 @@ export function Sidebar({
             </form>
           )}
         </div>
+        {dataAsOf && <DataTimestamp isoTime={dataAsOf} />}
       </div>
     </aside>
   );

@@ -91,7 +91,10 @@ before touching it — the lesson there cost three deploys. Two anchors that loo
 numbers, and the card names its go-live source on screen precisely so a silent fallback cannot
 masquerade as a real answer.
 
-Home's headline figures link to their boards, and its initiative count comes from Linear.
+Every page refreshes itself every 30 minutes, so a dashboard left open on a second monitor
+stops lying by lunchtime; the sidebar says when its data was read.
+
+Home's headline figures link to their boards.
 The one hand-maintained number left on the page is the manual/automation effort split.
 
 **Access** — rewritten as described in §1.
