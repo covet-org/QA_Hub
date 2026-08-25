@@ -16,7 +16,7 @@ import {
   getRunSummariesByState,
 } from "@/lib/testiny/queries";
 import { allowedHrefs, requireAccess } from "@/lib/viewer";
-import { slugify } from "@/lib/use-url-filter";
+import { slugify } from "@/lib/slug";
 import {
   Card,
   CardBody,

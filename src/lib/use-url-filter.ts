@@ -3,13 +3,9 @@
 import { useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
-/** URL-safe key for a group name, e.g. "3.36 Release" -> "3.36-release". */
-export function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9.]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
+import { slugify } from "./slug";
+
+export { slugify } from "./slug";
 
 function parse(raw: string | null, all: string[]): Set<string> | null {
   if (raw === null) return null; // absent param = everything
