@@ -29,6 +29,7 @@ export function CardHeader({
   subtitle,
   actions,
   footnote,
+  badge,
 }: {
   title: React.ReactNode;
   /**
@@ -45,6 +46,11 @@ export function CardHeader({
    * this" rather than "what am I looking at".
    */
   footnote?: React.ReactNode;
+  /**
+   * Short status beside the title, e.g. "being reworked" — the same words
+   * the sidebar uses for a page, for a card that has the same problem.
+   */
+  badge?: string;
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 px-4 pt-3.5 pb-3">
@@ -65,6 +71,11 @@ export function CardHeader({
             </Link>
           ) : (
             title
+          )}
+          {badge && (
+            <span className="ml-2 align-middle rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium tracking-wide text-amber-800 ring-1 ring-amber-200">
+              {badge}
+            </span>
           )}
         </h2>
         {subtitle && (
