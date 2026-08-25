@@ -138,6 +138,18 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
     scopes itself to release projects, Cross-Product and unassigned; customer bugs are triaged
     into "Bugs" and "Recording Issues", so that filter dropped nine of 3.35's eleven.
   - Verified against hand counts from Linear: 3.36 → 1, 3.35 → 11, 3.34 → 9, 3.33 → 23.
+- `src/lib/slug.ts` — `slugify`, in its own module with **no** directive either way.
+  Both sides need it: the filters write these slugs into the query string, Home builds
+  pre-filtered links to the same boards. It used to live in `use-url-filter.ts`, which is a
+  client module; `tsc`, `eslint` and `next build` all passed and Home then 500'd in
+  production, because Next resolves an import from a `"use client"` file to a client
+  reference and the server cannot call it. **A green build says nothing about the
+  server/client boundary — load the page.**
+- `src/lib/linear/initiatives.ts` — the initiative counts on Home. Replaced a checked-in
+  list that had gone stale unnoticed (it still called the 3.32 regression "in progress" four
+  releases later). Note these are Linear's *product* initiatives, not QA testing efforts;
+  the manual/automation split beside it is QA judgement and still comes from
+  `content/initiatives.ts`, which is now the only hand-maintained number on Home.
 - `src/lib/smooth-path.ts` — monotone cubic (Fritsch-Carlson) SVG paths. Monotone specifically:
   a plain spline overshoots, and on a cumulative series that draws the curve dipping below a
   total already reached, which is the chart lying about the data.
@@ -150,6 +162,10 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
     state the caller owns (those panels fetch on first open).
   - `DataRow` + `TicketLink` / `Slot` / `Meta` — the row every board is made of. `Slot` is
     fixed-width so a missing value still holds its column and ids line up between boards.
+  - `StatCard` takes `href` and `CardHeader` takes `titleHref`: every headline figure on
+    Home links to the rows behind it, because "how many" always provokes "which ones". Gate
+    those links on `allowedHrefs` — access is granted by parent href, so a link into a
+    section above the viewer's role bounces them to `/?denied=1`.
   - `useRevealMore` + `RevealMoreButton` — "show the newest two, fold the rest behind
     + More". `DEFAULT_RELEASES_SHOWN` is the shared count, and it is shared on purpose:
     the bug chart and the feature breakdown are one story told twice, and they used to
