@@ -138,6 +138,19 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
     scopes itself to release projects, Cross-Product and unassigned; customer bugs are triaged
     into "Bugs" and "Recording Issues", so that filter dropped nine of 3.35's eleven.
   - Verified against hand counts from Linear: 3.36 → 1, 3.35 → 11, 3.34 → 9, 3.33 → 23.
+- `src/components/AutoRefresh.tsx` — mounted once in the app layout, so every signed-in
+  page inherits it. Calls `router.refresh()` every **30 minutes**, which re-runs the server
+  components and swaps in fresh data **while preserving client state** — filter selections,
+  open disclosures and a pinned chart readout all survive. `location.reload()` would throw
+  those away. Hidden tabs are skipped (a background tab nobody reads still costs a server
+  render plus its Linear/Testiny calls) and the check runs on `visibilitychange`, so
+  returning to a tab left overnight shows current numbers immediately.
+  - **Worst-case staleness on screen is ~35 minutes**, not 30: a refresh may be served from
+    the 5-minute `unstable_cache` layer. Shorten `LINEAR_REVALIDATE_SECONDS` /
+    `TESTINY_REVALIDATE_SECONDS` if that ever matters more than the upstream call volume.
+  - `DataTimestamp` in the sidebar says when the data was read. It formats during render with
+    `suppressHydrationWarning` — the server does not know the reader's timezone, and the lint
+    rules forbid both `setState` in an effect and reading the clock during render.
 - `src/lib/slug.ts` — `slugify`, in its own module with **no** directive either way.
   Both sides need it: the filters write these slugs into the query string, Home builds
   pre-filtered links to the same boards. It used to live in `use-url-filter.ts`, which is a
