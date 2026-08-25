@@ -106,6 +106,44 @@ pasted into seven pages.
 
 ---
 
+## 3c. What Home shows today
+
+Top row, two tiles of one shape (same StatCard, so they cannot drift apart):
+
+| Tile | Says | Clicks through to |
+|---|---|---|
+| **In testing · \<phase\>** | the release being tested, its percentage, a progress bar | `/releases/active?release=3.37` — or `/releases/closed?release=X` once shipped |
+| **Bugs reported in \<release\>** | bugs filed against the newest release that has any | `/bugs/product?release=3.36-release` |
+
+Then, full width and stacked: **Current effort allocation** (flagged *being reworked* — the
+last hand-maintained number on the page), **Bugs found per release**, **CS bugs per release**,
+**Features per release**, and the durations/cycle cards.
+
+Every chart title is a link carrying the releases that card is showing — the same slice its
+"+ More" hides. Two release vocabularies exist and both are load-bearing: bug boards group by
+Linear project (`3.36 Release` → `3.36-release`), run boards use the bare version (`3.36`).
+`releaseParam` in `page.tsx` takes a suffix argument for exactly this.
+
+**Release progression picks its phase by rule**, not by guess: regression takes over the moment
+it has one executed case, because at that point dev is finished and its number stops being the
+news. An open-but-untouched regression run does not count as started.
+
+## 3d. Ordering rules, as QA asked for them
+
+- **Bug lists** (QA Bugs, CS Bugs, and the bugs inside a release panel): **open first**, then
+  Urgent → High → Medium → Low → No priority, then newest. A closed Urgent bug is history; an
+  open one is work.
+- **Roadmap** (every group, Product Pile included): **no test cases first**, then the same
+  priority order, then id compared *numerically* (COV-9 before COV-12).
+- **Release stories** on Home: priority first, uncovered as the tie-break. That list answers
+  "what went out", where coverage is context rather than a queue.
+
+One comparator — `lib/priority.ts` — serves all of them.
+
+**The trap, if you touch this again:** sorting the flat list is not enough. `roadmap-tree.ts`
+sorts *again* when it nests sub-issues, and it silently won that fight the first time. Both
+sorts have to agree.
+
 ## 3b. How to ship a change
 
 ```
@@ -143,20 +181,54 @@ In the order worth doing them.
    add it in Vercel, point DNS, set `APP_URL` to `https://covetqahub.app`, and add
    `https://covetqahub.app/api/auth/callback/google` to the Google OAuth client. Sign-in breaks
    on the new domain until that last step is done.
-2. **Commit the tests.** `roadmap-tree`, `descope-rules`, `bug-trend` and `smooth-path` are pure
-   and were each covered by assertion scripts during development — but those scripts live in a
-   scratch directory, not the repo. Port them to `node --test`.
+2. **Commit the tests.** Every pure module has been covered by assertion scripts during
+   development — `roadmap-tree` (11 + 3), `descope-rules`, `bug-trend`, `smooth-path`,
+   `cs-bug-trend` (12), the CS grouping (6), `release-progression` (6 + 5) and `priority` (4) —
+   but those scripts live in a scratch directory, not the repo. Port them to `node --test`.
+   This is the highest-value open item: two ordering bugs and a 500 shipped this session with
+   every gate green, and committed tests are what would make the next one visible in CI.
 3. **Rotate the API keys** shared in chat during setup: Testiny, Google client secret, Resend,
    Linear. Upstash is no longer used at all.
 4. **Verify the Resend sender domain** (`co.vet`), so sign-in notifications reach addresses other
    than the Resend account owner.
 5. **Fix the `release` URL param collision**: the roadmap writes group slugs (`3.36-release`),
    Releases writes bare versions (`3.36`). A filtered URL carried between them silently matches
-   nothing.
-6. **Manual Testing has no filters** — the only board without them; the library's `FilterGroup`
+   nothing. Home works around it per-link (`releaseParam` with a suffix argument) rather than
+   fixing the underlying disagreement.
+6. **Attribute the older CS bugs.** CS attribution reaches back only to **2026-08-03**, the
+   oldest release in Linear's production pipeline. Roughly 550 customer bugs predate it; the CS
+   page says so in its header rather than hiding them. Supply go-live dates for 3.32 and earlier
+   in `content/release-go-live.ts` to bring them in.
+7. **Confirm the 30-minute auto-refresh fires unattended.** The mechanism is right and the
+   timestamp advances on every render, but every observation this session followed a navigation
+   someone triggered. Leave a tab untouched for 31 minutes and check the sidebar timestamp moved
+   while `performance.getEntriesByType("navigation").length` stays 1.
+8. **Manual Testing has no filters** — the only board without them; the library's `FilterGroup`
    makes this small once someone decides which facets matter.
-7. **Automation page** is still a placeholder. The suite that would feed it is the
-   `covet-qa-automation` repo.
+9. **Manual Testing and Automation are marked *being reworked*** — a sidebar badge plus a
+   dimmed page with a notice, driven by one `note` field in `config/navigation.ts`. Both still
+   show real but stale content (Manual Testing's largest folder is "Regression 3.32"). Removing
+   the flag is deleting that `note` and unwrapping the page.
+10. **Automation page** is still a placeholder. The suite that would feed it is the
+    `covet-qa-automation` repo.
+
+## 4b. Three ways this codebase bites, all learned the hard way
+
+Each of these shipped to production with `tsc`, `eslint`, `next build` and the unit tests all
+green. **Green gates are necessary and not sufficient — load the page.**
+
+1. **The server/client boundary is invisible to every gate.** Importing a plain function from a
+   `"use client"` module into a server component type-checks, lints and builds, then throws at
+   request time. It took Home down for ~8 minutes. Shared helpers live in neutral modules with
+   no directive either way: `lib/slug.ts`, `lib/release-window.ts`.
+2. **Something downstream may sort again.** The roadmap board showed ticket-id order for one
+   deploy because `roadmap-tree.ts` re-sorted after the snapshot had already sorted correctly.
+   Grep for every `.sort(` on a path before believing an ordering change.
+3. **A forgiving `catch` hides a wrong answer.** Three data bugs this session looked exactly
+   like real answers: CS bugs attributed by a batched Testiny close date, `releases(first: 50)`
+   returning only Dev-pipeline builds, and a board scoped so it dropped nine of eleven tickets.
+   Every one was caught by comparing the rendered number against Linear or Testiny by hand.
+   **When a number could be wrong quietly, verify it against the source, not against the code.**
 
 ## 5. Known limitations, stated plainly
 
