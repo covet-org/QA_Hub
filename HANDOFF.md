@@ -1,10 +1,10 @@
-# QA Brain — Handoff
+# QA Hub — Handoff
 
 Supersedes `QA-Hub-Claude-Handoff.pdf` (24 Aug 2026). That file lived outside the repo and
 described a machine that no longer exists; this one lives beside the code so it can be updated in
 the same commit as the change it describes.
 
-**Last updated:** 24 Aug 2026, end of the working session described below.
+**Last updated:** 25 Aug 2026.
 
 - **Production:** https://qahub-ebon.vercel.app (Vercel project `qahub`, team `qa-2001`)
 - **Repo:** https://github.com/clezama-QA/Co.Vet_QA — `main` auto-deploys on push
@@ -37,7 +37,7 @@ down — so the whole team hit `AccessDenied` on a dashboard that only reads Lin
 store was removed rather than replaced: configuration cannot have an outage.
 
 **What went with it:** share links (`/share/<id>`), the approval flow, invites, and per-user role
-edits in the UI. Only `@co.vet` accounts can reach QA Brain now; there is no guest access.
+edits in the UI. Only `@co.vet` accounts can reach QA Hub now; there is no guest access.
 
 `NOTIFY_EMAIL` (defaults to clezama@co.vet) gets one mail per sign-in. Without a store there is no
 way to know whether it is somebody's first, so it fires per session (30 days), fire-and-forget.
@@ -66,7 +66,8 @@ disagreements between the two are expected rather than bugs.
 
 ## 3. What changed in this session
 
-Seventeen PRs, each merged to `main` and verified on production.
+Eighteen PRs merged to `main` and verified on production, plus the rename and a label fix
+currently sitting on `preview`.
 
 **Roadmap** — sub-issues nest under collapsible parent rows; Linear priority column beside the
 ticket id; multi-select release and test-case filters with the selection in the URL.
@@ -89,16 +90,43 @@ pasted into seven pages.
 
 ---
 
+## 3b. How to ship a change
+
+```
+work → push to preview → look at it → merge preview into main → verify prod
+```
+
+`preview` is a long-lived branch with a **stable** Vercel URL:
+
+- **Preview:** https://qahub-git-preview-qa-2001.vercel.app
+- **Production:** https://qahub-ebon.vercel.app (`main`)
+
+Every push to `preview` redeploys that same URL, so its Google OAuth callback only ever had to be
+whitelisted once:
+
+```
+https://qahub-git-preview-qa-2001.vercel.app/api/auth/callback/google
+```
+
+**Why this exists.** Everything shipped on 24 Aug went straight to production and was verified
+there. Three cosmetic bugs reached the team that way: truncated descope rows, a ragged Home row,
+and every bug reading "unassigned". None were hard to fix; all were visible to the department
+first. Use the preview branch for anything UI-observable.
+
+Preview deployments also sit behind Vercel's deployment protection, so a reviewer needs to be
+logged into Vercel as well as `@co.vet`.
+
+---
+
 ## 4. Open items
 
 In the order worth doing them.
 
-1. **Get a preview environment.** Every change this session went straight to production and was
-   verified there. Three cosmetic bugs reached the team that way — truncated descope rows, a
-   ragged Home row, and every bug showing "unassigned". Whitelisting one long-lived `preview`
-   branch callback URL in Google Cloud Console would let changes be seen before `main`.
-   **Highest-value fix outstanding, and it needs two clicks in Cloud Console that only an owner
-   can make.**
+1. **Custom domain `covetqahub.app`** is requested but **not registered** — DNS returns
+   NXDOMAIN. Someone has to buy it (Vercel → Project → Domains → Buy, or any registrar), then:
+   add it in Vercel, point DNS, set `APP_URL` to `https://covetqahub.app`, and add
+   `https://covetqahub.app/api/auth/callback/google` to the Google OAuth client. Sign-in breaks
+   on the new domain until that last step is done.
 2. **Commit the tests.** `roadmap-tree`, `descope-rules`, `bug-trend` and `smooth-path` are pure
    and were each covered by assertion scripts during development — but those scripts live in a
    scratch directory, not the repo. Port them to `node --test`.
@@ -115,6 +143,15 @@ In the order worth doing them.
    `covet-qa-automation` repo.
 
 ## 5. Known limitations, stated plainly
+
+- **Release matching captures `major.minor` only.** A Linear project named `3.34.1 Release`
+  would fold into `3.34` — on the bug trend chart, the roadmap and the bug board alike. Every
+  release project today is two-part (1.1 through 3.37), so nothing is currently mis-grouped, but
+  hotfix releases would need `versionRank` and the release regexes in `release-utils.ts`
+  extended to a third component.
+- **Do not put a count next to a version with a dot.** "3.34 · 1" was read as release 3.34.1 by
+  the first person who saw the chart. End labels now use spacing and the word "bugs"; legend
+  counts are parenthesised. Worth remembering for any future label.
 
 - **Descope detection has a 180-day window** and the Linear query filters on `updatedAt`, so a
   feature parked in a squad project and untouched since then is not detected.

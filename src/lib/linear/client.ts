@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
+import { cache } from "react";
 import { env } from "@/lib/env";
 import type { RoadmapTicket } from "@/lib/linear/types";
 
@@ -102,8 +104,15 @@ interface IssuesPage {
   errors?: { message: string }[];
 }
 
-/** Fetch every issue carrying any of the given labels (all pages). */
-export async function fetchIssuesWithLabels(
+/**
+ * Fetch every issue carrying any of the given labels (all pages).
+ *
+ * Wrapped below so the roadmap and both bug boards share one read per
+ * label set. Keyed by a joined string rather than the array itself:
+ * React cache() compares arguments by identity, and every caller builds
+ * a fresh array.
+ */
+async function readIssuesWithLabels(
   labels: string[],
 ): Promise<RoadmapTicket[]> {
   const apiKey = env.linearApiKey;
@@ -175,6 +184,22 @@ export async function fetchIssuesWithLabels(
   }
 
   return tickets;
+}
+
+const cachedIssuesByLabelKey = unstable_cache(
+  async (labelKey: string) => readIssuesWithLabels(labelKey.split("|")),
+  ["linear-issues-by-label"],
+  { revalidate: LINEAR_REVALIDATE_SECONDS },
+);
+
+const issuesByLabelKey = cache((labelKey: string) =>
+  cachedIssuesByLabelKey(labelKey),
+);
+
+export function fetchIssuesWithLabels(
+  labels: string[],
+): Promise<RoadmapTicket[]> {
+  return issuesByLabelKey([...labels].sort().join("|"));
 }
 
 const PROJECTS_QUERY = /* GraphQL */ `

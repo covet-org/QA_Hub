@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  /* CoVet QA Brain palette — deep teal brand, mirrors Product Brain */
+  /* CoVet QA Hub palette — deep teal brand, mirrors Product Brain */
   --color-brand-950: #05303f;
   --color-brand-900: #083e51;
   --color-brand-800: #0b4a60;

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
+import { cache } from "react";
 import { env } from "@/lib/env";
 import { versionRank } from "@/lib/release-utils";
 import {
@@ -18,6 +20,34 @@ import type {
   TestinyTestCase,
   TestinyTestRun,
 } from "@/lib/testiny/types";
+
+/** How long Testiny reads are reused across requests (seconds). */
+const TESTINY_REVALIDATE_SECONDS = 300;
+
+/**
+ * Every test run in the project.
+ *
+ * Four callers wanted this list — run summaries, release durations, the
+ * active-release floor and the manual snapshot — and each fetched it
+ * separately, so Home alone pulled it three times per render.
+ *
+ * Two layers, because they solve different problems:
+ * - unstable_cache reuses the result ACROSS requests. The upstream calls
+ *   are POSTs, and Next's fetch Data Cache only covers GET, so the
+ *   `next: { revalidate }` on those fetches never did anything.
+ * - React cache() dedupes WITHIN one render, so a page that needs the
+ *   list twice still issues one request even on a cold cache.
+ */
+const readTestRuns = unstable_cache(
+  async (projectId: number) =>
+    findAllEntities<TestinyTestRun>("testrun", {
+      filter: { project_id: projectId },
+    }),
+  ["testiny-testruns"],
+  { revalidate: TESTINY_REVALIDATE_SECONDS },
+);
+
+export const listTestRuns = cache(() => readTestRuns(env.testinyProjectId));
 
 const PRIORITY_LABELS: Record<number, string> = {
   0: "Critical",
@@ -94,12 +124,12 @@ function summarizeRun(
 }
 
 /** Key of the Testiny project, used to build deep links into runs. */
-async function getProjectKey(): Promise<string> {
+const getProjectKey = cache(async (): Promise<string> => {
   const projects = await findAllEntities<TestinyProject>("project");
   return (
     projects.find((p) => p.id === env.testinyProjectId)?.project_key ?? "P"
   );
-}
+});
 
 /** Expand results for the given runs and summarize each. */
 async function summarizeRunsWithResults(
@@ -162,9 +192,7 @@ export async function getActiveReleaseFloor(): Promise<number> {
     titles = sampleSnapshot.runs.filter((r) => !r.isClosed).map((r) => r.title);
   } else {
     try {
-      const runs = await findAllEntities<TestinyTestRun>("testrun", {
-        filter: { project_id: env.testinyProjectId },
-      });
+      const runs = await listTestRuns();
       titles = runs.filter((r) => !r.is_closed).map((r) => r.title);
     } catch (error) {
       if (!(error instanceof TestinyError)) throw error;
@@ -224,9 +252,7 @@ export async function getReleaseDurations(): Promise<{
   }
 
   try {
-    const runs = await findAllEntities<TestinyTestRun>("testrun", {
-      filter: { project_id: env.testinyProjectId },
-    });
+    const runs = await listTestRuns();
 
     // phase key: `${rank}:${phase}` → time window
     const windows = new Map<
@@ -300,9 +326,7 @@ export async function getRunSummariesByState(
   }
 
   try {
-    const runs = await findAllEntities<TestinyTestRun>("testrun", {
-      filter: { project_id: env.testinyProjectId },
-    });
+    const runs = await listTestRuns();
     const selected = runs
       .filter((r) => r.is_closed === wantClosed)
       .sort((a, b) => b.id - a.id)
@@ -345,9 +369,7 @@ export async function getManualTestingSnapshot(): Promise<ManualTestingSnapshot>
         filter: { project_id: projectId },
         map: { entities: ["testcase", "testcase_folder"], idOnly: true },
       }),
-      findAllEntities<TestinyTestRun>("testrun", {
-        filter: { project_id: projectId },
-      }),
+      listTestRuns(),
     ]);
 
     const project = projects.find((p) => p.id === projectId);

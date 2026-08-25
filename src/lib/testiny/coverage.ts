@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { env } from "@/lib/env";
 import { findAllEntities, testinyConfigured, TestinyError } from "@/lib/testiny/client";
 import type { TestinyFolder, TestinyTestCase } from "@/lib/testiny/types";
@@ -30,7 +32,14 @@ export function ticketIdsIn(text: string): string[] {
   return [...ids];
 }
 
-export async function getCoverageIndex(): Promise<CoverageIndex> {
+/**
+ * Wrapped below so the roadmap and the Home feature breakdown share one
+ * build per render. A Map cannot go through unstable_cache (it is not
+ * JSON), so only the per-request layer applies here — the folder and case
+ * reads underneath are what cost time, and those are cheap next to the
+ * Linear history query.
+ */
+async function readCoverageIndex(): Promise<CoverageIndex> {
   const index: CoverageIndex = new Map();
   if (!testinyConfigured()) return index;
 
@@ -98,3 +107,5 @@ export async function getCoverageIndex(): Promise<CoverageIndex> {
     throw error;
   }
 }
+
+export const getCoverageIndex = cache(readCoverageIndex);

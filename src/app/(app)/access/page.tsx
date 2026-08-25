@@ -59,7 +59,7 @@ export default async function AccessPage() {
       <PageHeader
         kicker="Admin"
         title="Access"
-        description="Who can open QA Brain, and with which role. Permissions come from configuration — there is no database behind this page, so access cannot break when a service goes down."
+        description="Who can open QA Hub, and with which role. Permissions come from configuration — there is no database behind this page, so access cannot break when a service goes down."
         footnote={`Domain · @${env.allowedEmailDomain}`}
       />
       <PageShell>
@@ -131,7 +131,7 @@ export default async function AccessPage() {
           <CardBody>
             <p className="text-[13px] leading-relaxed text-slate-600">
               Share links were removed along with the KV store: only @
-              {env.allowedEmailDomain} accounts can reach QA Brain now. If
+              {env.allowedEmailDomain} accounts can reach QA Hub now. If
               somebody outside the domain needs a view, that needs a deliberate
               feature rather than a link.
             </p>

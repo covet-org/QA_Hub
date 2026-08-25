@@ -1,10 +1,10 @@
 ============================================================
-  CoVet QA Brain — How to start the local server
+  CoVet QA Hub — How to start the local server
 ============================================================
 
 WHAT THIS IS
 ------------
-QA Brain runs as a local web app on your machine. To open it in a
+QA Hub runs as a local web app on your machine. To open it in a
 browser, a small server process has to be running. When that process
 stops (you close the window, restart the PC, etc.), the site shows
 "This site can't be reached" until you start it again.

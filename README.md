@@ -1,4 +1,4 @@
-# CoVet QA Brain
+# CoVet QA Hub
 
 The QA department's home page — roadmap, manual vs automation effort
 allocation, release readiness and testing visibility. Modeled on the
@@ -53,7 +53,7 @@ store, and when that store became unreachable every sign-in failed with
 Configuration cannot have an outage.
 
 Share links and guest access were removed with it: only `@co.vet`
-accounts can reach QA Brain.
+accounts can reach QA Hub.
 
 ## Local development
 

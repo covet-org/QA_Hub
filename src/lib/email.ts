@@ -14,7 +14,7 @@ export async function sendEmail(options: {
   html: string;
 }): Promise<{ sent: boolean }> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM ?? "QA Brain <onboarding@resend.dev>";
+  const from = process.env.EMAIL_FROM ?? "QA Hub <onboarding@resend.dev>";
 
   if (!apiKey) {
     console.info(

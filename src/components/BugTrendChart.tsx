@@ -288,7 +288,9 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
                 }}
               />
               {trend.release}
-              <span className="nums text-slate-400">{trend.total}</span>
+              {/* Parenthesised so the count cannot read as a patch
+                  version — see the end-label note below. */}
+              <span className="nums text-slate-400">({trend.total})</span>
             </button>
           );
         })}
@@ -460,6 +462,11 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
                   strokeWidth={2}
                 />
                 {shown.length <= 4 && (
+                  /* Release and count are separate tspans, not "3.34 · 1":
+                     a middle dot between a dotted version and a number
+                     reads as a patch release — someone asked what the
+                     "3.34.1 release line" was. The label now says what the
+                     number is. */
                   <text
                     x={x(last.day) + 10}
                     y={y(last.count) + 4}
@@ -468,8 +475,12 @@ export function BugTrendChart({ trends }: { trends: ReleaseTrend[] }) {
                     fill={color}
                     className="nums"
                   >
-                    {trend.release} · {last.count}
-                    {cut ? ` → ${trend.total}` : ""}
+                    {trend.release}
+                    <tspan dx={6} fill="#64748b" fontWeight={500}>
+                      {cut
+                        ? `${last.count} of ${trend.total} bugs`
+                        : `${last.count} bug${last.count === 1 ? "" : "s"}`}
+                    </tspan>
                   </text>
                 )}
                 {hover && (

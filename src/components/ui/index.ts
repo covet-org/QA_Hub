@@ -1,5 +1,5 @@
 /**
- * QA Brain component library.
+ * QA Hub component library.
  *
  * Every page composes from these. The rule that keeps it a library rather
  * than a folder: a component takes its behaviour from props, so the same
