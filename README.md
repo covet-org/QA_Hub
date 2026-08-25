@@ -24,31 +24,36 @@ allocation, release readiness and testing visibility. Modeled on the
 | Bugs — Bugs / CS Bugs (Linear, by release) | `/bugs` | viewer |
 | Manual Testing (Testiny inventory) | `/manual` | qa |
 | Automation (phase 2) | `/automation` | qa |
-| Access (approvals, links, roles) | `/access` | admin |
+| Access (permission policy) | `/access` | admin |
 
 Roles: `admin ⊃ qa ⊃ viewer`. Locked pages show a lock icon in the
 sidebar and are enforced **server-side** (`requireAccess`), not just
 hidden.
 
-### Sign-in approval flow
+### Who can sign in
 
-Google SSO is restricted to the allowed domain, and on top of that every
-account (except admins in `QA_ADMIN_EMAILS`) must be **approved**:
+**The domain is the allowlist.** Any verified `@co.vet` Google account
+gets in with no approval step, landing as `qa` — every section except
+the admin Access page. `NOTIFY_EMAIL` is told when somebody signs in.
 
-1. Someone signs in → an access request is stored and an email goes to
-   `NOTIFY_EMAIL` with one-click **Approve as Viewer / Approve as QA /
-   Deny** links (re-sent at most once per hour while pending).
-2. Until approved, the user only sees the "Waiting for approval" screen.
-3. Admins can also decide (and later revoke/re-approve, or change roles)
-   on the **/access** page. Decisions apply immediately — no redeploy.
+Three environment variables are the whole permission model:
 
-### Share links (guest access)
+| Variable | Effect |
+| --- | --- |
+| `QA_ADMIN_EMAILS` | Full access, including `/access` |
+| `QA_VIEWER_EMAILS` | Demoted — no Manual Testing or Automation |
+| `QA_BLOCKED_EMAILS` | Refused at sign-in; they land on `/no-access` |
 
-Admins create links on **/access**, choosing exactly which sections each
-link unlocks (admin pages are never shareable) and an optional expiry.
-Anyone opening `/share/<id>` browses those sections as a guest — no
-Google account needed. Revoking a link locks out existing visitors
-immediately, because every request re-validates the link server-side.
+Changing a role means editing the variable in Vercel and redeploying
+(about a minute). **/access** shows the current policy read-only.
+
+There is deliberately no database. Access used to depend on an Upstash KV
+store, and when that store became unreachable every sign-in failed with
+"Access Denied" — on a dashboard that only reads Linear and Testiny.
+Configuration cannot have an outage.
+
+Share links and guest access were removed with it: only `@co.vet`
+accounts can reach QA Brain.
 
 ## Local development
 
@@ -71,12 +76,10 @@ Required env vars (see [.env.example](.env.example)):
    the app shows clearly-labelled sample data, so the UI is fully demoable
    without credentials.
 4. `RESEND_API_KEY` — sign up at [resend.com](https://resend.com) (free
-   tier) to send the approval emails. Without it, the emails are logged
-   to the server console instead.
-5. `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` — **required in
-   production** (stores access requests and share links). Provision
-   Upstash Redis from the Vercel Marketplace; locally a `.data/store.json`
-   file is used automatically.
+   tier) to send the sign-in notifications. Without it they are logged to
+   the server console instead, and sign-in still works.
+5. `QA_ADMIN_EMAILS` / `QA_VIEWER_EMAILS` / `QA_BLOCKED_EMAILS` — the
+   permission model. No database is involved; see "Who can sign in".
 6. `APP_URL` — the public URL, used inside email links.
 
 ## Deploying to Vercel
@@ -127,16 +130,16 @@ durations as soon as `available: true` — no UI changes required.
 ## Architecture notes
 
 - `src/lib/env.ts` — single validated entry point for environment config
-- `src/lib/viewer.ts` — unified viewer model (member or link guest) and
-  the `requireAccess` server-side gate every page uses
-- `src/lib/access/` — approval requests (`requests.ts`), share links
-  (`links.ts`), HMAC-signed tokens for email links & guest cookies
-  (`token.ts`)
-- `src/lib/store.ts` — tiny KV abstraction: Upstash Redis in production,
-  local JSON file in dev
+- `src/lib/env.ts` aside, `src/lib/viewer.ts` answers "who is looking"
+  and `requireAccess` is the server-side gate every page uses
+- `src/lib/access/members.ts` — the whole permission model: domain check,
+  env role lists, sign-in notification. There is no storage layer
 - `src/lib/email.ts` — Resend sender with console fallback
-- `src/auth.config.ts` (edge-safe) + `src/auth.ts` (node, approval side
-  effects); `src/proxy.ts` is the first gate for all routes
+- `src/auth.config.ts` (edge-safe) + `src/auth.ts` (node, sign-in
+  notification); `src/proxy.ts` is the first gate for all routes
+- `src/components/ui/` — the component library every page composes from.
+  One `FilterGroup` serves every filter in the app, taking single/multi
+  mode, counts, colour dots and what an empty selection means as props
 - `src/lib/testiny/` — typed client (`client.ts`), aggregation queries
   (`queries.ts`, field names verified against the live API), graceful
   sample-data fallback (`sample-data.ts`)

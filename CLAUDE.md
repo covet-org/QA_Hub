@@ -15,8 +15,11 @@ It surfaces, from live data:
   priority/status filters, collapsible per-release groups.
 - **Manual Testing** — Testiny inventory (cases by area/type/priority).
 - **Automation** — phase-2 placeholder; implement `AutomationProvider` when a CI suite exists.
-- **Home** — dashboards: current effort split, release testing time (Testiny), bug cycle time by
-  status/priority (Linear history, 8h workdays), and per-release median bug cycle time.
+- **Home** — dashboards: bugs found per release (cumulative discovery curves), current effort
+  split, release testing time (Testiny), bug cycle time by status/priority (Linear history, 8h
+  workdays), and per-release median bug cycle time.
+  The manual test-case count was REMOVED on purpose: producing it paginated every test case in the
+  project (4,600+ across ~10 requests) on every Home load, for a number nobody acted on.
 - **Access** (admin only) — read-only view of the env-driven permission policy.
 
 ## Stack & commands
@@ -47,20 +50,22 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
 
 ## Architecture map
 
-- `src/proxy.ts` — edge auth gate (Auth.js `middleware`/proxy). Redirects unauthenticated,
-  non-share-cookie traffic to `/sign-in`. Deep checks happen server-side per page.
+- `src/proxy.ts` — edge auth gate (Auth.js `middleware`/proxy). Redirects traffic without a
+  session to `/sign-in`; `/sign-in` and `/no-access` are public. Role checks happen
+  server-side per page.
 - `src/auth.config.ts` — edge-safe Auth.js config (Google provider, domain gate, session role).
-  `src/auth.ts` — full node instance adding the approval side-effects (`ensureAccessRequest`).
+  `src/auth.ts` — full node instance adding the blocked-list check and the sign-in notification.
 - `src/lib/env.ts` — the ONLY place `process.env` is read. All config/getters live here.
-- `src/lib/viewer.ts` — unifies "who is looking": a signed-in **member** (with role + approval
-  status) or a link **guest**. `requireAccess(href)` is the per-page server gate. `getViewer()` is
-  the primitive. `allowedHrefs()` derives visible nav from `src/config/navigation.ts`.
+- `src/lib/viewer.ts` — who is looking: a signed-in member with a role and a status.
+  `requireAccess(href)` is the per-page server gate, `getViewer()` the primitive, and
+  `allowedHrefs()` derives visible nav from `src/config/navigation.ts`. Resolved from the
+  session plus env alone, so no page can fail because a service is unreachable.
 - `src/lib/roles.ts` — role model `viewer < qa < admin`, domain check.
-- `src/lib/access/` — `requests.ts` (approval records + admin email notify), `links.ts` (share
-  links + which sections they unlock), `token.ts` (HMAC-signed tokens for email decision links and
-  the guest cookie, signed with AUTH_SECRET).
 - `src/lib/access/members.ts` — the entire permission model: domain check, env role lists and
-  the sign-in notification. No storage layer exists.
+  the sign-in notification. **There is no storage layer.** `store.ts`, `requests.ts`,
+  `links.ts` and `token.ts` were deleted along with share links and the approval flow — access
+  used to depend on Upstash, and when Upstash went down every sign-in threw inside the Auth.js
+  callback and the whole team saw "Access Denied".
 - `src/lib/email.ts` — Resend sender; logs to console if `RESEND_API_KEY` unset.
 - `src/lib/linear/` — `client.ts` (GraphQL: `fetchIssuesWithLabels`, `fetchRoadmapIssues`,
   `fetchProjectNames`), `cycle.ts` (bug cycle-time from issue history), `types.ts`, `sample-data.ts`
@@ -96,7 +101,31 @@ Always run `npm run typecheck && npm run lint` before committing. `npm run build
 - `src/lib/release-utils.ts` — shared `RELEASE_NAME` regex + `releaseRank`/`versionRank`.
 - `src/lib/worktime.ts` — 8-hour-workday math (weekends excluded) for cycle time.
 - `src/content/initiatives.ts` — hand-maintained effort-allocation initiatives (Home/Automation).
-- `src/components/` — small prop-driven presentational components; pages are server components.
+- `src/lib/bug-trend.ts` — pure builder for the Home chart: one cumulative curve per release,
+  plotted against days since THAT release's first bug (a shared calendar axis pulls the curves
+  apart and makes their shapes incomparable). Capped at 7 releases because the categorical
+  palette has exactly 7 validated slots. `getBugTrends()` in `bugs.ts` reuses the product-bug
+  snapshot, so the chart costs no extra request, and swallows its errors — a chart is not worth
+  failing the landing page over.
+- `src/lib/smooth-path.ts` — monotone cubic (Fritsch-Carlson) SVG paths. Monotone specifically:
+  a plain spline overshoots, and on a cumulative series that draws the curve dipping below a
+  total already reached, which is the chart lying about the data.
+- `src/components/ui/` — **the component library. Import from `@/components/ui`, never from the
+  individual files.** Everything shared lives here and takes its behaviour from props:
+  - `FilterGroup` — every filter in the app. `mode` single/multi, optional colour dots, counts,
+    bulk select-all, and `emptyMeans` ("all" = empty selection means no filter, as on the bug
+    board; "none" = empty means show nothing, as on a release picker). Seven call sites.
+  - `Disclosure` / `DisclosureRow` — collapsible section, and the in-card variant whose open
+    state the caller owns (those panels fetch on first open).
+  - `DataRow` + `TicketLink` / `Slot` / `Meta` — the row every board is made of. `Slot` is
+    fixed-width so a missing value still holds its column and ids line up between boards.
+  - `PageShell`, `PageHeader`, `Card`, `StatCard`, `Tag`, `Chevron`, `EmptyState`,
+    `SectionLabel`.
+  Before this there were four filter implementations, six collapsible sections, four chevrons and
+  the shell class string pasted into seven pages. If you find yourself writing one of those
+  inline again, extend the library instead.
+- `src/components/` — feature components (boards, cards, charts) composed FROM the library;
+  pages are server components.
 
 ## Integrations — how they work + hard-won gotchas
 
@@ -203,9 +232,20 @@ All have code defaults except the secrets/keys. `APP_URL` must be the prod URL i
 
 - **Automation page** is a placeholder — implement `AutomationProvider` in
   `src/lib/automation/provider.ts` against real CI results (Playwright/CI artifact/pushed JSON).
-- **Rotate the API keys** — Testiny, Google client secret, Resend, Upstash token, Linear key were
-  all shared in chat during setup; rotate once stable and update Vercel env vars.
-- **Custom email domain** (optional): verify co.vet in Resend, change `EMAIL_FROM` from
-  `onboarding@resend.dev` to e.g. `QA Brain <qa@co.vet>`.
-- **Deploy hygiene**: `main` auto-deploys to `qahub-ebon.vercel.app`. Verify a change in the
-  browser preview when it's UI-observable (there is no automated test suite yet).
+  The e2e suite that would feed it lives in the `covet-qa-automation` repo.
+- **Rotate the API keys** — Testiny, Google client secret, Resend and Linear keys were shared in
+  chat during setup; rotate and update Vercel env vars. (Upstash is no longer used at all.)
+- **Custom email domain**: verify co.vet in Resend and change `EMAIL_FROM` from
+  `onboarding@resend.dev`. Until then the sign-in notification only reliably reaches the Resend
+  account owner — if `clezama@co.vet` stops receiving them, look here first.
+- **`release` URL param collides across pages**: the roadmap writes group slugs
+  (`3.36-release`), Releases writes bare versions (`3.36`). Carrying a filtered URL from one to
+  the other silently matches nothing. Give them page-distinct keys.
+- **Manual Testing has no filters** — the only board without them.
+- **No preview verification.** Every change today went to production and was checked there, which
+  is how three cosmetic bugs reached the team before they were caught. A long-lived `preview`
+  branch with its callback URL whitelisted in Google Cloud Console would let a change be seen
+  before `main`. This is the single highest-value process fix outstanding.
+- **No automated tests.** The pure modules (`roadmap-tree`, `descope-rules`, `bug-trend`,
+  `smooth-path`) are covered by ad-hoc Node assertion scripts run during development, not by a
+  suite in the repo. Worth adding `node --test` and committing them.
