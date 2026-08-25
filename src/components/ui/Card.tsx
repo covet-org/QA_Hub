@@ -25,10 +25,17 @@ export function CardHeader({
   title,
   subtitle,
   actions,
+  footnote,
 }: {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
+  /**
+   * Where the card's numbers came from. Same vocabulary as PageHeader's
+   * footnote: quieter than the subtitle, because it answers "can I trust
+   * this" rather than "what am I looking at".
+   */
+  footnote?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 px-4 pt-3.5 pb-3">
@@ -40,6 +47,9 @@ export function CardHeader({
           <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
             {subtitle}
           </p>
+        )}
+        {footnote && (
+          <p className="mt-1 text-[10px] text-slate-400">{footnote}</p>
         )}
       </div>
       {actions && (

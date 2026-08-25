@@ -14,7 +14,9 @@ import {
   buildReleaseWindows,
 } from "@/lib/cs-bug-trend";
 import { RELEASE_NAME, releaseRank } from "@/lib/release-utils";
-import { getActiveReleaseFloor, listTestRuns } from "@/lib/testiny/queries";
+import { fetchProductionReleases } from "@/lib/linear/releases";
+import { RELEASE_GO_LIVE } from "@/content/release-go-live";
+import { getActiveReleaseFloor } from "@/lib/testiny/queries";
 
 export type BugKind = "product" | "cs";
 
@@ -142,26 +144,49 @@ export async function getBugTrends(): Promise<ReleaseTrend[]> {
  *
  * A CS bug is filed cross-product, so the only thing tying it to a
  * release is when it arrived: a release owns production from its own
- * regression close until the next release's. Both reads underneath are
- * already cached and shared with other cards, so this costs no extra
- * request — the CS bug board fetches the same tickets, and the release
- * testing card the same runs.
+ * go-live until the next release's. Go-live comes from Linear's
+ * production release pipeline, falling back to the checked-in table when
+ * that API surface is unavailable — see content/release-go-live.ts.
+ *
+ * The CS tickets are the same ones the CS bug board fetches, so they cost
+ * nothing beyond it.
  */
-export async function getCsBugTrends(): Promise<ReleaseTrend[]> {
+export interface CsBugTrends {
+  trends: ReleaseTrend[];
+  /** Which go-live source produced these windows, for the card to name. */
+  source: "pipeline" | "table" | "none";
+}
+
+export async function getCsBugTrends(): Promise<CsBugTrends> {
   try {
-    const [snapshot, runs] = await Promise.all([
+    const [snapshot, pipeline] = await Promise.all([
       getBugsSnapshot("cs"),
-      listTestRuns(),
+      // Never let the newer release API take the card down with it.
+      fetchProductionReleases().catch(() => null),
     ]);
-    const windows = buildReleaseWindows(runs, Date.now());
-    return buildCsBugTrends(
-      snapshot.groups.flatMap((g) => g.tickets),
-      windows,
-    );
+
+    const goLive =
+      pipeline && pipeline.length > 0
+        ? pipeline
+        : Object.entries(RELEASE_GO_LIVE).map(([release, liveAt]) => ({
+            release,
+            liveAt,
+          }));
+    const source: CsBugTrends["source"] =
+      pipeline && pipeline.length > 0 ? "pipeline" : "table";
+
+    const windows = buildReleaseWindows(goLive, Date.now());
+    return {
+      trends: buildCsBugTrends(
+        snapshot.groups.flatMap((g) => g.tickets),
+        windows,
+      ),
+      source,
+    };
   } catch (error) {
     console.error(
       `CS bug trends unavailable: ${error instanceof Error ? error.message : error}`,
     );
-    return [];
+    return { trends: [], source: "none" };
   }
 }
