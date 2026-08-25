@@ -71,12 +71,17 @@ export async function getRoadmapSnapshot(): Promise<RoadmapSnapshot> {
 
   const groups: ReleaseGroup[] = [...byProject.entries()]
     .map(([name, list]) => {
-      // Priority first; uncovered before covered still breaks the ties,
-      // so the coverage gaps stay visible within each priority band.
+      /**
+       * Uncovered first, urgent first within them — the roadmap's version
+       * of the bug boards' "open first, priority within". What the board
+       * is for is finding tickets that still need test cases, and Product
+       * Pile has 57 tickets with 6 covered: priority alone buried the
+       * gaps under work that is already done.
+       */
       const tickets = list.sort(
         (a, b) =>
-          byPriority(a, b) ||
           Number(a.hasTestCases) - Number(b.hasTestCases) ||
+          byPriority(a, b) ||
           a.id.localeCompare(b.id),
       );
       return {
