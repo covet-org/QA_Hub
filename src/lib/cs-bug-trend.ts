@@ -43,7 +43,7 @@ export interface GoLiveInput {
   liveAt: string;
 }
 
-interface CsBugInput {
+export interface CsBugInput {
   createdAt?: string;
 }
 
@@ -159,4 +159,48 @@ export function buildCsBugTrends(
   }
 
   return trends.slice(0, limit);
+}
+
+/** A window's bugs, or the leftovers that predate every window. */
+export interface CsBugWindowGroup<T> {
+  /** "3.36", or null for bugs older than the earliest go-live. */
+  release: string | null;
+  tickets: T[];
+}
+
+/**
+ * The same attribution the chart draws, as lists instead of curves.
+ *
+ * The CS board used to group by Linear project, which answered a
+ * different question: a customer bug triaged into "Bugs" says nothing
+ * about which release was in front of customers when it arrived. Sharing
+ * this function is what keeps the board and the chart from disagreeing
+ * about the same label.
+ *
+ * Bugs older than the earliest window come back under `release: null`
+ * rather than being dropped or folded into the oldest release. They are
+ * real customer bugs; we just cannot say which release was live.
+ */
+export function groupCsBugsByWindow<T extends CsBugInput>(
+  bugs: T[],
+  windows: ReleaseWindow[],
+): CsBugWindowGroup<T>[] {
+  const groups: CsBugWindowGroup<T>[] = windows.map((w) => ({
+    release: w.release,
+    tickets: [],
+  }));
+  const leftovers: T[] = [];
+
+  for (const bug of bugs) {
+    const t = bug.createdAt ? Date.parse(bug.createdAt) : NaN;
+    if (Number.isNaN(t)) {
+      leftovers.push(bug);
+      continue;
+    }
+    const index = windows.findIndex((w) => t >= w.liveAt && t < w.endsAt);
+    if (index === -1) leftovers.push(bug);
+    else groups[index].tickets.push(bug);
+  }
+
+  return [...groups, { release: null, tickets: leftovers }];
 }

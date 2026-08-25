@@ -122,9 +122,36 @@ function CollapsibleGroup({
   );
 }
 
-export function BugBoard({ groups }: { groups: BugGroup[] }) {
+export function BugBoard({
+  groups,
+  /**
+   * Trim the release filter to this many chips, the rest behind "+ More".
+   * The CS board has a window per release ever shipped; the product board
+   * has a handful and wants them all.
+   */
+  revealAfter,
+  /** Chips that stay visible however the list is trimmed. */
+  pinned,
+}: {
+  groups: BugGroup[];
+  revealAfter?: number;
+  pinned?: string[];
+}) {
   const groupNames = useMemo(() => groups.map((g) => g.name), [groups]);
-  const release = useUrlFilter("release", groupNames);
+  // Open on what the filter shows: the trimmed chips plus anything pinned.
+  // Opening on all seventeen windows would bury the two that matter and
+  // render a page nobody asked for.
+  const defaults = useMemo(() => {
+    if (revealAfter === undefined) return undefined;
+    const pinnedSet = new Set(pinned ?? []);
+    const trimmed = groupNames
+      .filter((name) => !pinnedSet.has(name))
+      .slice(0, revealAfter);
+    return groupNames.filter(
+      (name) => pinnedSet.has(name) || trimmed.includes(name),
+    );
+  }, [groupNames, revealAfter, pinned]);
+  const release = useUrlFilter("release", groupNames, defaults);
   const [priorities, setPriorities] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<string | "all">("all");
 
@@ -172,6 +199,8 @@ export function BugBoard({ groups }: { groups: BugGroup[] }) {
           options={releaseOptions}
           selected={[...release.selected]}
           onChange={release.set}
+          revealAfter={revealAfter}
+          pinned={pinned}
           bulk
         />
         <FilterGroup

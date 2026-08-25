@@ -18,6 +18,8 @@
  *   "all"  → nothing selected = no filter applied (bug priorities)
  *   "none" → nothing selected = show nothing (release pickers)
  */
+import { useRevealMore, RevealMoreButton } from "./RevealMore";
+
 export type FilterMode = "single" | "multi";
 
 export interface FilterOption {
@@ -40,6 +42,18 @@ interface FilterGroupProps {
   allLabel?: string;
   /** Adds a trailing "Select all / Clear" shortcut (multi only). */
   bulk?: boolean;
+  /**
+   * Show only this many options, the rest behind "+ More" — the same
+   * affordance and the same component as the Home charts. A filter with
+   * seventeen releases in it is a wall, and the two that matter are at
+   * the front.
+   */
+  revealAfter?: number;
+  /**
+   * Options that stay visible however the list is trimmed, whatever their
+   * position. Cross Product on the CS board is always worth an eye.
+   */
+  pinned?: string[];
 }
 
 export function FilterGroup({
@@ -51,11 +65,28 @@ export function FilterGroup({
   emptyMeans = "none",
   allLabel,
   bulk = false,
+  revealAfter,
+  pinned,
 }: FilterGroupProps) {
+  // Hooks before the early return: the option list can go empty between
+  // renders and a conditional hook would break on that transition.
+  const pinnedSet = new Set(pinned ?? []);
+  const trimmable = options.filter((o) => !pinnedSet.has(o.value));
+  const {
+    visible: revealed,
+    expanded,
+    hiddenCount,
+    toggle: toggleReveal,
+  } = useRevealMore(trimmable, revealAfter ?? trimmable.length);
+
   if (options.length === 0) return null;
 
   const chosen = new Set(selected);
   const allSelected = options.every((o) => chosen.has(o.value));
+  // Pinned options keep their place in the original order rather than
+  // being herded to the front: the list still reads newest-first.
+  const kept = new Set([...revealed.map((o) => o.value), ...pinnedSet]);
+  const shown = options.filter((o) => kept.has(o.value));
   // With emptyMeans="all", an empty selection IS the "All" state.
   const allActive = emptyMeans === "all" ? chosen.size === 0 : allSelected;
 
@@ -82,7 +113,7 @@ export function FilterGroup({
         </Chip>
       )}
 
-      {options.map((option) => (
+      {shown.map((option) => (
         <Chip
           key={option.value}
           active={chosen.has(option.value)}
@@ -93,6 +124,12 @@ export function FilterGroup({
           {option.label}
         </Chip>
       ))}
+
+      <RevealMoreButton
+        expanded={expanded}
+        hiddenCount={hiddenCount}
+        onToggle={toggleReveal}
+      />
 
       {bulk && mode === "multi" && (
         <button

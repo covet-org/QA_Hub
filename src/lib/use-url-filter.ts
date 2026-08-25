@@ -27,13 +27,18 @@ function parse(raw: string | null, all: string[]): Set<string> | null {
  * side over data already on the page, so the URL is a bookmark, not a
  * fetch trigger.
  *
- * An absent param means "everything selected", which keeps the default
- * view on a clean URL. An empty param means nothing is selected — a real
- * state, reachable by clearing every box.
+ * An absent param means the default selection — everything, unless the
+ * caller passes a narrower `defaults`. An empty param means nothing is
+ * selected: a real state, reachable by clearing every box.
+ *
+ * `defaults` exists for lists where "everything" is the wrong opening
+ * move. The CS board has a window per release ever shipped; opening on
+ * all of them buries the two the team is actually living with.
  */
 export function useUrlFilter(
   key: string,
   all: string[],
+  defaults?: string[],
 ): {
   selected: Set<string>;
   /** Replace the whole selection — what the FilterGroup component calls. */
@@ -48,6 +53,23 @@ export function useUrlFilter(
   // a shared filtered URL renders correctly without an effect.
   const [selected, setSelected] = useState<Set<string> | null>(() =>
     parse(params.get(key), all),
+  );
+
+  // The selection a clean URL means. Keyed by content, not identity:
+  // callers build a fresh array every render.
+  // Joined keys, not the arrays: hook deps compare by identity and every
+  // caller builds these fresh each render.
+  const defaultKey = defaults?.join("|") ?? null;
+  const allKey = all.join("|");
+  const defaultSet = useMemo(() => {
+    const key = defaultKey ?? allKey;
+    return new Set(key === "" ? [] : key.split("|"));
+  }, [defaultKey, allKey]);
+  const isDefaultSelection = useCallback(
+    (values: string[]) =>
+      values.length === defaultSet.size &&
+      values.every((v) => defaultSet.has(v)),
+    [defaultSet],
   );
 
   const sync = useCallback(
@@ -69,25 +91,28 @@ export function useUrlFilter(
   );
 
   // Memoised so callers can use `selected` as a useMemo dependency.
-  const effective = useMemo(() => selected ?? new Set(all), [selected, all]);
+  const effective = useMemo(
+    () => selected ?? defaultSet,
+    [selected, defaultSet],
+  );
 
   const toggle = useCallback(
     (value: string) => {
       const next = new Set(effective);
       if (next.has(value)) next.delete(value);
       else next.add(value);
-      // Back to "everything" collapses to a clean URL.
-      sync(next.size === all.length ? null : next);
+      // Back to the default selection collapses to a clean URL.
+      sync(isDefaultSelection([...next]) ? null : next);
     },
-    [effective, all, sync],
+    [effective, isDefaultSelection, sync],
   );
 
   const set = useCallback(
     (values: string[]) => {
-      // Selecting everything collapses back to a clean URL.
-      sync(values.length === all.length ? null : new Set(values));
+      // Landing back on the default collapses to a clean URL.
+      sync(isDefaultSelection(values) ? null : new Set(values));
     },
-    [all.length, sync],
+    [isDefaultSelection, sync],
   );
 
   return {
