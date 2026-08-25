@@ -193,7 +193,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             did it cost us". The progression is the same StatCard as the
             bug count, with its bar in the footer slot — a lookalike built
             separately would drift the first time either changed. */}
-        <div className="grid items-start gap-4 lg:grid-cols-2">
+        <div className="grid items-stretch gap-4 lg:grid-cols-2">
           <StatCard
             label={
               progression
@@ -219,9 +219,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           />
 
           <StatCard
-            label={`Bugs in ${currentRelease?.release ?? "this release"}`}
+            label={`Bugs reported in ${currentRelease?.release ?? "this release"}`}
             value={currentRelease?.total ?? 0}
-            hint="Filed against the current release"
+            hint={`Filed against ${currentRelease?.release ?? "the release"} in Linear`}
             tone={
               currentRelease && currentRelease.total > 0 ? "danger" : "brand"
             }
