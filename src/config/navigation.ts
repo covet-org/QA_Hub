@@ -48,7 +48,7 @@ export const navigation: NavSection[] = [
         href: "/bugs",
         minRole: "viewer",
         children: [
-          { label: "Bugs", href: "/bugs/product" },
+          { label: "QA Bugs", href: "/bugs/product" },
           { label: "CS Bugs", href: "/bugs/cs" },
         ],
       },

@@ -16,7 +16,7 @@ import {
   type FilterOption,
 } from "@/components/ui";
 
-const PRIORITY_ORDER = ["Urgent", "High", "Medium", "Low", "No priority"];
+import { PRIORITY_ORDER } from "@/lib/priority";
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "backlog", label: "Backlog" },

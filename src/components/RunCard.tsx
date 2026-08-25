@@ -371,7 +371,7 @@ export function RunCard({
           >
             {showDetails
               ? "Hide breakdown"
-              : `Show failed / blocked / skipped (${problemCount})`}
+              : `Show test cases failed / blocked / skipped (${problemCount})`}
           </button>
           {showDetails && (
             <div className="space-y-3 border-t border-hairline bg-surface-sunken px-4 py-3">

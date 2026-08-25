@@ -11,6 +11,7 @@ import type {
 } from "@/lib/linear/types";
 import { RELEASE_NAME, releaseRank } from "@/lib/release-utils";
 import { buildRoadmapNodes } from "@/lib/roadmap-tree";
+import { byPriority } from "@/lib/priority";
 import { getCoverageIndex } from "@/lib/testiny/coverage";
 
 /**
@@ -70,8 +71,13 @@ export async function getRoadmapSnapshot(): Promise<RoadmapSnapshot> {
 
   const groups: ReleaseGroup[] = [...byProject.entries()]
     .map(([name, list]) => {
-      const tickets = list.sort((a, b) =>
-        Number(a.hasTestCases) - Number(b.hasTestCases) || a.id.localeCompare(b.id),
+      // Priority first; uncovered before covered still breaks the ties,
+      // so the coverage gaps stay visible within each priority band.
+      const tickets = list.sort(
+        (a, b) =>
+          byPriority(a, b) ||
+          Number(a.hasTestCases) - Number(b.hasTestCases) ||
+          a.id.localeCompare(b.id),
       );
       return {
         name,
