@@ -90,8 +90,17 @@ function summarizeRun(
       (r.assigned_user_id ? `User ${r.assigned_user_id}` : null),
   });
 
+  // Executed cases only: a NOTRUN row may still carry a result_at from
+  // an earlier status change, and counting it would date the run to
+  // whenever someone reset a case.
+  const executedAt: number[] = [];
   for (const r of results) {
-    switch (r.result_status?.toUpperCase()) {
+    const status = r.result_status?.toUpperCase();
+    if (r.result_at && status && status !== "NOTRUN") {
+      const t = Date.parse(r.result_at);
+      if (!Number.isNaN(t)) executedAt.push(t);
+    }
+    switch (status) {
       case "PASSED":
         counts.passed++;
         break;
@@ -111,10 +120,17 @@ function summarizeRun(
         counts.notRun++;
     }
   }
+  executedAt.sort((a, b) => a - b);
   return {
     id: run.id,
     title: run.title,
     isClosed: run.is_closed,
+    firstResultAt:
+      executedAt.length > 0 ? new Date(executedAt[0]).toISOString() : null,
+    lastResultAt:
+      executedAt.length > 0
+        ? new Date(executedAt[executedAt.length - 1]).toISOString()
+        : null,
     total: results.length,
     ...counts,
     failedCases,
@@ -444,5 +460,39 @@ export async function getManualTestingSnapshot(): Promise<ManualTestingSnapshot>
       return { ...sampleSnapshot, projectName: "Testiny unavailable (sample data)" };
     }
     throw error;
+  }
+}
+
+/**
+ * Runs belonging to the given releases that sit on the *other* board.
+ *
+ * A release's timeline needs both phases, but each page shows one run
+ * state. Without this, the Active board would tell a release whose dev
+ * run has closed that it has 'no sandbox run' — false, and the kind of
+ * wrong that reads like a real answer.
+ *
+ * Usually one run or none, and it reuses the cached run list, so the
+ * cost is a results call for the counterpart only.
+ */
+export async function getCounterpartRunSummaries(
+  releases: string[],
+  shown: "active" | "closed",
+): Promise<RunSummary[]> {
+  if (releases.length === 0 || !testinyConfigured()) return [];
+  const wanted = new Set(releases);
+  try {
+    const runs = await listTestRuns();
+    const counterparts = runs.filter((r) => {
+      const onShownBoard = shown === "closed" ? r.is_closed : !r.is_closed;
+      if (onShownBoard) return false;
+      const release = r.title?.match(/(\d+\.\d+)/)?.[1];
+      return release ? wanted.has(release) : false;
+    });
+    if (counterparts.length === 0) return [];
+    return await summarizeRunsWithResults(counterparts);
+  } catch (error) {
+    if (!(error instanceof TestinyError)) throw error;
+    console.warn(`Counterpart runs unavailable: ${error.message}`);
+    return [];
   }
 }

@@ -189,6 +189,7 @@ export async function getCsBugTrends(): Promise<CsBugTrends> {
         : Object.entries(RELEASE_GO_LIVE).map(([release, liveAt]) => ({
             release,
             liveAt,
+            stagingAt: null,
           }));
     const source: CsBugTrends["source"] =
       pipeline && pipeline.length > 0 ? "pipeline" : "table";

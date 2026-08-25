@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { DescopeList } from "@/components/DescopeList";
+import { ReleaseTimelineRail } from "@/components/ReleaseTimeline";
+import type { ReleaseTimeline } from "@/lib/release-timeline";
 import { fetchDescopes } from "@/lib/descope-cache";
 import { loadReleaseContent, type DescopeResult } from "@/lib/release-actions";
 import type { ReleaseBug, ReleaseContent } from "@/lib/release-content";
@@ -277,9 +279,11 @@ function CaseList({
 export function RunCard({
   run,
   releaseNumber,
+  timeline,
 }: {
   run: RunSummary;
   releaseNumber?: string;
+  timeline?: ReleaseTimeline;
 }) {
   const [showDetails, setShowDetails] = useState(false);
   const [showRelease, setShowRelease] = useState(false);
@@ -360,6 +364,14 @@ export function RunCard({
       <RunProgressLegend run={run} className="mt-2.5 px-4" />
 
       <div aria-hidden className="pb-3" />
+
+      {/* The release's steps, above the execution detail: "where are we in
+          the process" is the question a run card is opened with. */}
+      {timeline && (
+        <div className="border-t border-hairline">
+          <ReleaseTimelineRail timeline={timeline} />
+        </div>
+      )}
 
       {problemCount > 0 && (
         <div className="border-t border-hairline">

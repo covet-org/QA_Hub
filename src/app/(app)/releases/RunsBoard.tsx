@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { RunCard } from "@/components/RunCard";
+import type { ReleaseTimeline } from "@/lib/release-timeline";
 import type { RunSummary } from "@/lib/testiny/types";
 import { useUrlFilter } from "@/lib/use-url-filter";
 import { FilterBar, FilterGroup, type FilterOption } from "@/components/ui";
@@ -19,9 +20,12 @@ function byVersionDesc(a: string, b: string): number {
 
 export function RunsBoard({
   runs,
+  timelines,
   emptyLabel,
 }: {
   runs: RunSummary[];
+  /** Keyed by release, e.g. "3.36". Built on the server in RunsView. */
+  timelines?: Record<string, ReleaseTimeline>;
   emptyLabel: string;
 }) {
   const versions = useMemo(
@@ -74,6 +78,7 @@ export function RunsBoard({
                 ? undefined
                 : versionOf(run.title)
             }
+            timeline={timelines?.[versionOf(run.title)]}
           />
         ))}
       </div>
