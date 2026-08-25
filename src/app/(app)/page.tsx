@@ -37,7 +37,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     cycleStats,
     releaseCycles,
     trends,
-    csTrends,
+    csBugs,
     releaseContent,
     { denied },
   ] = await Promise.all([
@@ -160,15 +160,22 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <Card>
           <CardHeader
             title="CS bugs per release"
-            subtitle="Bugs reported by customer service while each release was the version in production, counted from the day it went live. A release goes live when QA closes its regression run and owns production until the next release's regression closes, so day 0 is go-live and the curves compare week for week."
+            subtitle="Bugs reported by customer service while each release was the version in production. CS bugs are filed cross-product, so they are attributed by date: a release owns production from its go-live until the next release's. Day 0 is go-live, so the curves compare week for week."
+            footnote={
+              csBugs.source === "pipeline"
+                ? "Go-live from Linear's production release pipeline"
+                : csBugs.source === "table"
+                  ? "Go-live from the checked-in release table — Linear's release pipeline was unavailable"
+                  : undefined
+            }
           />
           <CardBody>
-            {csTrends.length > 0 ? (
-              <BugTrendChart trends={csTrends} />
+            {csBugs.trends.length > 0 ? (
+              <BugTrendChart trends={csBugs.trends} />
             ) : (
               <EmptyState>
-                No release has a closed regression run in Testiny, so there is
-                no production window to attribute CS bugs to yet.
+                No release has a recorded go-live date, so there is no
+                production window to attribute CS bugs to yet.
               </EmptyState>
             )}
           </CardBody>

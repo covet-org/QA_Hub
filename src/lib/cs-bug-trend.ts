@@ -9,18 +9,20 @@ import { versionRank } from "./release-utils";
  * project. What relates them to a release is *when* they arrived — a CS
  * bug reported while 3.36 was the version in production is 3.36's.
  *
- * A release goes live when QA closes its regression run, so a release
- * owns production from its own regression close until the next release's.
- * The dev/sandbox run shares the version number and must not be mistaken
- * for it; only a regression run marks a release as live.
+ * A release owns production from its own go-live until the next
+ * release's. Go-live comes from Linear's production release pipeline —
+ * see content/release-go-live.ts for why nothing else serves, and in
+ * particular why Testiny's regression runs do not: they are closed in
+ * batches, so 3.35 and 3.36 share a close date and one of those two
+ * windows would be zero days wide.
  *
  * Pure on purpose: no I/O, so the windowing is testable without keys.
  */
 
 const DAY_MS = 86_400_000;
 
-/** Only a regression run marks go-live. Tolerates the "Regresion" typo. */
-const REGRESSION_TITLE = /regres+ion/i;
+/** major.minor, however the version is written around it. */
+const RELEASE_VERSION = /(\d+\.\d+)/;
 
 export interface ReleaseWindow {
   /** "3.36" */
@@ -34,10 +36,11 @@ export interface ReleaseWindow {
   isCurrent: boolean;
 }
 
-interface RunInput {
-  title: string;
-  closed_at?: string | null;
-  is_closed?: boolean;
+/** A release and the moment it reached production. */
+export interface GoLiveInput {
+  release: string;
+  /** ISO timestamp. */
+  liveAt: string;
 }
 
 interface CsBugInput {
@@ -52,28 +55,28 @@ function dayStart(ms: number): number {
 /**
  * One production window per release, newest first.
  *
- * A release with no *closed* regression run is left out entirely rather
- * than falling back to its dev run: attributing a week of customer bugs
- * to the wrong release is worse than admitting the release has no window
- * yet, and a silent fallback would look identical to a real answer.
+ * A release with no go-live date gets no window at all rather than a
+ * guessed one: attributing a week of customer bugs to the wrong release
+ * would look exactly like a real answer.
  */
 export function buildReleaseWindows(
-  runs: RunInput[],
+  goLive: GoLiveInput[],
   now: number,
 ): ReleaseWindow[] {
   const liveAtByRelease = new Map<string, number>();
 
-  for (const run of runs) {
-    if (!run.title || !REGRESSION_TITLE.test(run.title)) continue;
-    // An open run has not cleared anything for production yet.
-    if (!run.is_closed || !run.closed_at) continue;
-    const release = run.title.match(/(\d+\.\d+)/)?.[1];
+  for (const entry of goLive) {
+    const release = entry.release.match(RELEASE_VERSION)?.[1];
     if (!release) continue;
-    const closed = Date.parse(run.closed_at);
-    if (Number.isNaN(closed)) continue;
-    // Re-opened and re-closed runs: the last close is the one that shipped.
+    const liveAt = Date.parse(entry.liveAt);
+    if (Number.isNaN(liveAt)) continue;
+    // Earliest wins: a version re-released keeps its first arrival in
+    // front of customers.
     const known = liveAtByRelease.get(release);
-    liveAtByRelease.set(release, known === undefined ? closed : Math.max(known, closed));
+    liveAtByRelease.set(
+      release,
+      known === undefined ? liveAt : Math.min(known, liveAt),
+    );
   }
 
   const ordered = [...liveAtByRelease.entries()]
