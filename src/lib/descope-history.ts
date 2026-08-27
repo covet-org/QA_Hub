@@ -53,15 +53,21 @@ export function descopesForStory<TBug extends BugLike>(
 
   const mine = bugs.filter((b) => b.parentId === storyId);
 
-  return events
-    .filter((e) => (versionRank(e.fromRelease) ?? 0) < here)
-    .map((e) => ({
-      fromRelease: e.fromRelease,
-      toProject: e.toProject,
-      toRelease: e.toRelease,
-      at: e.at,
-      bugsAtTheTime: mine.filter(
-        (b) => b.createdAt != null && b.createdAt <= e.at,
-      ),
-    }));
+  return (
+    events
+      .filter((e) => (versionRank(e.fromRelease) ?? 0) < here)
+      // Most recent exit first: it is the one that explains where the feature
+      // is now, and it is what the row's tag names. Sorted here rather than
+      // trusted from the caller so the order is a property of this function.
+      .sort((a, b) => b.at.localeCompare(a.at))
+      .map((e) => ({
+        fromRelease: e.fromRelease,
+        toProject: e.toProject,
+        toRelease: e.toRelease,
+        at: e.at,
+        bugsAtTheTime: mine.filter(
+          (b) => b.createdAt != null && b.createdAt <= e.at,
+        ),
+      }))
+  );
 }

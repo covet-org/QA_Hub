@@ -29,8 +29,8 @@ export interface ReleaseStory {
   statusType: string;
   hasTestCases: boolean;
   /**
-   * Releases this feature was pushed out of before landing here, oldest
-   * first, each with the bugs it already had at that moment.
+   * Releases this feature was pushed out of before landing here, most
+   * recent exit first, each with the bugs it already had at that moment.
    *
    * Optional and absent by default: it costs a Linear issue-history read,
    * which is the most expensive call in the app, so it is filled in only

@@ -51,14 +51,18 @@ function summary(descopes: Descope[]): string {
  * The row-level marker. Names the release it slipped from rather than just
  * counting, because "descoped from 3.35" is the fact a reader acts on and
  * a bare count is not.
+ *
+ * The release named is the MOST RECENT exit — the list arrives newest
+ * first. Naming the oldest one instead made the tag disagree with the
+ * first line of the history it opens.
  */
 export function DescopeTag({ descopes }: { descopes: Descope[] }) {
   if (descopes.length === 0) return null;
-  const first = descopes[0];
+  const latest = descopes[0];
   const label =
     descopes.length === 1
-      ? `descoped from ${first.fromRelease}`
-      : `descoped ${descopes.length}×, from ${first.fromRelease}`;
+      ? `descoped from ${latest.fromRelease}`
+      : `descoped ${descopes.length}×, last from ${latest.fromRelease}`;
   return (
     <Tag
       className="bg-amber-50 text-amber-800 ring-amber-200"

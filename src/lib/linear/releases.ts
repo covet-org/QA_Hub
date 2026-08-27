@@ -232,7 +232,7 @@ interface ArrivalsPage {
 export interface ReleaseProjectMoves {
   /** Release version -> ISO stamp of the first issue moved into it. */
   arrivals: Record<string, string>;
-  /** Feature id -> the releases it was pushed out of, oldest first. */
+  /** Feature id -> the releases it was pushed out of, newest exit first. */
   descopesByFeature: Record<string, DescopeEvent[]>;
 }
 
