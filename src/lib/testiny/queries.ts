@@ -3,6 +3,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { env } from "@/lib/env";
+import { isRegressionRun, releaseOfRun } from "@/lib/release-progression";
 import { versionRank } from "@/lib/release-utils";
 import {
   findAllEntities,
@@ -217,9 +218,7 @@ export async function getActiveReleaseFloor(): Promise<number> {
     }
   }
 
-  const ranks = titles
-    .map(versionRank)
-    .filter((r): r is number => r !== null);
+  const ranks = titles.map(versionRank).filter((r): r is number => r !== null);
   return ranks.length > 0 ? Math.min(...ranks) : Infinity;
 }
 
@@ -273,7 +272,14 @@ export async function getReleaseDurations(): Promise<{
     // phase key: `${rank}:${phase}` → time window
     const windows = new Map<
       string,
-      { release: string; rank: number; phase: "feature" | "regression"; start: number; end: number; inProgress: boolean }
+      {
+        release: string;
+        rank: number;
+        phase: "feature" | "regression";
+        start: number;
+        end: number;
+        inProgress: boolean;
+      }
     >();
 
     const now = Date.now();
@@ -286,7 +292,8 @@ export async function getReleaseDurations(): Promise<{
 
       const start = Date.parse(run.created_at);
       const inProgress = !run.is_closed;
-      const end = run.closed_at && run.is_closed ? Date.parse(run.closed_at) : now;
+      const end =
+        run.closed_at && run.is_closed ? Date.parse(run.closed_at) : now;
 
       const key = `${rank}:${phase}`;
       const window = windows.get(key);
@@ -301,7 +308,10 @@ export async function getReleaseDurations(): Promise<{
 
     const byRelease = new Map<number, ReleaseDuration>();
     for (const w of windows.values()) {
-      const entry = byRelease.get(w.rank) ?? { release: w.release, rank: w.rank };
+      const entry = byRelease.get(w.rank) ?? {
+        release: w.release,
+        rank: w.rank,
+      };
       entry[w.phase] = {
         days: Math.round(((w.end - w.start) / 86_400_000) * 10) / 10,
         inProgress: w.inProgress,
@@ -415,7 +425,10 @@ export async function getManualTestingSnapshot(): Promise<ManualTestingSnapshot>
       if (folderId) {
         const root = rootOf(folderId);
         if (root) {
-          casesByRootFolder.set(root.id, (casesByRootFolder.get(root.id) ?? 0) + 1);
+          casesByRootFolder.set(
+            root.id,
+            (casesByRootFolder.get(root.id) ?? 0) + 1,
+          );
         }
       }
       if (tc.testcase_type) {
@@ -457,7 +470,10 @@ export async function getManualTestingSnapshot(): Promise<ManualTestingSnapshot>
   } catch (error) {
     if (error instanceof TestinyError) {
       console.warn(`Falling back to sample data: ${error.message}`);
-      return { ...sampleSnapshot, projectName: "Testiny unavailable (sample data)" };
+      return {
+        ...sampleSnapshot,
+        projectName: "Testiny unavailable (sample data)",
+      };
     }
     throw error;
   }
@@ -494,5 +510,43 @@ export async function getCounterpartRunSummaries(
     if (!(error instanceof TestinyError)) throw error;
     console.warn(`Counterpart runs unavailable: ${error.message}`);
     return [];
+  }
+}
+
+/**
+ * Release version -> when that release's regression run was closed.
+ *
+ * Closing the regression run is the process signal that dev testing for
+ * the NEXT release may begin, so this is read as a marker, not as timing
+ * for the run itself. It is also the least reliable stamp Testiny has —
+ * runs get closed in batches days later — which is why the timeline flags
+ * a close that lands after the next release's work had already started
+ * instead of presenting it as a start date.
+ *
+ * Reuses the cached run list, so it costs nothing beyond that.
+ */
+export async function getRegressionCloseByRelease(): Promise<
+  Record<string, string>
+> {
+  if (!testinyConfigured()) return {};
+  try {
+    const runs = await listTestRuns();
+    const out: Record<string, string> = {};
+    for (const run of runs) {
+      if (!run.title || !run.closed_at || !isRegressionRun(run.title)) continue;
+      const release = releaseOfRun(run.title);
+      if (!release) continue;
+      // A release with two regression runs keeps the later close: dev on
+      // the next release starts once the last of them is shut.
+      const known = out[release];
+      if (!known || Date.parse(run.closed_at) > Date.parse(known)) {
+        out[release] = run.closed_at;
+      }
+    }
+    return out;
+  } catch (error) {
+    if (!(error instanceof TestinyError)) throw error;
+    console.warn(`Regression close dates unavailable: ${error.message}`);
+    return {};
   }
 }

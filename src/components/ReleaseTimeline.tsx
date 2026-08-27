@@ -14,9 +14,16 @@ import type { ReleaseTimeline as Timeline } from "@/lib/release-timeline";
  * regression run yet" and "regression not started" are different facts
  * and a QA lead acts differently on each.
  */
+/**
+ * Weekday first, and deliberately: the process runs to weekdays — dev
+ * Monday to Wednesday, sandbox opening Thursday, release on Monday — so a
+ * step that slipped is only visible if the day name is on the row. Local
+ * to the reader, which is also the only timezone we can be right about.
+ */
 function stamp(iso: string): string {
   const at = new Date(iso);
   return at.toLocaleString(undefined, {
+    weekday: "short",
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -74,6 +81,7 @@ export function ReleaseTimelineRail({ timeline }: { timeline: Timeline }) {
                 <div className="flex flex-wrap items-baseline gap-x-2">
                   <span
                     className={`text-[12px] ${dated ? "text-slate-800" : "text-slate-400"}`}
+                    title={m.source}
                   >
                     {m.label}
                   </span>
@@ -98,9 +106,12 @@ export function ReleaseTimelineRail({ timeline }: { timeline: Timeline }) {
         })}
       </ol>
 
-      {timeline.overlaps.length > 0 && (
+      {/* Where this release left the process. The amber is the point of the
+          section: a rail of dates nobody reads is worth less than one line
+          saying which step moved. */}
+      {timeline.flags.length > 0 && (
         <ul className="mt-1 space-y-0.5">
-          {timeline.overlaps.map((note) => (
+          {timeline.flags.map((note) => (
             <li
               key={note}
               className="flex items-start gap-1.5 text-[11px] text-amber-800"

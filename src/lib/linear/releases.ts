@@ -4,7 +4,12 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 
 import { env } from "@/lib/env";
-import { LINEAR_REVALIDATE_SECONDS, LinearError } from "@/lib/linear/client";
+import {
+  LINEAR_REVALIDATE_SECONDS,
+  LinearError,
+  fetchProjects,
+} from "@/lib/linear/client";
+import { RELEASE_NAME } from "@/lib/release-utils";
 
 /** A version that reached production, and when. */
 export interface ProductionRelease {
@@ -151,3 +156,49 @@ const cachedProductionReleases = unstable_cache(
 );
 
 export const fetchProductionReleases = cache(cachedProductionReleases);
+
+/**
+ * Release version -> when its "N Release" project was created in Linear.
+ *
+ * That creation is the start of sandbox testing — a Thursday, by process —
+ * and it is the only durable record of it. Testiny cannot supply this: a
+ * run's first `result_at` is when someone first saved a result, which is
+ * later than the phase began and moves forward whenever a case is
+ * re-executed.
+ *
+ * Returns an empty map rather than throwing, so a Linear outage costs the
+ * sandbox-start row and nothing else on the page.
+ */
+async function readReleaseProjectDates(): Promise<Record<string, string>> {
+  if (!env.linearApiKey) return {};
+  try {
+    const projects = await fetchProjects();
+    const out: Record<string, string> = {};
+    for (const project of projects) {
+      // Strictly "N.N Release" — a project merely mentioning a version
+      // ("3.37 hotfixes") is not the release project the process creates.
+      if (!RELEASE_NAME.test(project.name)) continue;
+      const version = project.name.match(RELEASE_VERSION)?.[1];
+      if (!version) continue;
+      // A version with two projects keeps the earlier creation: the
+      // process starts once, whatever tidying happened afterwards.
+      const known = out[version];
+      if (!known || Date.parse(project.createdAt) < Date.parse(known)) {
+        out[version] = project.createdAt;
+      }
+    }
+    return out;
+  } catch (error) {
+    if (!(error instanceof LinearError)) throw error;
+    console.warn(`Release project dates unavailable: ${error.message}`);
+    return {};
+  }
+}
+
+const cachedReleaseProjectDates = unstable_cache(
+  readReleaseProjectDates,
+  ["linear-release-project-dates"],
+  { revalidate: LINEAR_REVALIDATE_SECONDS },
+);
+
+export const fetchReleaseProjectDates = cache(cachedReleaseProjectDates);
