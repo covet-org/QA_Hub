@@ -153,23 +153,51 @@ export function SignOffBoard({
                       : row.status}
                   </Meta>
                   {/* The evidence itself, one click away — a gate you cannot
-                      audit is a gate nobody trusts. */}
+                      audit is a gate nobody trusts. The tooltip carries the
+                      message text and the phrase that made it count, so a
+                      wrong call is visible rather than buried. */}
                   {row.slack ? (
                     <a
                       href={row.slack.url}
                       target="_blank"
                       rel="noreferrer"
-                      title={row.slack.subtitle ?? row.slack.title}
+                      title={[
+                        row.slack.title,
+                        row.slack.subtitle,
+                        row.slack.matched
+                          ? `Counted because it says "${row.slack.matched}"`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join("\n\n")}
                       className="shrink-0 text-[11px] font-medium text-brand-700 hover:underline"
                     >
-                      Slack thread ↗
+                      merge confirmed ↗
+                    </a>
+                  ) : row.mentions.length > 0 ? (
+                    /* Somebody posted, but nobody said it was merged. A
+                       different fact from silence, and the more useful one:
+                       the thread is right there to read. */
+                    <a
+                      href={row.mentions[0].url}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={[
+                        `${row.mentions.length} message${row.mentions.length === 1 ? "" : "s"} from #${channelName} mention this ticket, none confirming a merge:`,
+                        ...row.mentions.map(
+                          (m) => `${m.title}: ${m.subtitle ?? "(no text captured)"}`,
+                        ),
+                      ].join("\n\n")}
+                      className="shrink-0 text-[11px] font-medium text-amber-700 hover:underline"
+                    >
+                      mentioned, no merge note ↗
                     </a>
                   ) : (
                     <span
                       className="shrink-0 text-[11px] text-slate-400"
-                      title={`No thread from #${channelName} is linked to this issue in Linear`}
+                      title={`No message from #${channelName} is linked to this issue in Linear`}
                     >
-                      no thread
+                      nothing linked
                     </span>
                   )}
                 </>

@@ -147,6 +147,7 @@ async function readSignOff(): Promise<SignOffSnapshot> {
       channelName: env.signOffSlackChannelName,
       mergedStatus: env.signOffMergedStatus,
       syncSince: env.signOffSyncSince,
+      confirmPhrases: env.signOffConfirmPhrases,
     }),
     isSample: false,
     error: null,
