@@ -30,17 +30,18 @@ import { useUrlFilter } from "@/lib/use-url-filter";
  */
 const STATE_TONE: Record<SignOffState, string> = {
   "merged-unconfirmed": "bg-rose-50 text-rose-700 ring-rose-200",
-  "confirmed-unmerged": "bg-sky-50 text-sky-700 ring-sky-200",
-  "in-design": "bg-slate-100 text-slate-600 ring-slate-200",
-  "signed-off": "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  "unmerged-unconfirmed": "bg-slate-100 text-slate-600 ring-slate-200",
+  "unmerged-confirmed": "bg-sky-50 text-sky-700 ring-sky-200",
+  "merged-confirmed": "bg-emerald-50 text-emerald-700 ring-emerald-200",
   "predates-sync": "bg-slate-100 text-slate-400 ring-slate-200",
 };
 
+/** Same order the board sorts in, so the filter reads like the list. */
 const STATE_ORDER: SignOffState[] = [
   "merged-unconfirmed",
-  "confirmed-unmerged",
-  "in-design",
-  "signed-off",
+  "unmerged-unconfirmed",
+  "unmerged-confirmed",
+  "merged-confirmed",
   "predates-sync",
 ];
 
