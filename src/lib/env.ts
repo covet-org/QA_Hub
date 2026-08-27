@@ -73,6 +73,10 @@ export const env = {
   get csBugLabel(): string {
     return process.env.QA_CS_BUG_LABEL ?? "CS Bug";
   },
+  /** Linear label marking bugs found in regression. */
+  get regressionBugLabel(): string {
+    return process.env.QA_REGRESSION_BUG_LABEL ?? "Regression";
+  },
   /** Where access-request notifications are sent. */
   get notifyEmail(): string {
     return process.env.NOTIFY_EMAIL ?? "clezama@co.vet";

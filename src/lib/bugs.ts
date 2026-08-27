@@ -21,7 +21,17 @@ import { fetchProductionReleases } from "@/lib/linear/releases";
 import { RELEASE_GO_LIVE } from "@/content/release-go-live";
 import { getActiveReleaseFloor } from "@/lib/testiny/queries";
 
-export type BugKind = "product" | "cs";
+export type BugKind = "product" | "cs" | "regression";
+
+/**
+ * The Linear label each board reads. One source, so a page header and the
+ * query behind it can never name different labels.
+ */
+export function bugLabelFor(kind: BugKind): string {
+  if (kind === "cs") return env.csBugLabel;
+  if (kind === "regression") return env.regressionBugLabel;
+  return env.bugLabel;
+}
 
 export interface BugGroup {
   /** Display name, e.g. "3.32 Release" or "No release". */
@@ -65,7 +75,7 @@ export async function getBugsSnapshot(kind: BugKind): Promise<BugsSnapshot> {
     return { isSample: true, groups: [], totalBugs: 0, openBugs: 0 };
   }
 
-  const label = kind === "cs" ? env.csBugLabel : env.bugLabel;
+  const label = bugLabelFor(kind);
   let tickets: RoadmapTicket[];
   let projectNames: string[];
   try {
@@ -88,7 +98,12 @@ export async function getBugsSnapshot(kind: BugKind): Promise<BugsSnapshot> {
     RELEASE_NAME.test(project) ||
     /cross-?product/i.test(project);
 
-  const scoped = tickets.filter((t) => inScope(t.project));
+  // Regression is read literally as "every ticket carrying the label":
+  // it marks where a bug was found, not what it belongs to, so a
+  // regression bug parked in a squad project is still a regression bug.
+  // Scoping it like the QA board would drop those silently.
+  const scoped =
+    kind === "regression" ? tickets : tickets.filter((t) => inScope(t.project));
 
   // Seed every numbered release project so the timeline is complete
   // even for releases with zero bugs under this label.
@@ -279,7 +294,8 @@ export async function getCsBugBoard(): Promise<{
   const grouped = groupCsBugsByWindow(tickets, windows);
   // Windows come back newest-first, so the last one is the oldest release
   // we can attribute anything to.
-  const oldest = windows.length > 0 ? windows[windows.length - 1].release : null;
+  const oldest =
+    windows.length > 0 ? windows[windows.length - 1].release : null;
   const outsideWindows =
     grouped.find((entry) => entry.release === null)?.tickets.length ?? 0;
 
@@ -289,22 +305,28 @@ export async function getCsBugBoard(): Promise<{
     // number in the header rather than as a 550-row group nobody opens.
     .filter((entry) => entry.release !== null)
     .map((entry) => {
-    const sorted = [...entry.tickets].sort(
-      (a, b) =>
-        Number(isOpen(b)) - Number(isOpen(a)) ||
-        byPriority(a, b) ||
-        b.id.localeCompare(a.id, undefined, { numeric: true }),
-    );
-    return {
-      name: `${entry.release} Release`,
-      isRelease: entry.release !== null,
-      // Every window is worth reading on this board; "active" is a
-      // testing-phase idea and these releases are already in production.
-      isActiveRelease: true,
-      openCount: sorted.filter(isOpen).length,
-      tickets: sorted,
-    };
-  });
+      const sorted = [...entry.tickets].sort(
+        (a, b) =>
+          Number(isOpen(b)) - Number(isOpen(a)) ||
+          byPriority(a, b) ||
+          b.id.localeCompare(a.id, undefined, { numeric: true }),
+      );
+      return {
+        name: `${entry.release} Release`,
+        isRelease: entry.release !== null,
+        // Every window is worth reading on this board; "active" is a
+        // testing-phase idea and these releases are already in production.
+        isActiveRelease: true,
+        openCount: sorted.filter(isOpen).length,
+        tickets: sorted,
+      };
+    });
 
-  return { groups, source, isSample: false, oldestRelease: oldest, outsideWindows };
+  return {
+    groups,
+    source,
+    isSample: false,
+    oldestRelease: oldest,
+    outsideWindows,
+  };
 }
