@@ -25,11 +25,16 @@ import { byPriority } from "@/lib/priority";
  * Pure: no I/O, so the gate is testable without keys.
  */
 
+/**
+ * The two facts, crossed. Each name says which half holds, so a row can be
+ * read without knowing the rules: no interpretation, no verdict word that
+ * has to be looked up.
+ */
 export type SignOffState =
   | "merged-unconfirmed"
-  | "confirmed-unmerged"
-  | "in-design"
-  | "signed-off"
+  | "unmerged-unconfirmed"
+  | "unmerged-confirmed"
+  | "merged-confirmed"
   | "predates-sync";
 
 /** A Slack thread linked to the issue from the sign-off channel. */
@@ -95,25 +100,30 @@ export interface SignOffInput {
 }
 
 /**
- * Worst first. A story merged without written confirmation is the only row
- * that needs somebody to do something, so it leads; history that predates
- * the sync sinks below the stories that passed, because it is neither a
- * problem nor an achievement.
+ * Ordered by how far the story is from the gate, worst first: the one
+ * violation leads, then neither step done, then the half that is correctly
+ * sequenced, then through, and finally the history the sync cannot cover —
+ * neither a problem nor an achievement.
  */
 const STATE_RANK: Record<SignOffState, number> = {
   "merged-unconfirmed": 0,
-  "confirmed-unmerged": 1,
-  "in-design": 2,
-  "signed-off": 3,
+  "unmerged-unconfirmed": 1,
+  "unmerged-confirmed": 2,
+  "merged-confirmed": 3,
   "predates-sync": 4,
 };
 
+/**
+ * The status name is written out exactly as Linear spells it. The gate is
+ * only a source of truth if its labels name states that actually exist —
+ * "Merged in dev" would be a status nobody can find in Linear.
+ */
 export const STATE_LABEL: Record<SignOffState, string> = {
-  "merged-unconfirmed": "no written confirmation",
-  "confirmed-unmerged": "confirmed, not merged",
-  "in-design": "in design",
-  "signed-off": "signed off",
-  "predates-sync": "predates the Slack sync",
+  "merged-unconfirmed": "Merged to dev · not confirmed",
+  "unmerged-unconfirmed": "Not merged · not confirmed",
+  "unmerged-confirmed": "Not merged · confirmed",
+  "merged-confirmed": "Merged to dev · confirmed",
+  "predates-sync": "Merged to dev · before Slack sync",
 };
 
 function firstEntry(issue: SignOffHistoryIssue, status: string): string | null {
@@ -161,22 +171,22 @@ export function buildSignOffBoard({
     let state: SignOffState;
     let note: string;
     if (isMerged && slack) {
-      state = "signed-off";
-      note = `merged to dev and confirmed in #${channelName}`;
+      state = "merged-confirmed";
+      note = `through the gate: reached Merged to dev and a thread from #${channelName} is linked`;
     } else if (isMerged) {
       if (mergedAt !== null && mergedAt < syncSince) {
         state = "predates-sync";
-        note = `merged before #${channelName} was synced to Linear, so no confirmation can be expected here`;
+        note = `reached Merged to dev before #${channelName} was synced to Linear, so no linked thread can be expected`;
       } else {
         state = "merged-unconfirmed";
-        note = `merged to dev with no thread from #${channelName} linked in Linear`;
+        note = `reached Merged to dev with no thread from #${channelName} linked in Linear`;
       }
     } else if (slack) {
-      state = "confirmed-unmerged";
-      note = `confirmed in #${channelName}, not yet merged to dev`;
+      state = "unmerged-confirmed";
+      note = `a thread from #${channelName} is linked; not at Merged to dev yet (currently ${issue.state.name})`;
     } else {
-      state = "in-design";
-      note = "not merged to dev and no written confirmation yet";
+      state = "unmerged-unconfirmed";
+      note = `not at Merged to dev (currently ${issue.state.name}) and no thread from #${channelName} linked`;
     }
 
     return {
