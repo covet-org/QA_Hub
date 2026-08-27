@@ -33,7 +33,15 @@ export const navigation: NavSection[] = [
     title: "QA",
     items: [
       { label: "Home", href: "/", minRole: "viewer" },
-      { label: "Roadmap", href: "/roadmap", minRole: "viewer" },
+      {
+        label: "Roadmap",
+        href: "/roadmap",
+        minRole: "viewer",
+        children: [
+          { label: "Board", href: "/roadmap" },
+          { label: "Design Sign-off", href: "/roadmap/sign-off" },
+        ],
+      },
       {
         label: "Releases",
         href: "/releases",
