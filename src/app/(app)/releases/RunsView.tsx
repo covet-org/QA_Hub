@@ -2,7 +2,8 @@ import { RunsBoard } from "@/app/(app)/releases/RunsBoard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import {
   fetchProductionReleases,
-  fetchReleaseIssueArrivals,
+  fetchReleaseProjectMoves,
+  type ReleaseProjectMoves,
 } from "@/lib/linear/releases";
 import { isRegressionRun, releaseOfRun } from "@/lib/release-progression";
 import { buildReleaseTimeline } from "@/lib/release-timeline";
@@ -42,18 +43,17 @@ export async function RunsView({ state }: { state: "active" | "closed" }) {
       runs.map((r) => releaseOfRun(r.title)).filter((v): v is string => !!v),
     ),
   ];
-  const [counterparts, pipeline, arrivals, regressionCloses] =
-    await Promise.all([
-      getCounterpartRunSummaries(releases, state),
-      fetchProductionReleases().catch(() => null),
-      // Scoped to the releases on this page: the arrivals query reads issue
-      // history, so it is the one expensive read here and there is no
-      // reason to ask about releases nobody is looking at.
-      fetchReleaseIssueArrivals(releases.map((r) => `${r} Release`)).catch(
-        (): Record<string, string> => ({}),
-      ),
-      getRegressionCloseByRelease().catch((): Record<string, string> => ({})),
-    ]);
+  const [counterparts, pipeline, moves, regressionCloses] = await Promise.all([
+    getCounterpartRunSummaries(releases, state),
+    fetchProductionReleases().catch(() => null),
+    // Scoped to the releases on this page: the arrivals query reads issue
+    // history, so it is the one expensive read here and there is no
+    // reason to ask about releases nobody is looking at.
+    fetchReleaseProjectMoves(releases.map((r) => `${r} Release`)).catch(
+      (): ReleaseProjectMoves => ({ arrivals: {}, descopesByFeature: {} }),
+    ),
+    getRegressionCloseByRelease().catch((): Record<string, string> => ({})),
+  ]);
   const pipelineBy = new Map((pipeline ?? []).map((p) => [p.release, p]));
 
   /**
@@ -86,7 +86,7 @@ export async function RunsView({ state }: { state: "active" | "closed" }) {
           previousRegressionClosedAt: previous
             ? (regressionCloses[previous] ?? null)
             : null,
-          issueArrivedAt: arrivals[release] ?? null,
+          issueArrivedAt: moves.arrivals[release] ?? null,
           stagingAt: entry?.stagingAt ?? null,
           releasedAt: entry?.liveAt ?? null,
         }),

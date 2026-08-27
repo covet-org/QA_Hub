@@ -68,10 +68,14 @@ export function releaseVersionOf(
   return project.match(/(\d+\.\d+)/)?.[1] ?? null;
 }
 
-/** Turns raw issue history into one descope event per release per feature. */
-export function detectDescopes(
-  issues: DescopeHistoryIssue[],
-): Record<string, DescopeEvent[]> {
+/**
+ * One event per release per feature: the latest exit from each release.
+ *
+ * Shared by the two groupings below. Keyed by release for the "descoped
+ * tasks" list a release owns, and keyed by feature for the descope history
+ * shown against a feature that has since moved on.
+ */
+export function latestExits(issues: DescopeHistoryIssue[]): DescopeEvent[] {
   // Keyed "3.36|COV-1234" so a feature that left the same release more
   // than once collapses to its latest exit instead of duplicating.
   const latest = new Map<string, DescopeEvent>();
@@ -104,8 +108,15 @@ export function detectDescopes(
     }
   }
 
+  return [...latest.values()];
+}
+
+/** Turns raw issue history into one descope event per release per feature. */
+export function detectDescopes(
+  issues: DescopeHistoryIssue[],
+): Record<string, DescopeEvent[]> {
   const byRelease: Record<string, DescopeEvent[]> = {};
-  for (const event of latest.values()) {
+  for (const event of latestExits(issues)) {
     (byRelease[event.fromRelease] ??= []).push(event);
   }
   // Most recent exit first within a release.
@@ -119,4 +130,24 @@ export function detectDescopes(
       ([a], [b]) => (versionRank(b) ?? 0) - (versionRank(a) ?? 0),
     ),
   );
+}
+
+/**
+ * The same exits keyed by feature, oldest first.
+ *
+ * A feature now sitting in 3.37 may have been pushed out of 3.35 and
+ * again out of 3.36; read against the feature rather than against the
+ * release, that is its history — and the reason it is late.
+ */
+export function descopesByFeature(
+  issues: DescopeHistoryIssue[],
+): Record<string, DescopeEvent[]> {
+  const byFeature: Record<string, DescopeEvent[]> = {};
+  for (const event of latestExits(issues)) {
+    (byFeature[event.id] ??= []).push(event);
+  }
+  for (const events of Object.values(byFeature)) {
+    events.sort((a, b) => a.at.localeCompare(b.at));
+  }
+  return byFeature;
 }

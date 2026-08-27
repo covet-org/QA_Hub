@@ -5,6 +5,11 @@ import { unstable_cache } from "next/cache";
 
 import { env } from "@/lib/env";
 import { LINEAR_REVALIDATE_SECONDS, LinearError } from "@/lib/linear/client";
+import {
+  descopesByFeature,
+  type DescopeEvent,
+  type DescopeHistoryIssue,
+} from "@/lib/linear/descope-rules";
 import { RELEASE_NAME } from "@/lib/release-utils";
 
 /** A version that reached production, and when. */
@@ -154,8 +159,16 @@ const cachedProductionReleases = unstable_cache(
 export const fetchProductionReleases = cache(cachedProductionReleases);
 
 /**
- * Release version -> when the first issue was MOVED INTO its "N Release"
- * project. That move is the start of sandbox testing.
+ * Project-move history for the issues currently sitting in the given
+ * release projects. One read, two answers:
+ *
+ *   arrivals          release -> when the FIRST issue was moved into it,
+ *                     which is the start of sandbox testing
+ *   descopesByFeature feature -> the releases it was pushed out of, and
+ *                     when, for the history shown against the feature
+ *
+ * The two are the same events read from opposite ends, so they are fetched
+ * together rather than paying for issue history twice.
  *
  * Issues are only moved into a release project on the Wednesday, which is
  * what makes the first arrival a reliable marker. Two anchors tried before
@@ -181,9 +194,21 @@ const PROJECT_ARRIVALS_QUERY = /* GraphQL */ `
         endCursor
       }
       nodes {
+        identifier
+        title
+        url
+        priority
+        priorityLabel
+        state {
+          name
+          type
+        }
         history(first: 50) {
           nodes {
             createdAt
+            fromProject {
+              name
+            }
             toProject {
               name
             }
@@ -198,24 +223,29 @@ interface ArrivalsPage {
   data?: {
     issues: {
       pageInfo: { hasNextPage: boolean; endCursor: string | null };
-      nodes: {
-        history: {
-          nodes: { createdAt: string; toProject: { name: string } | null }[];
-        };
-      }[];
+      nodes: DescopeHistoryIssue[];
     };
   };
   errors?: { message: string }[];
 }
 
-async function readReleaseIssueArrivals(
+export interface ReleaseProjectMoves {
+  /** Release version -> ISO stamp of the first issue moved into it. */
+  arrivals: Record<string, string>;
+  /** Feature id -> the releases it was pushed out of, oldest first. */
+  descopesByFeature: Record<string, DescopeEvent[]>;
+}
+
+async function readReleaseProjectMoves(
   projectKey: string,
-): Promise<Record<string, string>> {
+): Promise<ReleaseProjectMoves> {
   const apiKey = env.linearApiKey;
   const names = projectKey.split("|").filter(Boolean);
-  if (!apiKey || names.length === 0) return {};
+  if (!apiKey || names.length === 0)
+    return { arrivals: {}, descopesByFeature: {} };
 
   const out: Record<string, string> = {};
+  const issues: DescopeHistoryIssue[] = [];
   let after: string | null = null;
 
   try {
@@ -239,10 +269,11 @@ async function readReleaseIssueArrivals(
           `Linear arrivals failed: ${page.errors[0].message}`,
         );
       }
-      const issues = page.data?.issues;
-      if (!issues) throw new LinearError("Linear returned no data");
+      const page_issues = page.data?.issues;
+      if (!page_issues) throw new LinearError("Linear returned no data");
 
-      for (const issue of issues.nodes) {
+      issues.push(...page_issues.nodes);
+      for (const issue of page_issues.nodes) {
         for (const event of issue.history.nodes) {
           const name = event.toProject?.name;
           if (!name || !RELEASE_NAME.test(name)) continue;
@@ -255,22 +286,22 @@ async function readReleaseIssueArrivals(
         }
       }
 
-      if (!issues.pageInfo.hasNextPage) break;
-      after = issues.pageInfo.endCursor;
+      if (!page_issues.pageInfo.hasNextPage) break;
+      after = page_issues.pageInfo.endCursor;
     }
   } catch (error) {
     if (!(error instanceof LinearError)) throw error;
     // Partial results are kept: a release whose arrival was already seen
     // keeps its date, and the rest read as pending rather than as wrong.
-    console.warn(`Release issue arrivals unavailable: ${error.message}`);
+    console.warn(`Release project moves unavailable: ${error.message}`);
   }
 
-  return out;
+  return { arrivals: out, descopesByFeature: descopesByFeature(issues) };
 }
 
-const cachedReleaseIssueArrivals = unstable_cache(
-  readReleaseIssueArrivals,
-  ["linear-release-issue-arrivals"],
+const cachedReleaseProjectMoves = unstable_cache(
+  readReleaseProjectMoves,
+  ["linear-release-project-moves"],
   { revalidate: LINEAR_REVALIDATE_SECONDS },
 );
 
@@ -279,6 +310,6 @@ const cachedReleaseIssueArrivals = unstable_cache(
  * arguments by identity — actually hits when every caller builds a fresh
  * array, the same trick the issue queries use.
  */
-export const fetchReleaseIssueArrivals = cache((projectNames: string[]) =>
-  cachedReleaseIssueArrivals([...projectNames].sort().join("|")),
+export const fetchReleaseProjectMoves = cache((projectNames: string[]) =>
+  cachedReleaseProjectMoves([...projectNames].sort().join("|")),
 );

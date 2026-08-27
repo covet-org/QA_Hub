@@ -13,6 +13,7 @@ export function DataRow({
   title,
   titleAttr,
   trailing,
+  below,
   nested = false,
 }: {
   /** Usually the ticket link. Fixed width so titles align down the page. */
@@ -24,6 +25,11 @@ export function DataRow({
   titleAttr?: string;
   /** Tags, counts, dates — pushed to the right. */
   trailing?: React.ReactNode;
+  /**
+   * Full-width block under the row, inside the same list item: for detail
+   * that belongs to this row but cannot fit on its line.
+   */
+  below?: React.ReactNode;
   /** Indents the row and marks it as a child of the row above. */
   nested?: boolean;
 }) {
@@ -31,19 +37,22 @@ export function DataRow({
     <li
       className={
         nested
-          ? "flex flex-wrap items-center gap-x-3 gap-y-1.5 border-l-2 border-brand-100 py-2 pr-4 pl-3 transition-colors hover:bg-white"
-          : "flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5 transition-colors hover:bg-surface-sunken"
+          ? "border-l-2 border-brand-100 py-2 pr-4 pl-3 transition-colors hover:bg-white"
+          : "px-4 py-2.5 transition-colors hover:bg-surface-sunken"
       }
     >
-      {leading}
-      {slots}
-      <span
-        className="min-w-[12rem] flex-1 truncate text-xs text-slate-800"
-        title={titleAttr}
-      >
-        {title}
-      </span>
-      {trailing}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        {leading}
+        {slots}
+        <span
+          className="min-w-[12rem] flex-1 truncate text-xs text-slate-800"
+          title={titleAttr}
+        >
+          {title}
+        </span>
+        {trailing}
+      </div>
+      {below}
     </li>
   );
 }
