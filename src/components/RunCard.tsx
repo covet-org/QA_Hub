@@ -135,6 +135,82 @@ function PriorityStatusBugs({ bugs }: { bugs: ReleaseBug[] }) {
 }
 
 /**
+ * A panel whose body opens on click: the heading is the toggle, and so is
+ * the Expand button beside it.
+ *
+ * Shared so every collapsible block in a release detail behaves the same
+ * way. `leading` stays outside the toggle because it holds the ticket
+ * link — nesting a link inside the button would swallow the jump to Linear.
+ */
+function CollapsiblePanel({
+  id,
+  leading,
+  label,
+  labelAttr,
+  trailing,
+  expandable = true,
+  children,
+}: {
+  id: string;
+  leading?: React.ReactNode;
+  label: React.ReactNode;
+  labelAttr?: string;
+  trailing?: React.ReactNode;
+  /** False when there is nothing behind the toggle. */
+  expandable?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const toggle = () => setOpen((o) => !o);
+
+  return (
+    <div className="overflow-hidden rounded-lg bg-surface-card ring-1 ring-hairline">
+      <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
+        {leading}
+        {expandable ? (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={open}
+            aria-controls={id}
+            className="min-w-0 flex-1 truncate text-left text-[13px] font-medium text-slate-800 transition-colors hover:text-brand-700"
+            title={labelAttr}
+          >
+            {label}
+          </button>
+        ) : (
+          <span
+            className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-800"
+            title={labelAttr}
+          >
+            {label}
+          </span>
+        )}
+        {trailing}
+        {/* No toggle when there is nothing behind it — an Expand button that
+            opens an empty panel is worse than no button. */}
+        {expandable && (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={open}
+            aria-controls={id}
+            className="shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium text-brand-700 ring-1 ring-hairline transition-colors hover:bg-surface-sunken"
+          >
+            {open ? "Collapse" : "Expand"}
+          </button>
+        )}
+      </div>
+      {expandable && open && (
+        <div id={id} className="space-y-3 px-3 py-2.5">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * One user story with its bugs behind an expand toggle.
  *
  * Collapsed by default: a release with a dozen stories used to open as one
@@ -153,72 +229,39 @@ function StoryPanel({
   story: ReleaseStory;
   bugs: ReleaseBug[];
 }) {
-  const [open, setOpen] = useState(false);
   const hasBugs = bugs.length > 0;
   const descopes = story.descopes ?? [];
-  // A feature pushed out of an earlier release is worth opening even with
-  // no bugs on it: the history is the answer to "why is this still here".
-  const expandable = hasBugs || descopes.length > 0;
-  const panelId = "release-story-bugs-" + story.id;
-  const toggle = () => setOpen((o) => !o);
 
   return (
-    <div className="overflow-hidden rounded-lg bg-surface-card ring-1 ring-hairline">
-      <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
-        <TicketLink id={story.id} url={story.url} />
-        {expandable ? (
-          <button
-            type="button"
-            onClick={toggle}
-            aria-expanded={open}
-            aria-controls={panelId}
-            className="min-w-0 flex-1 truncate text-left text-[13px] font-medium text-slate-800 transition-colors hover:text-brand-700"
-            title={story.title}
-          >
-            {story.title}
-          </button>
-        ) : (
-          <span
-            className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-800"
-            title={story.title}
-          >
-            {story.title}
+    <CollapsiblePanel
+      id={"release-story-bugs-" + story.id}
+      leading={<TicketLink id={story.id} url={story.url} />}
+      label={story.title}
+      labelAttr={story.title}
+      // A feature pushed out of an earlier release is worth opening even
+      // with no bugs on it: the history answers "why is this still here".
+      expandable={hasBugs || descopes.length > 0}
+      trailing={
+        <>
+          {story.labels
+            .filter((l) => STORY_LABEL[l])
+            .map((l) => (
+              <Tag key={l} className={STORY_LABEL_TONE[l]}>
+                {STORY_LABEL[l]}
+              </Tag>
+            ))}
+          <DescopeTag descopes={descopes} />
+          <span className="text-[11px] text-slate-400">
+            {bugs.length} bug{bugs.length === 1 ? "" : "s"}
           </span>
-        )}
-        {story.labels
-          .filter((l) => STORY_LABEL[l])
-          .map((l) => (
-            <Tag key={l} className={STORY_LABEL_TONE[l]}>
-              {STORY_LABEL[l]}
-            </Tag>
-          ))}
-        <DescopeTag descopes={descopes} />
-        <span className="text-[11px] text-slate-400">
-          {bugs.length} bug{bugs.length === 1 ? "" : "s"}
-        </span>
-        {/* No toggle when there is nothing behind it — an Expand button that
-            opens an empty panel is worse than no button. */}
-        {expandable && (
-          <button
-            type="button"
-            onClick={toggle}
-            aria-expanded={open}
-            aria-controls={panelId}
-            className="shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium text-brand-700 ring-1 ring-hairline transition-colors hover:bg-surface-sunken"
-          >
-            {open ? "Collapse" : "Expand"}
-          </button>
-        )}
-      </div>
-      {expandable && open && (
-        <div id={panelId} className="space-y-3 px-3 py-2.5">
-          {/* History first: it explains why the feature is in this release
-              at all, which frames the bugs listed under it. */}
-          <StoryDescopeHistory descopes={descopes} />
-          {hasBugs && <PriorityStatusBugs bugs={bugs} />}
-        </div>
-      )}
-    </div>
+        </>
+      }
+    >
+      {/* History first: it explains why the feature is in this release at
+          all, which frames the bugs listed under it. */}
+      <StoryDescopeHistory descopes={descopes} />
+      {hasBugs && <PriorityStatusBugs bugs={bugs} />}
+    </CollapsiblePanel>
   );
 }
 
@@ -259,14 +302,17 @@ function ReleaseDetail({
       ))}
 
       {orphanBugs.length > 0 && (
-        <div className="overflow-hidden rounded-lg bg-surface-card ring-1 ring-hairline">
-          <div className="border-b border-hairline px-3 py-2 text-[13px] font-medium text-slate-700">
-            Other bugs — not linked to a user story ({orphanBugs.length})
-          </div>
-          <div className="px-3 py-2.5">
-            <PriorityStatusBugs bugs={orphanBugs} />
-          </div>
-        </div>
+        <CollapsiblePanel
+          id={"release-orphan-bugs-" + releaseNumber}
+          label="Other bugs — not linked to a user story"
+          trailing={
+            <span className="text-[11px] text-slate-400">
+              {orphanBugs.length} bug{orphanBugs.length === 1 ? "" : "s"}
+            </span>
+          }
+        >
+          <PriorityStatusBugs bugs={orphanBugs} />
+        </CollapsiblePanel>
       )}
 
       {content.stories.length === 0 && orphanBugs.length === 0 && (
