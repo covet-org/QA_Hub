@@ -17,6 +17,16 @@ const VERSION = /(\d+\.\d+)/;
 /** "Regression 3.36", "3.35 Regresion" — the typo is in the real data. */
 const REGRESSION = /regres+ion/i;
 
+/** The release a run title names, or null when it names none. */
+export function releaseOfRun(title: string): string | null {
+  return title.match(VERSION)?.[1] ?? null;
+}
+
+/** Regression rather than dev/sandbox. Shared so one rule decides. */
+export function isRegressionRun(title: string): boolean {
+  return REGRESSION.test(title);
+}
+
 export interface ReleaseProgression {
   /** "3.36" */
   release: string;
@@ -91,10 +101,15 @@ export interface CurrentPhase {
 /**
  * The phase the release is actually in.
  *
- * Dev and regression never run at the same time, so one number tells the
- * story — but only if it is the right one. Regression wins as soon as it
- * has a single executed case: the moment regression starts, dev is done
- * and its percentage stops being the news. Before that it is dev.
+ * Dev and regression DO overlap — 3.36's sandbox run had cases executed
+ * 4.1h after regression started, 3.35's ran on for about nineteen. So one
+ * number is a choice, not a consequence: regression wins as soon as it has
+ * a single executed case, because once regression is under way the dev
+ * percentage stops being the news even while it keeps moving. Before that
+ * it is dev.
+ *
+ * The overlap itself is shown, not hidden — see the release timeline on the
+ * run cards, which flags it rather than smoothing it into clean phases.
  *
  * Which phase a percentage belongs to is not decoration: 8% of dev and
  * 8% of regression are opposite ends of a release.

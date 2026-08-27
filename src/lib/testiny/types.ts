@@ -40,6 +40,13 @@ export interface TestinyRunResultValues {
   testcase_id: number;
   testrun_id: number;
   result_status: string | null; // PASSED | FAILED | BLOCKED | SKIPPED | NOTRUN
+  /**
+   * When this case was executed. The only trustworthy timing signal on a
+   * run: `closed_at` is bookkeeping — 3.36's dev and regression runs share
+   * the close stamp 2026-08-24T19:09Z, three days after the last case was
+   * actually run, and 3.34 Dev and 3.35 Dev share another.
+   */
+  result_at?: string | null;
   /** Set when the case was removed from the run (don't count those). */
   deleted_at?: string | null;
   /** Who the case is assigned to WITHIN this run, so the same case can
@@ -87,6 +94,9 @@ export interface RunSummary {
   id: number;
   title: string;
   isClosed: boolean;
+  /** First and last execution in this run — when work really happened. */
+  firstResultAt?: string | null;
+  lastResultAt?: string | null;
   total: number;
   passed: number;
   failed: number;

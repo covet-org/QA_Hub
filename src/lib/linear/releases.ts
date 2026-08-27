@@ -12,6 +12,11 @@ export interface ProductionRelease {
   release: string;
   /** Reached the pipeline's released stage. */
   liveAt: string;
+  /**
+   * Entered the pipeline — the build moving to staging, which is where
+   * regression runs. A Friday for 3.36, three days before release.
+   */
+  stagingAt: string | null;
 }
 
 const LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql";
@@ -120,23 +125,23 @@ async function readProductionReleases(): Promise<ProductionRelease[] | null> {
       if (!liveAt || !node.version) continue;
       const release = node.version.match(RELEASE_VERSION)?.[1];
       if (!release) continue;
-      out.push({ release, liveAt });
+      out.push({ release, liveAt, stagingAt: node.startedAt ?? null });
     }
   }
 
   // Newest first, and one entry per release: a version re-released keeps
   // its first arrival in production.
-  const earliest = new Map<string, string>();
+  const earliest = new Map<string, ProductionRelease>();
   for (const entry of out) {
     const known = earliest.get(entry.release);
-    if (!known || Date.parse(entry.liveAt) < Date.parse(known)) {
-      earliest.set(entry.release, entry.liveAt);
+    if (!known || Date.parse(entry.liveAt) < Date.parse(known.liveAt)) {
+      earliest.set(entry.release, entry);
     }
   }
 
-  return [...earliest.entries()]
-    .map(([release, liveAt]) => ({ release, liveAt }))
-    .sort((a, b) => Date.parse(b.liveAt) - Date.parse(a.liveAt));
+  return [...earliest.values()].sort(
+    (a, b) => Date.parse(b.liveAt) - Date.parse(a.liveAt),
+  );
 }
 
 const cachedProductionReleases = unstable_cache(
