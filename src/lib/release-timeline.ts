@@ -6,17 +6,20 @@ import type { RunSummary } from "@/lib/testiny/types";
  *
  *   Mon  dev testing starts, the moment the previous release's regression
  *        run is closed in Testiny — Monday through Wednesday
- *   Thu  sandbox testing starts, the moment the "N Release" project is
- *        created in Linear
- *   Fri  build moves to staging, regression runs
+ *   Wed  sandbox testing starts, the moment the first issue is moved into
+ *        the "N Release" project, and ends when the sandbox run is closed
+ *   Fri  build moves to staging; regression starts when its run is created
+ *        and ends when that run is closed
  *   Mon  release goes to production
  *
- * The two phase starts are therefore *process events*, not execution
- * stamps. An earlier version dated "testing started in sandbox" from the
- * first `result_at` in the dev run, which is only ever the first time
- * someone saved a result — later than the phase began, and it drifts
- * forward when a case is re-executed. The first recorded result is still
- * shown, but as its own fact next to the marker it should follow.
+ * Phase boundaries are therefore *process events*, not execution stamps.
+ * Two earlier anchors were wrong and are worth naming so they are not
+ * tried again: the first `result_at` in the dev run is merely when
+ * someone first saved a result (and it drifts forward when a case is
+ * re-executed), and the release project's own `createdAt` is when the
+ * container was made — for 3.37 that read Monday 04:33 PM against sandbox
+ * testing that happened on the Wednesday. The first recorded result is
+ * still shown, but as its own fact beneath the marker it follows.
  *
  * Execution stamps (`result_at`) still date the work itself. Never
  * `closed_at` for that: 3.36's dev and regression runs share the close
@@ -72,8 +75,8 @@ export interface TimelineInput {
   previousRelease?: string | null;
   /** Its regression run's close — the marker that dev testing may start. */
   previousRegressionClosedAt?: string | null;
-  /** The "N Release" Linear project's creation — sandbox testing starts. */
-  projectCreatedAt?: string | null;
+  /** First issue moved into the "N Release" project — sandbox starts. */
+  issueArrivedAt?: string | null;
   /** Linear production pipeline: entered staging, and released. */
   stagingAt?: string | null;
   releasedAt?: string | null;
@@ -109,16 +112,21 @@ export function buildReleaseTimeline({
   regression,
   previousRelease,
   previousRegressionClosedAt,
-  projectCreatedAt,
+  issueArrivedAt,
   stagingAt,
   releasedAt,
 }: TimelineInput): ReleaseTimeline {
   const devStart = parse(previousRegressionClosedAt);
   const firstResult = parse(dev?.firstResultAt);
-  const sandboxStart = parse(projectCreatedAt);
-  const sandboxEnd = parse(dev?.lastResultAt);
-  const regStart = parse(regression?.firstResultAt);
-  const regEnd = parse(regression?.lastResultAt);
+  const sandboxStart = parse(issueArrivedAt);
+  // Closing the sandbox run ends sandbox testing; creating the regression
+  // run starts regression; closing it ends regression. The execution
+  // stamps stay in play below, where they check these markers.
+  const sandboxEnd = parse(dev?.closedAt);
+  const regStart = parse(regression?.createdAt);
+  const regEnd = parse(regression?.closedAt);
+  const devLastRun = parse(dev?.lastResultAt);
+  const regLastRun = parse(regression?.lastResultAt);
   const staging = parse(stagingAt);
   const released = parse(releasedAt);
 
@@ -150,16 +158,16 @@ export function buildReleaseTimeline({
     {
       key: "sandbox-start",
       label: "Sandbox testing started",
-      source: `the "${release} Release" project was created in Linear`,
+      source: `first issue moved into the "${release} Release" project`,
       at: sandboxStart,
-      pending: `no "${release} Release" project found in Linear`,
+      pending: `no issue moved into the "${release} Release" project yet`,
     },
     {
       key: "sandbox-end",
-      label: "Last sandbox execution",
-      source: "latest executed case in the dev/sandbox run",
+      label: "Sandbox testing closed",
+      source: "the dev/sandbox run was closed in Testiny",
       at: sandboxEnd,
-      pending: dev ? "nothing executed yet" : "no dev/sandbox run",
+      pending: dev ? "sandbox run still open" : "no dev/sandbox run",
     },
     {
       key: "staging",
@@ -171,16 +179,18 @@ export function buildReleaseTimeline({
     {
       key: "regression-start",
       label: "Regression started",
-      source: "earliest executed case in the regression run",
+      source: "the regression run was created in Testiny",
       at: regStart,
-      pending: regression ? "nothing executed yet" : "no regression run yet",
+      pending: "no regression run yet",
     },
     {
       key: "regression-end",
       label: "Regression finished",
-      source: "latest executed case in the regression run",
+      source: "the regression run was closed in Testiny",
       at: regEnd,
-      pending: regression ? "in progress" : "no regression run yet",
+      pending: regression
+        ? "regression run still open"
+        : "no regression run yet",
     },
     {
       key: "released",
@@ -233,31 +243,55 @@ export function buildReleaseTimeline({
     }
   }
 
-  // A sandbox phase with no execution in it is a phase that did not run.
+  // A sandbox phase closed before any issue arrived in it never ran.
   if (
     sandboxStart !== null &&
     sandboxEnd !== null &&
     sandboxEnd < sandboxStart
   ) {
     flags.push(
-      `no case was executed after the ${release} Release project was created — nothing was tested in the sandbox phase`,
+      `the sandbox run was closed before the first issue reached the ${release} Release project — the sandbox phase did not run`,
     );
   }
 
-  if (regStart !== null && sandboxEnd !== null && sandboxEnd > regStart) {
+  // Runs left open long after the work stopped. This is what makes the
+  // markers drift: the close is the process signal, so a run shut days
+  // late reports a phase that ended days late, and gates the NEXT
+  // release's dev start on a date nobody worked on.
+  if (sandboxEnd !== null && devLastRun !== null) {
+    const late = days(devLastRun, sandboxEnd);
+    if (late > 1) {
+      flags.push(
+        `the sandbox run was closed ${late}d after its last case was executed`,
+      );
+    }
+  }
+  if (regEnd !== null && regLastRun !== null) {
+    const late = days(regLastRun, regEnd);
+    if (late > 1) {
+      flags.push(
+        `the regression run was closed ${late}d after its last case was executed`,
+      );
+    }
+  }
+
+  // Phases running at the same time. Measured on executions, not on the
+  // markers: a run staying open past regression is bookkeeping, whereas a
+  // case executed in the sandbox after regression began is real overlap.
+  if (regStart !== null && devLastRun !== null && devLastRun > regStart) {
     flags.push(
-      `sandbox testing continued ${hours(regStart, sandboxEnd)}h after regression started`,
+      `sandbox cases were still being executed ${hours(regStart, devLastRun)}h after regression started`,
     );
   }
 
-  if (staging !== null && sandboxEnd !== null && sandboxEnd > staging) {
+  if (staging !== null && devLastRun !== null && devLastRun > staging) {
     flags.push(
-      `sandbox testing continued ${hours(staging, sandboxEnd)}h after the staging move`,
+      `sandbox cases were still being executed ${hours(staging, devLastRun)}h after the staging move`,
     );
   }
 
-  if (released !== null && regEnd !== null && regEnd > released) {
-    flags.push("regression finished after the release went out");
+  if (released !== null && regLastRun !== null && regLastRun > released) {
+    flags.push("regression cases were executed after the release went out");
   }
 
   const dated = milestones

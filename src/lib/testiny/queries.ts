@@ -126,6 +126,8 @@ function summarizeRun(
     id: run.id,
     title: run.title,
     isClosed: run.is_closed,
+    createdAt: run.created_at ?? null,
+    closedAt: run.closed_at ?? null,
     firstResultAt:
       executedAt.length > 0 ? new Date(executedAt[0]).toISOString() : null,
     lastResultAt:

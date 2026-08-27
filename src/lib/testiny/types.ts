@@ -32,7 +32,8 @@ export interface TestinyTestCase {
   priority?: number | null; // 0 Critical … 3 Low
   testcase_type?: string | null; // FUNCTIONAL, REGRESSION, …
   /** Present when queried with map {entities:["testcase","testcase_folder"]}. */
-  testcase_folder_testcase_values?: TestinyCaseFolderValues | TestinyCaseFolderValues[];
+  testcase_folder_testcase_values?:
+    TestinyCaseFolderValues | TestinyCaseFolderValues[];
 }
 
 /** Mapping row carrying the execution result of a case within a run. */
@@ -97,6 +98,15 @@ export interface RunSummary {
   /** First and last execution in this run — when work really happened. */
   firstResultAt?: string | null;
   lastResultAt?: string | null;
+  /**
+   * When the run was created and closed. These are process markers, not
+   * timing for the work: creating the regression run IS the start of
+   * regression, and closing the sandbox run IS the end of sandbox testing.
+   * Compare them against the execution stamps above to see a run that was
+   * closed days after anyone last touched it.
+   */
+  createdAt?: string | null;
+  closedAt?: string | null;
   total: number;
   passed: number;
   failed: number;
