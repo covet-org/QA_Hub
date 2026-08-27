@@ -133,11 +133,15 @@ export function detectDescopes(
 }
 
 /**
- * The same exits keyed by feature, oldest first.
+ * The same exits keyed by feature, most recent first.
  *
  * A feature now sitting in 3.37 may have been pushed out of 3.35 and
  * again out of 3.36; read against the feature rather than against the
  * release, that is its history — and the reason it is late.
+ *
+ * Newest first, like the release-keyed grouping below it and every other
+ * list on the boards: the move that explains where the feature is now is
+ * the last one, so it leads.
  */
 export function descopesByFeature(
   issues: DescopeHistoryIssue[],
@@ -147,7 +151,7 @@ export function descopesByFeature(
     (byFeature[event.id] ??= []).push(event);
   }
   for (const events of Object.values(byFeature)) {
-    events.sort((a, b) => a.at.localeCompare(b.at));
+    events.sort((a, b) => b.at.localeCompare(a.at));
   }
   return byFeature;
 }
