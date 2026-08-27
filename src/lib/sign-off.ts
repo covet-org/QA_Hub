@@ -10,13 +10,24 @@ import { byPriority } from "@/lib/priority";
  * is a row you can see rather than something you reconstruct by hand.
  *
  * The Slack half is real data, not a guess: Linear's Slack integration
- * stores a shared thread as an issue *attachment* whose URL carries the
- * channel id, e.g.
+ * stores a linked message as an issue *attachment* whose URL carries the
+ * channel id and whose subtitle carries the message text, e.g.
  *   https://covetglobal.slack.com/archives/C0ADVLJBUCE/p178526...
- * so a confirmation is detected by channel id rather than by reading the
- * message text. COV-7719 already carries one from a different channel
- * (C06B08L2Q77), which is exactly why the channel has to be matched and
- * not merely the presence of "a Slack link".
+ *   "hi guys @qa this ticket are merged"
+ *
+ * Two filters, because either one alone is wrong:
+ *
+ *   channel — COV-7719 carries a thread from C06B08L2Q77, another channel
+ *             entirely, so "has a Slack link" is not sign-off.
+ *   wording — any team tagging a ticket in the right channel produces the
+ *             same attachment. A confirmation is a dev SAYING it is merged,
+ *             so the message text has to say so.
+ *
+ * The wording test is a heuristic and is treated as one: a thread that
+ * fails it is reported as "linked, no merge note" with its text one click
+ * away, never silently dropped. Phrases are configurable, so the team can
+ * widen them without a deploy, and negations ("not merged yet") are
+ * rejected rather than counted.
  *
  * Traceability starts when the sync does. A story merged before that date
  * cannot have an attachment however well it was presented, so it reads as
@@ -37,14 +48,20 @@ export type SignOffState =
   | "merged-confirmed"
   | "predates-sync";
 
-/** A Slack thread linked to the issue from the sign-off channel. */
-export interface SlackConfirmation {
+/** A Slack message linked to the issue from the sign-off channel. */
+export interface SlackThread {
   url: string;
   /** Linear titles these "Message from <person>". */
   title: string;
   /** The message text, as Linear captured it. */
   subtitle: string | null;
   at: string | null;
+  /**
+   * The phrase that made this read as a merge confirmation, or null when
+   * the message only mentions the ticket. Shown on the row, so the call is
+   * auditable rather than taken on trust.
+   */
+  matched: string | null;
 }
 
 export interface SignOffStory {
@@ -59,7 +76,14 @@ export interface SignOffStory {
   isMerged: boolean;
   /** When it FIRST reached it, or null when history does not show it. */
   mergedAt: string | null;
-  slack: SlackConfirmation | null;
+  /** The message that confirms the merge, when one qualifies. */
+  slack: SlackThread | null;
+  /**
+   * Messages from the channel that mention the ticket without confirming a
+   * merge. Kept so "nobody posted" and "somebody posted something else" are
+   * different rows — collapsing them is how a board starts lying.
+   */
+  mentions: SlackThread[];
   state: SignOffState;
   /** The verdict in words, for the row. */
   note: string;
@@ -97,6 +121,12 @@ export interface SignOffInput {
   mergedStatus: string;
   /** ISO date the Slack↔Linear sync began; earlier merges are exempt. */
   syncSince: string;
+  /**
+   * Lower-case phrases that make a message a merge confirmation, e.g.
+   * ["merged", "mergeado"]. Configurable so wording can be widened without
+   * a deploy.
+   */
+  confirmPhrases: string[];
 }
 
 /**
@@ -137,20 +167,69 @@ function firstEntry(issue: SignOffHistoryIssue, status: string): string | null {
   return stamps[0] ?? null;
 }
 
-function findSlack(
+/**
+ * "not merged", "will be merged", "before merging" — a message about a
+ * merge that has NOT happened. Checked in the few words before the phrase,
+ * because "this is not merged yet" must never read as confirmation.
+ */
+const NEGATORS =
+  /(?:\bnot\b|\bno\b|\bisn'?t\b|\baren'?t\b|\bwon'?t\b|\bwill\b|\bto\s+be\b|\bbefore\b|\bpending\b|\bwaiting\b|\bonce\b|\bafter\b|\bwhen\b)[^.!?]{0,20}$/i;
+
+/**
+ * The phrase confirming a merge, or null when the text does not claim one.
+ *
+ * Matches on the message Linear captured, looking only at whether a
+ * non-negated confirm phrase appears. Deliberately dumb: a cleverer parser
+ * would be harder to predict, and the row shows the matched phrase so a
+ * wrong call is visible instead of buried.
+ */
+export function matchConfirmPhrase(
+  text: string | null | undefined,
+  phrases: string[],
+): string | null {
+  // A missing phrase list fails CLOSED: nothing reads as confirmed, so a
+  // misconfiguration shows as a wall of unconfirmed rows rather than as a
+  // gate everyone passes.
+  if (!text || !Array.isArray(phrases)) return null;
+  const haystack = text.toLowerCase();
+  for (const phrase of phrases) {
+    const needle = phrase.toLowerCase();
+    let from = 0;
+    for (;;) {
+      const at = haystack.indexOf(needle, from);
+      if (at === -1) break;
+      const before = haystack.slice(Math.max(0, at - 40), at);
+      if (!NEGATORS.test(before)) return phrase;
+      from = at + needle.length;
+    }
+  }
+  return null;
+}
+
+function readThreads(
   issue: SignOffHistoryIssue,
   channelId: string,
-): SlackConfirmation | null {
-  const hits = issue.attachments.nodes
+  confirmPhrases: string[],
+): { slack: SlackThread | null; mentions: SlackThread[] } {
+  const threads: SlackThread[] = issue.attachments.nodes
     .filter((a) => a.url.includes(channelId))
-    .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
-  const first = hits[0];
-  if (!first) return null;
+    .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""))
+    .map((a) => ({
+      url: a.url,
+      title: a.title ?? "Slack message",
+      subtitle: a.subtitle ?? null,
+      at: a.createdAt ?? null,
+      // The title carries "Message from <person>", so the text is where the
+      // claim lives; the title is checked too in case Linear ever puts the
+      // message there instead.
+      matched:
+        matchConfirmPhrase(a.subtitle, confirmPhrases) ??
+        matchConfirmPhrase(a.title, confirmPhrases),
+    }));
+
   return {
-    url: first.url,
-    title: first.title ?? "Slack thread",
-    subtitle: first.subtitle ?? null,
-    at: first.createdAt ?? null,
+    slack: threads.find((t) => t.matched !== null) ?? null,
+    mentions: threads.filter((t) => t.matched === null),
   };
 }
 
@@ -160,13 +239,14 @@ export function buildSignOffBoard({
   channelName,
   mergedStatus,
   syncSince,
+  confirmPhrases,
 }: SignOffInput): SignOffStory[] {
   const rows = issues.map((issue): SignOffStory => {
     const mergedAt = firstEntry(issue, mergedStatus);
     // Current status counts too: history is fetched with a cap, so an old
     // story whose merge fell off the end must not read as never merged.
     const isMerged = mergedAt !== null || issue.state.name === mergedStatus;
-    const slack = findSlack(issue, channelId);
+    const { slack, mentions } = readThreads(issue, channelId, confirmPhrases);
 
     let state: SignOffState;
     let note: string;
@@ -179,14 +259,20 @@ export function buildSignOffBoard({
         note = `reached Merged to dev before #${channelName} was synced to Linear, so no linked thread can be expected`;
       } else {
         state = "merged-unconfirmed";
-        note = `reached Merged to dev with no thread from #${channelName} linked in Linear`;
+        note =
+          mentions.length > 0
+            ? `reached Merged to dev; ${mentions.length} message${mentions.length === 1 ? "" : "s"} from #${channelName} mention this ticket but none says it was merged`
+            : `reached Merged to dev with no message from #${channelName} linked in Linear`;
       }
     } else if (slack) {
       state = "unmerged-confirmed";
-      note = `a thread from #${channelName} is linked; not at Merged to dev yet (currently ${issue.state.name})`;
+      note = `a merge was confirmed in #${channelName}, but the ticket is not at Merged to dev (currently ${issue.state.name})`;
     } else {
       state = "unmerged-unconfirmed";
-      note = `not at Merged to dev (currently ${issue.state.name}) and no thread from #${channelName} linked`;
+      note =
+        mentions.length > 0
+          ? `not at Merged to dev (currently ${issue.state.name}); mentioned in #${channelName} but never confirmed as merged`
+          : `not at Merged to dev (currently ${issue.state.name}) and no message from #${channelName} linked`;
     }
 
     return {
@@ -200,6 +286,7 @@ export function buildSignOffBoard({
       isMerged,
       mergedAt,
       slack,
+      mentions,
       state,
       note,
     };

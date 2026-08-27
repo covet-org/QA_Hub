@@ -59,11 +59,21 @@ export default async function SignOffPage() {
           <span className="font-semibold text-slate-700">
             What counts as confirmation:
           </span>{" "}
-          a Slack thread from <span className="font-medium">#{channel}</span>{" "}
-          linked to the Linear issue, which is what the Slack integration
-          records as an attachment. Threads shared from other channels do not
-          count. Stories merged before {env.signOffSyncSince} predate the sync
-          and are reported as such rather than as missing sign-off.
+          a message in <span className="font-medium">#{channel}</span> that is
+          linked to the Linear issue{" "}
+          <span className="font-medium">and says the ticket was merged</span> —
+          e.g. &ldquo;hi guys @qa this ticket are merged&rdquo;. Both halves
+          matter: a message from another channel is not sign-off, and a message
+          that only tags the ticket (&ldquo;@qa please add test cases&rdquo;)
+          produces the same Linear attachment without confirming anything, so it
+          shows as <span className="font-medium">mentioned, no merge note</span>{" "}
+          rather than as confirmation. Phrases matched:{" "}
+          <span className="font-mono text-[11px]">
+            {env.signOffConfirmPhrases.join(", ")}
+          </span>
+          , and negations such as &ldquo;not merged yet&rdquo; are rejected.
+          Stories merged before {env.signOffSyncSince} predate the sync and are
+          reported as such rather than as missing sign-off.
         </div>
 
         <SignOffBoard rows={rows} channelName={channel} />

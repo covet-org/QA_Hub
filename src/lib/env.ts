@@ -113,6 +113,20 @@ export const env = {
   get signOffSyncSince(): string {
     return process.env.QA_SIGNOFF_SYNC_SINCE ?? "2026-08-27";
   },
+  /**
+   * Phrases in a linked Slack message that make it a merge confirmation
+   * rather than someone tagging the ticket. Past tense on purpose: a bare
+   * "merge" also appears in "don't merge yet".
+   */
+  get signOffConfirmPhrases(): string[] {
+    return (
+      process.env.QA_SIGNOFF_CONFIRM_PHRASES ??
+      "merged,merged to dev,are merged,mergeado,mergeada"
+    )
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+  },
   /** Where access-request notifications are sent. */
   get notifyEmail(): string {
     return process.env.NOTIFY_EMAIL ?? "clezama@co.vet";
