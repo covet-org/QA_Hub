@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DescopeList } from "@/components/DescopeList";
 import { ReleaseTimelineRail } from "@/components/ReleaseTimeline";
+import { DescopeTag, StoryDescopeHistory } from "@/components/StoryDescopes";
 import type { ReleaseTimeline } from "@/lib/release-timeline";
 import { fetchDescopes } from "@/lib/descope-cache";
 import { loadReleaseContent, type DescopeResult } from "@/lib/release-actions";
@@ -154,6 +155,10 @@ function StoryPanel({
 }) {
   const [open, setOpen] = useState(false);
   const hasBugs = bugs.length > 0;
+  const descopes = story.descopes ?? [];
+  // A feature pushed out of an earlier release is worth opening even with
+  // no bugs on it: the history is the answer to "why is this still here".
+  const expandable = hasBugs || descopes.length > 0;
   const panelId = "release-story-bugs-" + story.id;
   const toggle = () => setOpen((o) => !o);
 
@@ -161,7 +166,7 @@ function StoryPanel({
     <div className="overflow-hidden rounded-lg bg-surface-card ring-1 ring-hairline">
       <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
         <TicketLink id={story.id} url={story.url} />
-        {hasBugs ? (
+        {expandable ? (
           <button
             type="button"
             onClick={toggle}
@@ -187,12 +192,13 @@ function StoryPanel({
               {STORY_LABEL[l]}
             </Tag>
           ))}
+        <DescopeTag descopes={descopes} />
         <span className="text-[11px] text-slate-400">
           {bugs.length} bug{bugs.length === 1 ? "" : "s"}
         </span>
         {/* No toggle when there is nothing behind it — an Expand button that
             opens an empty panel is worse than no button. */}
-        {hasBugs && (
+        {expandable && (
           <button
             type="button"
             onClick={toggle}
@@ -204,9 +210,12 @@ function StoryPanel({
           </button>
         )}
       </div>
-      {hasBugs && open && (
-        <div id={panelId} className="px-3 py-2.5">
-          <PriorityStatusBugs bugs={bugs} />
+      {expandable && open && (
+        <div id={panelId} className="space-y-3 px-3 py-2.5">
+          {/* History first: it explains why the feature is in this release
+              at all, which frames the bugs listed under it. */}
+          <StoryDescopeHistory descopes={descopes} />
+          {hasBugs && <PriorityStatusBugs bugs={bugs} />}
         </div>
       )}
     </div>

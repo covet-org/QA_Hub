@@ -251,7 +251,6 @@ const PROJECTS_QUERY = /* GraphQL */ `
       }
       nodes {
         name
-        createdAt
       }
     }
   }
@@ -261,28 +260,18 @@ interface ProjectsPage {
   data?: {
     projects: {
       pageInfo: { hasNextPage: boolean; endCursor: string | null };
-      nodes: { name: string; createdAt: string }[];
+      nodes: { name: string }[];
     };
   };
   errors?: { message: string }[];
 }
 
-export interface LinearProject {
-  name: string;
-  /**
-   * When the project was created. For a "3.37 Release" project this is the
-   * Thursday sandbox testing starts, which is the only record of that the
-   * process leaves behind.
-   */
-  createdAt: string;
-}
-
-/** Every Linear project in the workspace, with its creation date. */
-export async function fetchProjects(): Promise<LinearProject[]> {
+/** Every Linear project name in the workspace (all pages). */
+export async function fetchProjectNames(): Promise<string[]> {
   const apiKey = env.linearApiKey;
   if (!apiKey) throw new LinearError("LINEAR_API_KEY is not configured");
 
-  const out: LinearProject[] = [];
+  const names: string[] = [];
   let after: string | null = null;
 
   for (;;) {
@@ -308,19 +297,12 @@ export async function fetchProjects(): Promise<LinearProject[]> {
     const projects = page.data?.projects;
     if (!projects) throw new LinearError("Linear returned no data");
 
-    out.push(
-      ...projects.nodes.map((n) => ({ name: n.name, createdAt: n.createdAt })),
-    );
+    names.push(...projects.nodes.map((n) => n.name));
     if (!projects.pageInfo.hasNextPage) break;
     after = projects.pageInfo.endCursor;
   }
 
-  return out;
-}
-
-/** Every Linear project name in the workspace (all pages). */
-export async function fetchProjectNames(): Promise<string[]> {
-  return (await fetchProjects()).map((p) => p.name);
+  return names;
 }
 
 /** Roadmap tickets: the roadmap labels minus QA's own process tickets. */

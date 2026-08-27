@@ -1,6 +1,8 @@
 import "server-only";
 
 import { getBugsSnapshot, isOpenStatus } from "@/lib/bugs";
+import { descopesForStory, type FeatureDescope } from "@/lib/descope-history";
+import { fetchReleaseProjectMoves } from "@/lib/linear/releases";
 import {
   fetchIssuesInProjects,
   linearConfigured,
@@ -26,6 +28,12 @@ export interface ReleaseStory {
   status: string;
   statusType: string;
   hasTestCases: boolean;
+  /**
+   * Releases this feature was pushed out of before landing here, oldest
+   * first, each with the bugs it already had at that moment. Empty for a
+   * feature that was never descoped, which is most of them.
+   */
+  descopes: FeatureDescope<ReleaseBug>[];
 }
 
 /** A bug shown in a release's detail. */
@@ -38,6 +46,8 @@ export interface ReleaseBug {
   statusType: string;
   /** Identifier of the parent user story, if the bug is a sub-issue. */
   parentId: string | null;
+  /** When the bug was filed — what decides whether it predates a descope. */
+  createdAt?: string | null;
 }
 
 export interface ReleaseContent {
@@ -133,6 +143,7 @@ export async function getReleaseContent(): Promise<
         status: ticket.status,
         statusType: ticket.statusType,
         hasTestCases: hasCases(ticket.id),
+        descopes: [],
       },
     });
   }
@@ -155,6 +166,7 @@ export async function getReleaseContent(): Promise<
           status: t.status,
           statusType: t.statusType,
           hasTestCases: t.hasTestCases,
+          descopes: [],
         },
       });
     }
@@ -199,7 +211,51 @@ export async function getReleaseContent(): Promise<
       status: t.status,
       statusType: t.statusType,
       parentId: t.parentId ?? null,
+      createdAt: t.createdAt ?? null,
     }));
+  }
+
+  /**
+   * Why a feature is here rather than in the release it was promised to.
+   *
+   * Bugs are pooled across every group, not taken per release: a bug filed
+   * against this feature while it sat in 3.35 is exactly the bug that
+   * explains the descope, and by now it lives under whichever project the
+   * feature moved to.
+   *
+   * A Linear outage costs the history and nothing else — the features
+   * themselves are already built above.
+   */
+  const allBugs: ReleaseBug[] = bugs.groups.flatMap((group) =>
+    group.tickets.map((t) => ({
+      id: t.id,
+      title: t.title,
+      url: t.url,
+      priorityName: t.priorityName ?? null,
+      status: t.status,
+      statusType: t.statusType,
+      parentId: t.parentId ?? null,
+      createdAt: t.createdAt ?? null,
+    })),
+  );
+
+  if (releaseNames.length > 0 && linearConfigured()) {
+    try {
+      const moves = await fetchReleaseProjectMoves(releaseNames);
+      for (const [version, content] of Object.entries(out)) {
+        for (const story of content.stories) {
+          story.descopes = descopesForStory(
+            story.id,
+            version,
+            moves.descopesByFeature[story.id],
+            allBugs,
+          );
+        }
+      }
+    } catch (error) {
+      if (!(error instanceof LinearError)) throw error;
+      console.warn(`Descope history unavailable: ${error.message}`);
+    }
   }
 
   return out;

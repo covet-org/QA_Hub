@@ -2,7 +2,8 @@ import { RunsBoard } from "@/app/(app)/releases/RunsBoard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import {
   fetchProductionReleases,
-  fetchReleaseProjectDates,
+  fetchReleaseProjectMoves,
+  type ReleaseProjectMoves,
 } from "@/lib/linear/releases";
 import { isRegressionRun, releaseOfRun } from "@/lib/release-progression";
 import { buildReleaseTimeline } from "@/lib/release-timeline";
@@ -31,23 +32,28 @@ export async function RunsView({ state }: { state: "active" | "closed" }) {
   /**
    * One timeline per release on this page, dated against the real process:
    * dev testing opens when the previous release's regression run closes,
-   * sandbox testing opens when the release's Linear project is created,
-   * and the pipeline supplies staging and release. All cached reads; the
-   * counterpart lookup adds a results call only when a release's other
-   * phase lives on the opposite board.
+   * sandbox testing opens when the first issue is moved into the release
+   * project and closes with the sandbox run, regression is bracketed by its
+   * run being created and closed, and the pipeline supplies staging and
+   * release. All cached; the counterpart lookup adds a results call only
+   * when a release's other phase lives on the opposite board.
    */
   const releases = [
     ...new Set(
       runs.map((r) => releaseOfRun(r.title)).filter((v): v is string => !!v),
     ),
   ];
-  const [counterparts, pipeline, projectDates, regressionCloses] =
-    await Promise.all([
-      getCounterpartRunSummaries(releases, state),
-      fetchProductionReleases().catch(() => null),
-      fetchReleaseProjectDates().catch((): Record<string, string> => ({})),
-      getRegressionCloseByRelease().catch((): Record<string, string> => ({})),
-    ]);
+  const [counterparts, pipeline, moves, regressionCloses] = await Promise.all([
+    getCounterpartRunSummaries(releases, state),
+    fetchProductionReleases().catch(() => null),
+    // Scoped to the releases on this page: the arrivals query reads issue
+    // history, so it is the one expensive read here and there is no
+    // reason to ask about releases nobody is looking at.
+    fetchReleaseProjectMoves(releases.map((r) => `${r} Release`)).catch(
+      (): ReleaseProjectMoves => ({ arrivals: {}, descopesByFeature: {} }),
+    ),
+    getRegressionCloseByRelease().catch((): Record<string, string> => ({})),
+  ]);
   const pipelineBy = new Map((pipeline ?? []).map((p) => [p.release, p]));
 
   /**
@@ -80,7 +86,7 @@ export async function RunsView({ state }: { state: "active" | "closed" }) {
           previousRegressionClosedAt: previous
             ? (regressionCloses[previous] ?? null)
             : null,
-          projectCreatedAt: projectDates[release] ?? null,
+          issueArrivedAt: moves.arrivals[release] ?? null,
           stagingAt: entry?.stagingAt ?? null,
           releasedAt: entry?.liveAt ?? null,
         }),

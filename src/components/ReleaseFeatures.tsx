@@ -12,6 +12,7 @@ import {
   TicketLink,
   useRevealMore,
 } from "@/components/ui";
+import { DescopeTag, StoryDescopeHistory } from "@/components/StoryDescopes";
 import type { ReleaseStory } from "@/lib/release-content";
 
 const STORY_LABEL: Record<string, string> = {
@@ -52,11 +53,7 @@ export interface ReleaseFeatureGroup {
  * so it matches the roadmap and bug boards row for row, and from the
  * release content the Releases page already fetches.
  */
-export function ReleaseFeatures({
-  groups,
-}: {
-  groups: ReleaseFeatureGroup[];
-}) {
+export function ReleaseFeatures({ groups }: { groups: ReleaseFeatureGroup[] }) {
   const {
     visible: shown,
     expanded,
@@ -82,7 +79,10 @@ export function ReleaseFeatures({
             defaultOpen={index === 0}
             title={
               <>
-                <span aria-hidden className="size-1.5 rounded-full bg-brand-600" />
+                <span
+                  aria-hidden
+                  className="size-1.5 rounded-full bg-brand-600"
+                />
                 {group.release} Release
               </>
             }
@@ -124,8 +124,16 @@ export function ReleaseFeatures({
                   }
                   title={story.title}
                   titleAttr={story.title}
+                  below={
+                    story.descopes.length > 0 ? (
+                      <div className="mt-1.5 pl-[4.5rem]">
+                        <StoryDescopeHistory descopes={story.descopes} />
+                      </div>
+                    ) : undefined
+                  }
                   trailing={
                     <>
+                      <DescopeTag descopes={story.descopes} />
                       <Tag
                         className={
                           statusTone[story.statusType] ?? statusTone.backlog

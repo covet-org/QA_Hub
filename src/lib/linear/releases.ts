@@ -4,11 +4,12 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 
 import { env } from "@/lib/env";
+import { LINEAR_REVALIDATE_SECONDS, LinearError } from "@/lib/linear/client";
 import {
-  LINEAR_REVALIDATE_SECONDS,
-  LinearError,
-  fetchProjects,
-} from "@/lib/linear/client";
+  descopesByFeature,
+  type DescopeEvent,
+  type DescopeHistoryIssue,
+} from "@/lib/linear/descope-rules";
 import { RELEASE_NAME } from "@/lib/release-utils";
 
 /** A version that reached production, and when. */
@@ -158,47 +159,157 @@ const cachedProductionReleases = unstable_cache(
 export const fetchProductionReleases = cache(cachedProductionReleases);
 
 /**
- * Release version -> when its "N Release" project was created in Linear.
+ * Project-move history for the issues currently sitting in the given
+ * release projects. One read, two answers:
  *
- * That creation is the start of sandbox testing — a Thursday, by process —
- * and it is the only durable record of it. Testiny cannot supply this: a
- * run's first `result_at` is when someone first saved a result, which is
- * later than the phase began and moves forward whenever a case is
- * re-executed.
+ *   arrivals          release -> when the FIRST issue was moved into it,
+ *                     which is the start of sandbox testing
+ *   descopesByFeature feature -> the releases it was pushed out of, and
+ *                     when, for the history shown against the feature
  *
- * Returns an empty map rather than throwing, so a Linear outage costs the
- * sandbox-start row and nothing else on the page.
+ * The two are the same events read from opposite ends, so they are fetched
+ * together rather than paying for issue history twice.
+ *
+ * Issues are only moved into a release project on the Wednesday, which is
+ * what makes the first arrival a reliable marker. Two anchors tried before
+ * this one were wrong: the first `result_at` in the dev run is merely when
+ * someone first saved a result, and the project's own `createdAt` is when
+ * the container was made — for 3.37 that read Monday 04:33 PM, three days
+ * before any sandbox testing happened.
+ *
+ * Only explicit `toProject` history events count. An issue created
+ * directly inside the project is deliberately ignored: bugs are filed
+ * during dev testing on Monday too, and treating those as arrivals would
+ * date sandbox back to Monday — the exact error this replaces.
  */
-async function readReleaseProjectDates(): Promise<Record<string, string>> {
-  if (!env.linearApiKey) return {};
-  try {
-    const projects = await fetchProjects();
-    const out: Record<string, string> = {};
-    for (const project of projects) {
-      // Strictly "N.N Release" — a project merely mentioning a version
-      // ("3.37 hotfixes") is not the release project the process creates.
-      if (!RELEASE_NAME.test(project.name)) continue;
-      const version = project.name.match(RELEASE_VERSION)?.[1];
-      if (!version) continue;
-      // A version with two projects keeps the earlier creation: the
-      // process starts once, whatever tidying happened afterwards.
-      const known = out[version];
-      if (!known || Date.parse(project.createdAt) < Date.parse(known)) {
-        out[version] = project.createdAt;
+const PROJECT_ARRIVALS_QUERY = /* GraphQL */ `
+  query ProjectArrivals($names: [String!]!, $after: String) {
+    issues(
+      first: 100
+      after: $after
+      filter: { project: { name: { in: $names } } }
+    ) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        identifier
+        title
+        url
+        priority
+        priorityLabel
+        state {
+          name
+          type
+        }
+        history(first: 50) {
+          nodes {
+            createdAt
+            fromProject {
+              name
+            }
+            toProject {
+              name
+            }
+          }
+        }
       }
     }
-    return out;
-  } catch (error) {
-    if (!(error instanceof LinearError)) throw error;
-    console.warn(`Release project dates unavailable: ${error.message}`);
-    return {};
   }
+`;
+
+interface ArrivalsPage {
+  data?: {
+    issues: {
+      pageInfo: { hasNextPage: boolean; endCursor: string | null };
+      nodes: DescopeHistoryIssue[];
+    };
+  };
+  errors?: { message: string }[];
 }
 
-const cachedReleaseProjectDates = unstable_cache(
-  readReleaseProjectDates,
-  ["linear-release-project-dates"],
+export interface ReleaseProjectMoves {
+  /** Release version -> ISO stamp of the first issue moved into it. */
+  arrivals: Record<string, string>;
+  /** Feature id -> the releases it was pushed out of, oldest first. */
+  descopesByFeature: Record<string, DescopeEvent[]>;
+}
+
+async function readReleaseProjectMoves(
+  projectKey: string,
+): Promise<ReleaseProjectMoves> {
+  const apiKey = env.linearApiKey;
+  const names = projectKey.split("|").filter(Boolean);
+  if (!apiKey || names.length === 0)
+    return { arrivals: {}, descopesByFeature: {} };
+
+  const out: Record<string, string> = {};
+  const issues: DescopeHistoryIssue[] = [];
+  let after: string | null = null;
+
+  try {
+    for (;;) {
+      const res = await fetch(LINEAR_GRAPHQL_URL, {
+        method: "POST",
+        headers: { Authorization: apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: PROJECT_ARRIVALS_QUERY,
+          variables: { names, after },
+        }),
+      });
+      if (!res.ok) {
+        throw new LinearError(
+          `Linear arrivals query failed: ${res.status} ${res.statusText}`,
+        );
+      }
+      const page = (await res.json()) as ArrivalsPage;
+      if (page.errors?.length) {
+        throw new LinearError(
+          `Linear arrivals failed: ${page.errors[0].message}`,
+        );
+      }
+      const page_issues = page.data?.issues;
+      if (!page_issues) throw new LinearError("Linear returned no data");
+
+      issues.push(...page_issues.nodes);
+      for (const issue of page_issues.nodes) {
+        for (const event of issue.history.nodes) {
+          const name = event.toProject?.name;
+          if (!name || !RELEASE_NAME.test(name)) continue;
+          const version = name.match(RELEASE_VERSION)?.[1];
+          if (!version) continue;
+          const known = out[version];
+          if (!known || Date.parse(event.createdAt) < Date.parse(known)) {
+            out[version] = event.createdAt;
+          }
+        }
+      }
+
+      if (!page_issues.pageInfo.hasNextPage) break;
+      after = page_issues.pageInfo.endCursor;
+    }
+  } catch (error) {
+    if (!(error instanceof LinearError)) throw error;
+    // Partial results are kept: a release whose arrival was already seen
+    // keeps its date, and the rest read as pending rather than as wrong.
+    console.warn(`Release project moves unavailable: ${error.message}`);
+  }
+
+  return { arrivals: out, descopesByFeature: descopesByFeature(issues) };
+}
+
+const cachedReleaseProjectMoves = unstable_cache(
+  readReleaseProjectMoves,
+  ["linear-release-project-moves"],
   { revalidate: LINEAR_REVALIDATE_SECONDS },
 );
 
-export const fetchReleaseProjectDates = cache(cachedReleaseProjectDates);
+/**
+ * Keyed by a joined project list so React's cache() — which compares
+ * arguments by identity — actually hits when every caller builds a fresh
+ * array, the same trick the issue queries use.
+ */
+export const fetchReleaseProjectMoves = cache((projectNames: string[]) =>
+  cachedReleaseProjectMoves([...projectNames].sort().join("|")),
+);

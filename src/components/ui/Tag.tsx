@@ -25,12 +25,20 @@ interface TagProps {
   tone?: TagTone;
   /** Escape hatch for one-off colours (wins over `tone`). */
   className?: string;
+  /** Hover text, for a tag that stands in for a longer fact. */
+  title?: string;
 }
 
 /** Small status/category pill, e.g. "In Progress", "Urgent". */
-export function Tag({ children, tone = "neutral", className }: TagProps) {
+export function Tag({
+  children,
+  tone = "neutral",
+  className,
+  title,
+}: TagProps) {
   return (
     <span
+      title={title}
       className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ring-1 ring-inset ${
         className ?? toneClass[tone]
       }`}
