@@ -139,7 +139,9 @@ async function readIssues(
     });
 
     if (!res.ok) {
-      throw new LinearError(`Linear request failed: ${res.status} ${res.statusText}`);
+      throw new LinearError(
+        `Linear request failed: ${res.status} ${res.statusText}`,
+      );
     }
     const page = (await res.json()) as IssuesPage;
     if (page.errors?.length) {
@@ -165,8 +167,7 @@ async function readIssues(
         // `name` is the full name; `displayName` is the short handle
         // ("aurbano"). Prefer the full name so bug assignees read like the
         // Testiny ones on the Releases pages.
-        assigneeName:
-          node.assignee?.name || node.assignee?.displayName || null,
+        assigneeName: node.assignee?.name || node.assignee?.displayName || null,
         parentId: node.parent?.identifier ?? null,
         parent: node.parent
           ? {
@@ -191,7 +192,9 @@ async function readIssues(
   return tickets;
 }
 
-const ISSUES_BY_LABEL_QUERY = issuesQuery("{ labels: { name: { in: $keys } } }");
+const ISSUES_BY_LABEL_QUERY = issuesQuery(
+  "{ labels: { name: { in: $keys } } }",
+);
 const ISSUES_BY_PROJECT_QUERY = issuesQuery(
   "{ project: { name: { in: $keys } } }",
 );
@@ -248,6 +251,7 @@ const PROJECTS_QUERY = /* GraphQL */ `
       }
       nodes {
         name
+        createdAt
       }
     }
   }
@@ -257,18 +261,28 @@ interface ProjectsPage {
   data?: {
     projects: {
       pageInfo: { hasNextPage: boolean; endCursor: string | null };
-      nodes: { name: string }[];
+      nodes: { name: string; createdAt: string }[];
     };
   };
   errors?: { message: string }[];
 }
 
-/** Every Linear project name in the workspace (all pages). */
-export async function fetchProjectNames(): Promise<string[]> {
+export interface LinearProject {
+  name: string;
+  /**
+   * When the project was created. For a "3.37 Release" project this is the
+   * Thursday sandbox testing starts, which is the only record of that the
+   * process leaves behind.
+   */
+  createdAt: string;
+}
+
+/** Every Linear project in the workspace, with its creation date. */
+export async function fetchProjects(): Promise<LinearProject[]> {
   const apiKey = env.linearApiKey;
   if (!apiKey) throw new LinearError("LINEAR_API_KEY is not configured");
 
-  const names: string[] = [];
+  const out: LinearProject[] = [];
   let after: string | null = null;
 
   for (;;) {
@@ -283,7 +297,9 @@ export async function fetchProjectNames(): Promise<string[]> {
     });
 
     if (!res.ok) {
-      throw new LinearError(`Linear request failed: ${res.status} ${res.statusText}`);
+      throw new LinearError(
+        `Linear request failed: ${res.status} ${res.statusText}`,
+      );
     }
     const page = (await res.json()) as ProjectsPage;
     if (page.errors?.length) {
@@ -292,12 +308,19 @@ export async function fetchProjectNames(): Promise<string[]> {
     const projects = page.data?.projects;
     if (!projects) throw new LinearError("Linear returned no data");
 
-    names.push(...projects.nodes.map((n) => n.name));
+    out.push(
+      ...projects.nodes.map((n) => ({ name: n.name, createdAt: n.createdAt })),
+    );
     if (!projects.pageInfo.hasNextPage) break;
     after = projects.pageInfo.endCursor;
   }
 
-  return names;
+  return out;
+}
+
+/** Every Linear project name in the workspace (all pages). */
+export async function fetchProjectNames(): Promise<string[]> {
+  return (await fetchProjects()).map((p) => p.name);
 }
 
 /** Roadmap tickets: the roadmap labels minus QA's own process tickets. */

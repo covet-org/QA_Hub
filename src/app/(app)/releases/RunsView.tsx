@@ -1,13 +1,15 @@
 import { RunsBoard } from "@/app/(app)/releases/RunsBoard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
-import { fetchProductionReleases } from "@/lib/linear/releases";
 import {
-  isRegressionRun,
-  releaseOfRun,
-} from "@/lib/release-progression";
+  fetchProductionReleases,
+  fetchReleaseProjectDates,
+} from "@/lib/linear/releases";
+import { isRegressionRun, releaseOfRun } from "@/lib/release-progression";
 import { buildReleaseTimeline } from "@/lib/release-timeline";
+import { versionRank } from "@/lib/release-utils";
 import {
   getCounterpartRunSummaries,
+  getRegressionCloseByRelease,
   getRunSummariesByState,
 } from "@/lib/testiny/queries";
 import { requireAccess } from "@/lib/viewer";
@@ -27,33 +29,58 @@ export async function RunsView({ state }: { state: "active" | "closed" }) {
   const isActive = state === "active";
 
   /**
-   * One timeline per release on this page, dated from execution stamps and
-   * the Linear release pipeline. Both are cached reads; the counterpart
-   * lookup adds a results call only when a release's other phase lives on
-   * the opposite board.
+   * One timeline per release on this page, dated against the real process:
+   * dev testing opens when the previous release's regression run closes,
+   * sandbox testing opens when the release's Linear project is created,
+   * and the pipeline supplies staging and release. All cached reads; the
+   * counterpart lookup adds a results call only when a release's other
+   * phase lives on the opposite board.
    */
   const releases = [
     ...new Set(
       runs.map((r) => releaseOfRun(r.title)).filter((v): v is string => !!v),
     ),
   ];
-  const [counterparts, pipeline] = await Promise.all([
-    getCounterpartRunSummaries(releases, state),
-    fetchProductionReleases().catch(() => null),
-  ]);
+  const [counterparts, pipeline, projectDates, regressionCloses] =
+    await Promise.all([
+      getCounterpartRunSummaries(releases, state),
+      fetchProductionReleases().catch(() => null),
+      fetchReleaseProjectDates().catch((): Record<string, string> => ({})),
+      getRegressionCloseByRelease().catch((): Record<string, string> => ({})),
+    ]);
   const pipelineBy = new Map((pipeline ?? []).map((p) => [p.release, p]));
+
+  /**
+   * The release before this one, by version rather than by date: the
+   * regression run that gates a release's dev phase belongs to the version
+   * immediately below it, and close stamps are too unreliable to order by.
+   */
+  const closedReleases = Object.keys(regressionCloses).sort(
+    (a, b) => (versionRank(b) ?? 0) - (versionRank(a) ?? 0),
+  );
+  const previousOf = (release: string): string | null => {
+    const rank = versionRank(release) ?? 0;
+    return closedReleases.find((r) => (versionRank(r) ?? 0) < rank) ?? null;
+  };
+
   const timelines = Object.fromEntries(
     releases.map((release) => {
       const forRelease = [...runs, ...counterparts].filter(
         (r) => releaseOfRun(r.title) === release,
       );
       const entry = pipelineBy.get(release);
+      const previous = previousOf(release);
       return [
         release,
         buildReleaseTimeline({
           release,
           dev: forRelease.find((r) => !isRegressionRun(r.title)) ?? null,
           regression: forRelease.find((r) => isRegressionRun(r.title)) ?? null,
+          previousRelease: previous,
+          previousRegressionClosedAt: previous
+            ? (regressionCloses[previous] ?? null)
+            : null,
+          projectCreatedAt: projectDates[release] ?? null,
           stagingAt: entry?.stagingAt ?? null,
           releasedAt: entry?.liveAt ?? null,
         }),
