@@ -30,10 +30,13 @@ export interface ReleaseStory {
   hasTestCases: boolean;
   /**
    * Releases this feature was pushed out of before landing here, oldest
-   * first, each with the bugs it already had at that moment. Empty for a
-   * feature that was never descoped, which is most of them.
+   * first, each with the bugs it already had at that moment.
+   *
+   * Optional and absent by default: it costs a Linear issue-history read,
+   * which is the most expensive call in the app, so it is filled in only
+   * where it is actually shown — see getStoryDescopes.
    */
-  descopes: FeatureDescope<ReleaseBug>[];
+  descopes?: FeatureDescope<ReleaseBug>[];
 }
 
 /** A bug shown in a release's detail. */
@@ -143,7 +146,6 @@ export async function getReleaseContent(): Promise<
         status: ticket.status,
         statusType: ticket.statusType,
         hasTestCases: hasCases(ticket.id),
-        descopes: [],
       },
     });
   }
@@ -166,7 +168,6 @@ export async function getReleaseContent(): Promise<
           status: t.status,
           statusType: t.statusType,
           hasTestCases: t.hasTestCases,
-          descopes: [],
         },
       });
     }
@@ -215,17 +216,38 @@ export async function getReleaseContent(): Promise<
     }));
   }
 
-  /**
-   * Why a feature is here rather than in the release it was promised to.
-   *
-   * Bugs are pooled across every group, not taken per release: a bug filed
-   * against this feature while it sat in 3.35 is exactly the bug that
-   * explains the descope, and by now it lives under whichever project the
-   * feature moved to.
-   *
-   * A Linear outage costs the history and nothing else — the features
-   * themselves are already built above.
-   */
+  return out;
+}
+
+/**
+ * Descope history per story, keyed "3.37:COV-1234".
+ *
+ * Kept OUT of getReleaseContent on purpose. It reads Linear issue history
+ * — the most expensive call in the app — and getReleaseContent sits on
+ * Home's blocking path, where one serial await of this made the page
+ * visibly slower. Home now streams it in behind Suspense and the Releases
+ * panels pick it up on the lazy path they were already on.
+ *
+ * Bugs are pooled across every group rather than taken per release: a bug
+ * filed against this feature while it sat in 3.35 is exactly the bug that
+ * explains the descope, and by now it lives under whichever project the
+ * feature moved to.
+ *
+ * A Linear failure returns an empty map, so the surfaces lose the history
+ * and nothing else.
+ */
+export async function getStoryDescopes(): Promise<
+  Record<string, FeatureDescope<ReleaseBug>[]>
+> {
+  if (!linearConfigured()) return {};
+
+  const [content, bugs] = await Promise.all([
+    getReleaseContent(),
+    getBugsSnapshot("product"),
+  ]);
+  const releaseNames = Object.keys(content).map((v) => `${v} Release`);
+  if (releaseNames.length === 0) return {};
+
   const allBugs: ReleaseBug[] = bugs.groups.flatMap((group) =>
     group.tickets.map((t) => ({
       id: t.id,
@@ -239,24 +261,25 @@ export async function getReleaseContent(): Promise<
     })),
   );
 
-  if (releaseNames.length > 0 && linearConfigured()) {
-    try {
-      const moves = await fetchReleaseProjectMoves(releaseNames);
-      for (const [version, content] of Object.entries(out)) {
-        for (const story of content.stories) {
-          story.descopes = descopesForStory(
-            story.id,
-            version,
-            moves.descopesByFeature[story.id],
-            allBugs,
-          );
-        }
+  const out: Record<string, FeatureDescope<ReleaseBug>[]> = {};
+  try {
+    const moves = await fetchReleaseProjectMoves(releaseNames);
+    for (const [version, release] of Object.entries(content)) {
+      for (const story of release.stories) {
+        const descopes = descopesForStory(
+          story.id,
+          version,
+          moves.descopesByFeature[story.id],
+          allBugs,
+        );
+        // Only the features that were actually descoped, so the map stays
+        // small enough to hand to a client component.
+        if (descopes.length > 0) out[`${version}:${story.id}`] = descopes;
       }
-    } catch (error) {
-      if (!(error instanceof LinearError)) throw error;
-      console.warn(`Descope history unavailable: ${error.message}`);
     }
+  } catch (error) {
+    if (!(error instanceof LinearError)) throw error;
+    console.warn(`Descope history unavailable: ${error.message}`);
   }
-
   return out;
 }
