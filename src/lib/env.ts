@@ -77,6 +77,42 @@ export const env = {
   get regressionBugLabel(): string {
     return process.env.QA_REGRESSION_BUG_LABEL ?? "Regression";
   },
+  /** Linear project the design sign-off gate watches. */
+  get signOffProject(): string {
+    return process.env.QA_SIGNOFF_PROJECT ?? "Squad 4 - Cross-Product";
+  },
+  /** Labels that put a story under the sign-off gate. */
+  get signOffLabels(): string[] {
+    return (
+      process.env.QA_SIGNOFF_LABELS ?? "Medium to Big Size Features,Quick wins"
+    )
+      .split(",")
+      .map((l) => l.trim())
+      .filter(Boolean);
+  },
+  /** The Linear status that means the story reached dev. */
+  get signOffMergedStatus(): string {
+    return process.env.QA_SIGNOFF_MERGED_STATUS ?? "Merged to dev";
+  },
+  /**
+   * Slack channel whose threads count as written confirmation. Matched by
+   * id because that is what Linear puts in the attachment URL; the name is
+   * carried separately for the copy.
+   */
+  get signOffSlackChannelId(): string {
+    return process.env.QA_SIGNOFF_SLACK_CHANNEL_ID ?? "C0ADVLJBUCE";
+  },
+  get signOffSlackChannelName(): string {
+    return process.env.QA_SIGNOFF_SLACK_CHANNEL_NAME ?? "4-squad-cross-product";
+  },
+  /**
+   * When the Slack-to-Linear sync began. A story merged before this cannot
+   * carry a linked thread however well it was presented, so it is reported
+   * as predating the sync rather than as a missing sign-off.
+   */
+  get signOffSyncSince(): string {
+    return process.env.QA_SIGNOFF_SYNC_SINCE ?? "2026-08-27";
+  },
   /** Where access-request notifications are sent. */
   get notifyEmail(): string {
     return process.env.NOTIFY_EMAIL ?? "clezama@co.vet";
