@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AllocationBar } from "@/components/AllocationBar";
 import { CycleTimeCard } from "@/components/CycleTimeCard";
 import { ReleaseCycleCards } from "@/components/ReleaseCycleCards";
@@ -6,6 +7,7 @@ import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { overallEffortSplit } from "@/content/initiatives";
 import { BugTrendChart } from "@/components/BugTrendChart";
 import { ReleaseFeatures } from "@/components/ReleaseFeatures";
+import { ReleaseFeaturesWithDescopes } from "@/components/ReleaseFeaturesWithDescopes";
 import {
   currentPhase,
   pickReleaseProgression,
@@ -78,10 +80,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
    */
   const closedRuns =
     activeRuns > 0 ? [] : (await getRunSummariesByState("closed")).runs;
-  const progression = pickReleaseProgression(
-    activeRunsResult.runs,
-    closedRuns,
-  );
+  const progression = pickReleaseProgression(activeRunsResult.runs, closedRuns);
   // One number, and which phase it belongs to: dev and regression never
   // run at once, so the release has a single current percentage.
   const phase = progression ? currentPhase(progression) : null;
@@ -299,7 +298,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             subtitle="What actually went out in each release — the same two releases as the chart above, seen as content rather than counts. Newest release open; use + More for older ones."
           />
           <CardBody>
-            <ReleaseFeatures groups={featureGroups} />
+            {/* The feature list paints immediately; the descope history
+                streams in behind it. It costs a Linear issue-history read,
+                the slowest call in the app, and awaiting it here is what
+                made Home visibly slower. */}
+            <Suspense fallback={<ReleaseFeatures groups={featureGroups} />}>
+              <ReleaseFeaturesWithDescopes groups={featureGroups} />
+            </Suspense>
           </CardBody>
         </Card>
 

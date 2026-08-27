@@ -25,6 +25,19 @@ const STORY_LABEL_TONE: Record<string, string> = {
   "Quick wins": "bg-teal-50 text-teal-700 ring-teal-200",
 };
 
+/**
+ * The streamed map wins when it has an entry, and a story that already
+ * carries its own history (the Releases panels attach it directly) still
+ * works — one helper so neither surface needs to know which path it is on.
+ */
+function descopeOf(
+  descopes: StoryDescopeMap,
+  release: string,
+  story: ReleaseStory,
+): NonNullable<ReleaseStory["descopes"]> {
+  return descopes[`${release}:${story.id}`] ?? story.descopes ?? [];
+}
+
 const statusTone: Record<string, string> = {
   backlog: "bg-slate-100 text-slate-600 ring-slate-200",
   unstarted: "bg-slate-100 text-slate-600 ring-slate-200",
@@ -38,6 +51,12 @@ export interface ReleaseFeatureGroup {
   rank: number;
   stories: ReleaseStory[];
 }
+
+/** Descope history keyed "3.37:COV-1234", streamed in after first paint. */
+export type StoryDescopeMap = Record<
+  string,
+  NonNullable<ReleaseStory["descopes"]>
+>;
 
 /**
  * Which features went out in each release, under the bug trend chart on
@@ -53,7 +72,17 @@ export interface ReleaseFeatureGroup {
  * so it matches the roadmap and bug boards row for row, and from the
  * release content the Releases page already fetches.
  */
-export function ReleaseFeatures({ groups }: { groups: ReleaseFeatureGroup[] }) {
+export function ReleaseFeatures({
+  groups,
+  descopes = {},
+}: {
+  groups: ReleaseFeatureGroup[];
+  /**
+   * Absent on the first paint and filled in when the issue-history read
+   * resolves, so the feature list is never waiting on it.
+   */
+  descopes?: StoryDescopeMap;
+}) {
   const {
     visible: shown,
     expanded,
@@ -125,15 +154,19 @@ export function ReleaseFeatures({ groups }: { groups: ReleaseFeatureGroup[] }) {
                   title={story.title}
                   titleAttr={story.title}
                   below={
-                    story.descopes.length > 0 ? (
+                    descopeOf(descopes, group.release, story).length > 0 ? (
                       <div className="mt-1.5 pl-[4.5rem]">
-                        <StoryDescopeHistory descopes={story.descopes} />
+                        <StoryDescopeHistory
+                          descopes={descopeOf(descopes, group.release, story)}
+                        />
                       </div>
                     ) : undefined
                   }
                   trailing={
                     <>
-                      <DescopeTag descopes={story.descopes} />
+                      <DescopeTag
+                        descopes={descopeOf(descopes, group.release, story)}
+                      />
                       <Tag
                         className={
                           statusTone[story.statusType] ?? statusTone.backlog

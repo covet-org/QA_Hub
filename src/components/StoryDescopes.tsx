@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { FeatureDescope } from "@/lib/descope-history";
 import type { ReleaseBug } from "@/lib/release-content";
 import { Tag } from "@/components/ui";
@@ -68,15 +69,38 @@ export function DescopeTag({ descopes }: { descopes: Descope[] }) {
   );
 }
 
-/** The full history: each move, and the bugs it already carried. */
-export function StoryDescopeHistory({ descopes }: { descopes: Descope[] }) {
+/**
+ * The full history: each move, and the bugs it already carried.
+ *
+ * Behind its own toggle, closed by default. On a release where several
+ * features slipped, the expanded histories were taller than the feature
+ * list they belonged to — the count is what a reader scans for, and the
+ * detail is what they open one of.
+ */
+export function StoryDescopeHistory({
+  descopes,
+  defaultOpen = false,
+}: {
+  descopes: Descope[];
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   if (descopes.length === 0) return null;
   return (
     <div>
-      <p className="text-[10px] font-medium tracking-wide text-amber-800 uppercase">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex items-center gap-1 text-[10px] font-medium tracking-wide text-amber-800 uppercase transition-colors hover:text-amber-900"
+        title={summary(descopes)}
+      >
+        <span aria-hidden className="text-[9px]">
+          {open ? "▾" : "▸"}
+        </span>
         Descope history ({descopes.length})
-      </p>
-      <ul className="mt-1 space-y-1.5">
+      </button>
+      <ul className={open ? "mt-1 space-y-1.5" : "hidden"}>
         {descopes.map((d) => (
           <li
             key={`${d.fromRelease}-${d.at}`}

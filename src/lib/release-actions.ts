@@ -1,7 +1,11 @@
 "use server";
 
 import { getDescopeSnapshot, type DescopeEvent } from "@/lib/linear/descope";
-import { getReleaseContent, type ReleaseContent } from "@/lib/release-content";
+import {
+  getReleaseContent,
+  getStoryDescopes,
+  type ReleaseContent,
+} from "@/lib/release-content";
 import { requireAccess } from "@/lib/viewer";
 
 /** What a descope lookup returned, including why it found nothing. */
@@ -51,6 +55,21 @@ export async function loadReleaseContent(
   version: string,
 ): Promise<ReleaseContent | null> {
   await requireAccess("/releases");
-  const byVersion = await getReleaseContent();
-  return byVersion[version] ?? null;
+  const [byVersion, descopes] = await Promise.all([
+    getReleaseContent(),
+    getStoryDescopes(),
+  ]);
+  const content = byVersion[version];
+  if (!content) return null;
+
+  // Attached here rather than inside getReleaseContent: this path already
+  // runs only when a viewer expands a release, which is what makes the
+  // issue-history read affordable.
+  return {
+    ...content,
+    stories: content.stories.map((story) => ({
+      ...story,
+      descopes: descopes[`${version}:${story.id}`] ?? [],
+    })),
+  };
 }
