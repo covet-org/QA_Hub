@@ -6,13 +6,13 @@ import { ReleaseTimelineRail } from "@/components/ReleaseTimeline";
 import type { ReleaseTimeline } from "@/lib/release-timeline";
 import { fetchDescopes } from "@/lib/descope-cache";
 import { loadReleaseContent, type DescopeResult } from "@/lib/release-actions";
-import type { ReleaseBug, ReleaseContent } from "@/lib/release-content";
+import type {
+  ReleaseBug,
+  ReleaseContent,
+  ReleaseStory,
+} from "@/lib/release-content";
 import type { CaseRef, RunSummary } from "@/lib/testiny/types";
-import {
-  RunProgressBar,
-  RunProgressLegend,
-  Tag,
-} from "@/components/ui";
+import { RunProgressBar, RunProgressLegend, Tag } from "@/components/ui";
 
 const STORY_LABEL: Record<string, string> = {
   "Medium to Big Size Features": "Medium/Big",
@@ -133,6 +133,86 @@ function PriorityStatusBugs({ bugs }: { bugs: ReleaseBug[] }) {
   );
 }
 
+/**
+ * One user story with its bugs behind an expand toggle.
+ *
+ * Collapsed by default: a release with a dozen stories used to open as one
+ * long wall of bugs, and the first thing anyone wants is the story list.
+ * The title is the toggle as well as the Expand button, so the whole row
+ * reads as clickable — but the ticket link beside it stays a link, since
+ * nesting it inside the button would swallow the jump to Linear.
+ *
+ * State lives per story rather than as a set in the parent, so one story
+ * opening cannot re-render the others.
+ */
+function StoryPanel({
+  story,
+  bugs,
+}: {
+  story: ReleaseStory;
+  bugs: ReleaseBug[];
+}) {
+  const [open, setOpen] = useState(false);
+  const hasBugs = bugs.length > 0;
+  const panelId = "release-story-bugs-" + story.id;
+  const toggle = () => setOpen((o) => !o);
+
+  return (
+    <div className="overflow-hidden rounded-lg bg-surface-card ring-1 ring-hairline">
+      <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
+        <TicketLink id={story.id} url={story.url} />
+        {hasBugs ? (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={open}
+            aria-controls={panelId}
+            className="min-w-0 flex-1 truncate text-left text-[13px] font-medium text-slate-800 transition-colors hover:text-brand-700"
+            title={story.title}
+          >
+            {story.title}
+          </button>
+        ) : (
+          <span
+            className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-800"
+            title={story.title}
+          >
+            {story.title}
+          </span>
+        )}
+        {story.labels
+          .filter((l) => STORY_LABEL[l])
+          .map((l) => (
+            <Tag key={l} className={STORY_LABEL_TONE[l]}>
+              {STORY_LABEL[l]}
+            </Tag>
+          ))}
+        <span className="text-[11px] text-slate-400">
+          {bugs.length} bug{bugs.length === 1 ? "" : "s"}
+        </span>
+        {/* No toggle when there is nothing behind it — an Expand button that
+            opens an empty panel is worse than no button. */}
+        {hasBugs && (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={open}
+            aria-controls={panelId}
+            className="shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium text-brand-700 ring-1 ring-hairline transition-colors hover:bg-surface-sunken"
+          >
+            {open ? "Collapse" : "Expand"}
+          </button>
+        )}
+      </div>
+      {hasBugs && open && (
+        <div id={panelId} className="px-3 py-2.5">
+          <PriorityStatusBugs bugs={bugs} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ReleaseDetail({
   releaseNumber,
   content,
@@ -161,40 +241,13 @@ function ReleaseDetail({
         Release {releaseNumber}
       </p>
 
-      {content.stories.map((story) => {
-        const storyBugs = bugsByStory.get(story.id) ?? [];
-        return (
-          <div
-            key={story.id}
-            className="overflow-hidden rounded-lg bg-surface-card ring-1 ring-hairline"
-          >
-            <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
-              <TicketLink id={story.id} url={story.url} />
-              <span
-                className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-800"
-                title={story.title}
-              >
-                {story.title}
-              </span>
-              {story.labels
-                .filter((l) => STORY_LABEL[l])
-                .map((l) => (
-                  <Tag key={l} className={STORY_LABEL_TONE[l]}>
-                    {STORY_LABEL[l]}
-                  </Tag>
-                ))}
-              <span className="text-[11px] text-slate-400">
-                {storyBugs.length} bug{storyBugs.length === 1 ? "" : "s"}
-              </span>
-            </div>
-            {storyBugs.length > 0 && (
-              <div className="px-3 py-2.5">
-                <PriorityStatusBugs bugs={storyBugs} />
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {content.stories.map((story) => (
+        <StoryPanel
+          key={story.id}
+          story={story}
+          bugs={bugsByStory.get(story.id) ?? []}
+        />
+      ))}
 
       {orphanBugs.length > 0 && (
         <div className="overflow-hidden rounded-lg bg-surface-card ring-1 ring-hairline">
