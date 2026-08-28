@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ReleaseBoard } from "@/components/ReleaseBoard";
+import { env } from "@/lib/env";
 import { getRoadmapSnapshot } from "@/lib/roadmap";
 import { requireAccess } from "@/lib/viewer";
 import { PageHeader, PageShell, StatCard } from "@/components/ui";
@@ -53,7 +54,10 @@ export default async function RoadmapPage() {
           />
         </div>
 
-        <ReleaseBoard groups={snapshot.groups} />
+        <ReleaseBoard
+          groups={snapshot.groups}
+          defaultGroup={env.roadmapDefaultGroup}
+        />
       </PageShell>
     </div>
   );
