@@ -77,6 +77,15 @@ export const env = {
   get regressionBugLabel(): string {
     return process.env.QA_REGRESSION_BUG_LABEL ?? "Regression";
   },
+  /**
+   * The group the Roadmap board opens on. Not shared with the sign-off
+   * project setting even though both name Squad 4 today: one is "where the
+   * gate looks", the other "what the board opens on", and tying them means
+   * moving one silently moves the other.
+   */
+  get roadmapDefaultGroup(): string {
+    return process.env.QA_ROADMAP_DEFAULT_GROUP ?? "Squad 4 - Cross-Product";
+  },
   /** Linear project the design sign-off gate watches. */
   get signOffProject(): string {
     return process.env.QA_SIGNOFF_PROJECT ?? "Squad 4 - Cross-Product";

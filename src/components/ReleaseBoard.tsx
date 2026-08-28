@@ -278,9 +278,30 @@ function CollapsibleReleaseGroup({
   );
 }
 
-export function ReleaseBoard({ groups }: { groups: ReleaseGroup[] }) {
+export function ReleaseBoard({
+  groups,
+  defaultGroup,
+}: {
+  groups: ReleaseGroup[];
+  /**
+   * The one group the board opens on. Everything else is a click away —
+   * opening on every project buried the squad's own work under releases
+   * nobody was looking at.
+   */
+  defaultGroup?: string;
+}) {
   const groupNames = useMemo(() => groups.map((g) => g.name), [groups]);
-  const release = useUrlFilter("release", groupNames);
+  // Falls back to the full list when the named group is absent: a renamed
+  // project should open the board on everything, never on nothing, because
+  // an empty board reads as "no work" rather than as "bad config".
+  const releaseDefaults = useMemo(
+    () =>
+      defaultGroup && groupNames.includes(defaultGroup)
+        ? [defaultGroup]
+        : groupNames,
+    [defaultGroup, groupNames],
+  );
+  const release = useUrlFilter("release", groupNames, releaseDefaults);
   const coverage = useUrlFilter("coverage", COVERAGE_VALUES);
   // With one coverage box active the view is a hunt for those rows, so
   // parents open onto their matches instead of hiding them.
