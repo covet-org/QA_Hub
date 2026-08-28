@@ -8,9 +8,14 @@ import type { RunSummary } from "@/lib/testiny/types";
  *        run is closed in Testiny — Monday through Wednesday
  *   Wed  sandbox testing starts, the moment the first issue is moved into
  *        the "N Release" project, and ends when the sandbox run is closed
- *   Fri  build moves to staging; regression starts when its run is created
- *        and ends when that run is closed
- *   Mon  release goes to production
+ *   Fri  regression starts when its run is created and ends when that run
+ *        is closed
+ *
+ * Staging and release-to-production were on this rail and are gone. The
+ * Linear production pipeline dated them, but nothing in QA's process moves
+ * them: they turned up whenever somebody happened to touch the pipeline,
+ * so the rail showed steps its reader could neither predict nor act on.
+ * Every step left is triggered by an action this team takes.
  *
  * Phase boundaries are therefore *process events*, not execution stamps.
  * Two earlier anchors were wrong and are worth naming so they are not
@@ -36,10 +41,8 @@ export type MilestoneKey =
   | "first-result"
   | "sandbox-start"
   | "sandbox-end"
-  | "staging"
   | "regression-start"
-  | "regression-end"
-  | "released";
+  | "regression-end";
 
 export interface Milestone {
   key: MilestoneKey;
@@ -77,9 +80,6 @@ export interface TimelineInput {
   previousRegressionClosedAt?: string | null;
   /** First issue moved into the "N Release" project — sandbox starts. */
   issueArrivedAt?: string | null;
-  /** Linear production pipeline: entered staging, and released. */
-  stagingAt?: string | null;
-  releasedAt?: string | null;
 }
 
 const HOUR_MS = 3_600_000;
@@ -113,8 +113,6 @@ export function buildReleaseTimeline({
   previousRelease,
   previousRegressionClosedAt,
   issueArrivedAt,
-  stagingAt,
-  releasedAt,
 }: TimelineInput): ReleaseTimeline {
   const devStart = parse(previousRegressionClosedAt);
   const firstResult = parse(dev?.firstResultAt);
@@ -127,8 +125,6 @@ export function buildReleaseTimeline({
   const regEnd = parse(regression?.closedAt);
   const devLastRun = parse(dev?.lastResultAt);
   const regLastRun = parse(regression?.lastResultAt);
-  const staging = parse(stagingAt);
-  const released = parse(releasedAt);
 
   const previous = previousRelease ? `${previousRelease}'s` : "the previous";
 
@@ -170,13 +166,6 @@ export function buildReleaseTimeline({
       pending: dev ? "sandbox run still open" : "no dev/sandbox run",
     },
     {
-      key: "staging",
-      label: "Moved to staging",
-      source: "entered the Linear production release pipeline",
-      at: staging,
-      pending: "not in the release pipeline yet",
-    },
-    {
       key: "regression-start",
       label: "Regression started",
       source: "the regression run was created in Testiny",
@@ -191,13 +180,6 @@ export function buildReleaseTimeline({
       pending: regression
         ? "regression run still open"
         : "no regression run yet",
-    },
-    {
-      key: "released",
-      label: "Released to production",
-      source: "reached the released stage of the production pipeline",
-      at: released,
-      pending: "not released yet",
     },
   ];
 
@@ -284,15 +266,8 @@ export function buildReleaseTimeline({
     );
   }
 
-  if (staging !== null && devLastRun !== null && devLastRun > staging) {
-    flags.push(
-      `sandbox cases were still being executed ${hours(staging, devLastRun)}h after the staging move`,
-    );
-  }
-
-  if (released !== null && regLastRun !== null && regLastRun > released) {
-    flags.push("regression cases were executed after the release went out");
-  }
+  // The staging-move and release flags went with their milestones: both
+  // compared against pipeline dates nothing in this process sets.
 
   const dated = milestones
     .map((m) => parse(m.at))
