@@ -7,6 +7,7 @@ import { isRegressionRun, releaseOfRun } from "@/lib/release-progression";
 import { versionRank } from "@/lib/release-utils";
 import {
   findAllEntities,
+  findAllEntitiesCached,
   testinyConfigured,
   TestinyError,
 } from "@/lib/testiny/client";
@@ -144,7 +145,7 @@ function summarizeRun(
 
 /** Key of the Testiny project, used to build deep links into runs. */
 const getProjectKey = cache(async (): Promise<string> => {
-  const projects = await findAllEntities<TestinyProject>("project");
+  const projects = await findAllEntitiesCached<TestinyProject>("project");
   return (
     projects.find((p) => p.id === env.testinyProjectId)?.project_key ?? "P"
   );
@@ -159,7 +160,7 @@ async function summarizeRunsWithResults(
   // includeDeleted keeps mapping rows the join would otherwise drop; we
   // then drop cases deleted from the library (see deletedCaseIds below)
   // so the counts match Testiny's own run summary, which hides them.
-  const joinRows = await findAllEntities<TestinyTestRun>("testrun", {
+  const joinRows = await findAllEntitiesCached<TestinyTestRun>("testrun", {
     ids: runs.map((r) => r.id),
     map: { entities: ["testcase", "testrun"], includeDeleted: true },
   });
@@ -181,7 +182,7 @@ async function summarizeRunsWithResults(
   const caseTitles = new Map<number, string>();
   const deletedCaseIds = new Set<number>();
   if (caseIds.size > 0) {
-    const cases = await findAllEntities<TestinyTestCase>("testcase", {
+    const cases = await findAllEntitiesCached<TestinyTestCase>("testcase", {
       ids: [...caseIds],
       includeDeleted: true,
     });
@@ -388,12 +389,12 @@ export async function getManualTestingSnapshot(): Promise<ManualTestingSnapshot>
     const projectId = env.testinyProjectId;
 
     const [projects, folders, cases, runs] = await Promise.all([
-      findAllEntities<TestinyProject>("project"),
-      findAllEntities<TestinyFolder>("testcase-folder", {
+      findAllEntitiesCached<TestinyProject>("project"),
+      findAllEntitiesCached<TestinyFolder>("testcase-folder", {
         filter: { project_id: projectId },
       }),
       // Folder membership is a mapping table; expand it per case.
-      findAllEntities<TestinyTestCase>("testcase", {
+      findAllEntitiesCached<TestinyTestCase>("testcase", {
         filter: { project_id: projectId },
         map: { entities: ["testcase", "testcase_folder"], idOnly: true },
       }),

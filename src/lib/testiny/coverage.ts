@@ -3,7 +3,11 @@ import "server-only";
 import { cache } from "react";
 
 import { env } from "@/lib/env";
-import { findAllEntities, testinyConfigured, TestinyError } from "@/lib/testiny/client";
+import {
+  findAllEntitiesCached,
+  testinyConfigured,
+  TestinyError,
+} from "@/lib/testiny/client";
 import type { TestinyFolder, TestinyTestCase } from "@/lib/testiny/types";
 
 export interface FolderCoverage {
@@ -35,9 +39,10 @@ export function ticketIdsIn(text: string): string[] {
 /**
  * Wrapped below so the roadmap and the Home feature breakdown share one
  * build per render. A Map cannot go through unstable_cache (it is not
- * JSON), so only the per-request layer applies here — the folder and case
- * reads underneath are what cost time, and those are cheap next to the
- * Linear history query.
+ * JSON), so only the per-request layer applies to the Map itself — but the
+ * folder and case reads underneath now go through findAllEntitiesCached,
+ * which is what stops every navigation re-pulling every test case in the
+ * project. Rebuilding the Map from cached rows is free by comparison.
  */
 async function readCoverageIndex(): Promise<CoverageIndex> {
   const index: CoverageIndex = new Map();
@@ -47,10 +52,10 @@ async function readCoverageIndex(): Promise<CoverageIndex> {
     const projectId = env.testinyProjectId;
     // Same queries (and cache entries) as the manual-testing snapshot.
     const [folders, cases] = await Promise.all([
-      findAllEntities<TestinyFolder>("testcase-folder", {
+      findAllEntitiesCached<TestinyFolder>("testcase-folder", {
         filter: { project_id: projectId },
       }),
-      findAllEntities<TestinyTestCase>("testcase", {
+      findAllEntitiesCached<TestinyTestCase>("testcase", {
         filter: { project_id: projectId },
         map: { entities: ["testcase", "testcase_folder"], idOnly: true },
       }),

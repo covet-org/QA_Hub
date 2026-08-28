@@ -266,8 +266,14 @@ interface ProjectsPage {
   errors?: { message: string }[];
 }
 
-/** Every Linear project name in the workspace (all pages). */
-export async function fetchProjectNames(): Promise<string[]> {
+/**
+ * Every Linear project name in the workspace (all pages).
+ *
+ * Paginated, and on the path of Home, the roadmap and both bug boards — so
+ * it is cached across requests below. The `next: { revalidate }` on the
+ * fetch does nothing: Linear's API is POST-only and Next caches GETs.
+ */
+async function readProjectNames(): Promise<string[]> {
   const apiKey = env.linearApiKey;
   if (!apiKey) throw new LinearError("LINEAR_API_KEY is not configured");
 
@@ -319,3 +325,11 @@ export async function fetchRoadmapIssues(): Promise<RoadmapTicket[]> {
       !(ticket.allLabels ?? ticket.labels).some((l) => excluded.includes(l)),
   );
 }
+
+const cachedProjectNames = unstable_cache(
+  readProjectNames,
+  ["linear-project-names"],
+  { revalidate: LINEAR_REVALIDATE_SECONDS },
+);
+
+export const fetchProjectNames = cache(cachedProjectNames);

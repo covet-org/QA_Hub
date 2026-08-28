@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+
 import { env } from "@/lib/env";
 import type { TestinyFindResponse } from "@/lib/testiny/types";
 
@@ -43,7 +45,9 @@ interface FindOptions {
 
 /**
  * POST /{entity}/find — Testiny's filtered query endpoint.
- * Responses are cached by Next.js for TESTINY_REVALIDATE_SECONDS.
+ * NOT cached by `next: { revalidate }` below — Testiny's API is POST-only
+ * and Next caches GETs. Cross-request caching comes from
+ * findAllEntitiesCached, which every caller should use.
  */
 export async function findEntities<T>(
   entity: string,
@@ -94,4 +98,40 @@ export async function findAllEntities<T>(
     if (page.data.length < pageSize) break;
   }
   return all;
+}
+
+/**
+ * Key that survives a round trip and does not depend on property order, so
+ * two callers writing the same filter differently still share one entry.
+ */
+function stableKey(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableKey).join(",")}]`;
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${JSON.stringify(k)}:${stableKey(v)}`);
+  return `{${entries.join(",")}}`;
+}
+
+const cachedFindAll = unstable_cache(
+  async (entity: string, optionsKey: string): Promise<unknown[]> =>
+    findAllEntities<unknown>(entity, JSON.parse(optionsKey) as FindOptions),
+  ["testiny-find-all"],
+  { revalidate: TESTINY_REVALIDATE_SECONDS },
+);
+
+/**
+ * findAllEntities, reused across requests for TESTINY_REVALIDATE_SECONDS.
+ *
+ * This is the one every caller should use. Without it each navigation
+ * re-pulled the same pages — the coverage index fetches every test case in
+ * the project, and a closed run’s results never change — which is what made
+ * moving between pages cost a full round of API calls.
+ */
+export async function findAllEntitiesCached<T>(
+  entity: string,
+  options: Omit<FindOptions, "pagination"> = {},
+): Promise<T[]> {
+  return (await cachedFindAll(entity, stableKey(options))) as T[];
 }
