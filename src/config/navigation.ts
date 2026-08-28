@@ -8,8 +8,12 @@ export interface NavItem {
   /**
    * Sub-pages rendered as an expandable group in the sidebar.
    * Access is governed by the parent href (also for share links).
+   *
+   * A child carries its own `note` because a group is rarely unfinished
+   * as a whole: Roadmap's board is trustworthy while Design Sign-off is
+   * still being reworked, and badging the parent would condemn both.
    */
-  children?: { label: string; href: string }[];
+  children?: { label: string; href: string; note?: string }[];
   /**
    * Short status shown beside the label, e.g. "being reworked". Lives
    * here so the sidebar badge and the page's own notice cannot disagree
@@ -39,7 +43,11 @@ export const navigation: NavSection[] = [
         minRole: "viewer",
         children: [
           { label: "Board", href: "/roadmap" },
-          { label: "Design Sign-off", href: "/roadmap/sign-off" },
+          {
+            label: "Design Sign-off",
+            href: "/roadmap/sign-off",
+            note: "being reworked",
+          },
         ],
       },
       {

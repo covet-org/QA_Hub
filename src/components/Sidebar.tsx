@@ -24,7 +24,7 @@ export interface PreparedNavItem {
   label: string;
   href: string;
   unlocked: boolean;
-  children?: { label: string; href: string }[];
+  children?: { label: string; href: string; note?: string }[];
   /** Short status badge, e.g. "being reworked". */
   note?: string;
 }
@@ -91,13 +91,14 @@ function NavGroup({
                   // See the note on the top-level links: prefetching these
                   // would run each page's Linear/Testiny queries unbidden.
                   prefetch={false}
-                  className={`block rounded-md py-1.5 pr-3 pl-7 text-xs transition-colors ${
+                  className={`flex items-center justify-between gap-2 rounded-md py-1.5 pr-3 pl-7 text-xs transition-colors ${
                     active
                       ? "bg-white/10 font-medium text-white shadow-[inset_2px_0_0_0_var(--color-accent-400)]"
                       : "text-brand-100/70 hover:bg-white/5 hover:text-white"
                   }`}
                 >
                   {child.label}
+                  <NavNote note={child.note} />
                 </Link>
               </li>
             );
