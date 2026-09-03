@@ -6,6 +6,7 @@ import {
   getStoryDescopes,
   type ReleaseContent,
 } from "@/lib/release-content";
+import { getStoryTestProgress } from "@/lib/testiny/queries";
 import { requireAccess } from "@/lib/viewer";
 
 /** What a descope lookup returned, including why it found nothing. */
@@ -55,9 +56,10 @@ export async function loadReleaseContent(
   version: string,
 ): Promise<ReleaseContent | null> {
   await requireAccess("/releases");
-  const [byVersion, descopes] = await Promise.all([
+  const [byVersion, descopes, tests] = await Promise.all([
     getReleaseContent(),
     getStoryDescopes(),
+    getStoryTestProgress(version),
   ]);
   const content = byVersion[version];
   if (!content) return null;
@@ -70,6 +72,7 @@ export async function loadReleaseContent(
     stories: content.stories.map((story) => ({
       ...story,
       descopes: descopes[`${version}:${story.id}`] ?? [],
+      tests: tests[story.id.toUpperCase()],
     })),
   };
 }

@@ -8,6 +8,7 @@ import {
   testinyConfigured,
   TestinyError,
 } from "@/lib/testiny/client";
+import { mapCasesToTickets } from "@/lib/story-tests";
 import type { TestinyFolder, TestinyTestCase } from "@/lib/testiny/types";
 
 export interface FolderCoverage {
@@ -114,3 +115,45 @@ async function readCoverageIndex(): Promise<CoverageIndex> {
 }
 
 export const getCoverageIndex = cache(readCoverageIndex);
+
+/**
+ * Test case id -> the tickets it covers, by the nearest ancestor folder
+ * that names one.
+ *
+ * Same two reads as the coverage index above, so on a page that builds
+ * both this costs nothing extra: findAllEntitiesCached hands back the
+ * same rows.
+ */
+async function readCaseTicketIndex(): Promise<Map<number, string[]>> {
+  if (!testinyConfigured()) return new Map();
+
+  try {
+    const projectId = env.testinyProjectId;
+    const [folders, cases] = await Promise.all([
+      findAllEntitiesCached<TestinyFolder>("testcase-folder", {
+        filter: { project_id: projectId },
+      }),
+      findAllEntitiesCached<TestinyTestCase>("testcase", {
+        filter: { project_id: projectId },
+        map: { entities: ["testcase", "testcase_folder"], idOnly: true },
+      }),
+    ]);
+
+    return mapCasesToTickets(
+      folders,
+      cases.map((tc) => {
+        const values = tc.testcase_folder_testcase_values;
+        const folder = Array.isArray(values) ? values[0] : values;
+        return { id: tc.id, folderId: folder?.testcase_folder_id ?? null };
+      }),
+    );
+  } catch (error) {
+    if (error instanceof TestinyError) {
+      console.warn(`Case-ticket index unavailable: ${error.message}`);
+      return new Map();
+    }
+    throw error;
+  }
+}
+
+export const getCaseTicketIndex = cache(readCaseTicketIndex);

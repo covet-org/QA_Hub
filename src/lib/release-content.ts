@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getBugsSnapshot, isOpenStatus } from "@/lib/bugs";
+import type { StoryTestProgress } from "@/lib/story-tests";
 import { descopesForStory, type FeatureDescope } from "@/lib/descope-history";
 import { fetchReleaseProjectMoves } from "@/lib/linear/releases";
 import {
@@ -28,6 +29,14 @@ export interface ReleaseStory {
   status: string;
   statusType: string;
   hasTestCases: boolean;
+  /**
+   * How far this story's cases got in the release's Dev/Sandbox run.
+   *
+   * Absent by default and filled in on the Releases panels only — the
+   * roadmap answers "does it have test cases at all", this answers "how
+   * far did they get in this release".
+   */
+  tests?: StoryTestProgress;
   /**
    * Releases this feature was pushed out of before landing here, most
    * recent exit first, each with the bugs it already had at that moment.

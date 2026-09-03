@@ -6,6 +6,11 @@ import { env } from "@/lib/env";
 import { isRegressionRun, releaseOfRun } from "@/lib/release-progression";
 import { versionRank } from "@/lib/release-utils";
 import {
+  buildStoryTestProgress,
+  type StoryTestProgress,
+} from "@/lib/story-tests";
+import { getCaseTicketIndex } from "@/lib/testiny/coverage";
+import {
   findAllEntities,
   findAllEntitiesCached,
   testinyConfigured,
@@ -550,6 +555,54 @@ export async function getRegressionCloseByRelease(): Promise<
   } catch (error) {
     if (!(error instanceof TestinyError)) throw error;
     console.warn(`Regression close dates unavailable: ${error.message}`);
+    return {};
+  }
+}
+
+/**
+ * Ticket id -> its execution in a release's Dev/Sandbox run.
+ *
+ * The sandbox run specifically, not regression: these bars answer "how
+ * far is the testing of this feature", and regression re-runs a standing
+ * suite that is not organised per story.
+ *
+ * Reuses the cached run list, the cached run/case mapping and the cached
+ * case-ticket index, so on the Releases pages this adds no upstream call
+ * the page was not already making.
+ */
+export async function getStoryTestProgress(
+  release: string,
+): Promise<Record<string, StoryTestProgress>> {
+  if (!testinyConfigured()) return {};
+  try {
+    const runs = await listTestRuns();
+    const devRun = runs.find(
+      (r) =>
+        r.title &&
+        releaseOfRun(r.title) === release &&
+        !isRegressionRun(r.title),
+    );
+    if (!devRun) return {};
+
+    const [joinRows, caseToTickets] = await Promise.all([
+      findAllEntitiesCached<TestinyTestRun>("testrun", {
+        ids: [devRun.id],
+        map: { entities: ["testcase", "testrun"], includeDeleted: true },
+      }),
+      getCaseTicketIndex(),
+    ]);
+
+    const results = joinRows.flatMap((row) =>
+      asArray(row.testrun_testcase_values),
+    );
+    return buildStoryTestProgress({
+      results,
+      caseToTickets,
+      runTitle: devRun.title,
+    });
+  } catch (error) {
+    if (!(error instanceof TestinyError)) throw error;
+    console.warn(`Story test progress unavailable: ${error.message}`);
     return {};
   }
 }
