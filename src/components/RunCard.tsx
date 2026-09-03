@@ -12,7 +12,9 @@ import type {
   ReleaseContent,
   ReleaseStory,
 } from "@/lib/release-content";
+import type { StoryTestProgress } from "@/lib/story-tests";
 import type { CaseRef, RunSummary } from "@/lib/testiny/types";
+import { executedPercent } from "@/lib/story-tests";
 import { RunProgressBar, RunProgressLegend, Tag } from "@/components/ui";
 
 const STORY_LABEL: Record<string, string> = {
@@ -211,6 +213,42 @@ function CollapsiblePanel({
 }
 
 /**
+ * How far this story's cases got in the release's Dev/Sandbox run.
+ *
+ * A story with no cases in that run says so rather than showing an empty
+ * bar: "nothing was tested here" and "everything passed" must never look
+ * alike, and on a Medium/Big feature the first is the more urgent fact.
+ */
+function StoryTests({ tests }: { tests?: StoryTestProgress }) {
+  if (!tests || tests.total === 0) {
+    return (
+      <span
+        className="shrink-0 text-[11px] text-slate-400"
+        title="No case in this release's Dev/Sandbox run is filed under a Testiny folder naming this ticket"
+      >
+        no sandbox cases
+      </span>
+    );
+  }
+
+  const done = tests.total - tests.notRun;
+  return (
+    <span
+      className="flex shrink-0 items-center gap-1.5"
+      title={[
+        `${done} of ${tests.total} cases executed in "${tests.runTitle}"`,
+        `${tests.passed} passed · ${tests.failed} failed · ${tests.blocked} blocked · ${tests.skipped} skipped · ${tests.notRun} not run`,
+      ].join("\n")}
+    >
+      <RunProgressBar run={tests} className="w-16" />
+      <span className="nums text-[11px] text-slate-500">
+        {executedPercent(tests)}%
+      </span>
+    </span>
+  );
+}
+
+/**
  * One user story with its bugs behind an expand toggle.
  *
  * Collapsed by default: a release with a dozen stories used to open as one
@@ -251,6 +289,7 @@ function StoryPanel({
               </Tag>
             ))}
           <DescopeTag descopes={descopes} />
+          <StoryTests tests={story.tests} />
           <span className="text-[11px] text-slate-400">
             {bugs.length} bug{bugs.length === 1 ? "" : "s"}
           </span>
