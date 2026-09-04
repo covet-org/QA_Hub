@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 
+import { TESTINY_TAG } from "@/lib/cache-tags";
 import { env } from "@/lib/env";
 import type { TestinyFindResponse } from "@/lib/testiny/types";
 
@@ -118,7 +119,7 @@ const cachedFindAll = unstable_cache(
   async (entity: string, optionsKey: string): Promise<unknown[]> =>
     findAllEntities<unknown>(entity, JSON.parse(optionsKey) as FindOptions),
   ["testiny-find-all"],
-  { revalidate: TESTINY_REVALIDATE_SECONDS },
+  { revalidate: TESTINY_REVALIDATE_SECONDS, tags: [TESTINY_TAG] },
 );
 
 /**

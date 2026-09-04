@@ -2,6 +2,7 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
+import { TESTINY_TAG } from "@/lib/cache-tags";
 import { env } from "@/lib/env";
 import { isRegressionRun, releaseOfRun } from "@/lib/release-progression";
 import { versionRank } from "@/lib/release-utils";
@@ -51,7 +52,7 @@ const readTestRuns = unstable_cache(
       filter: { project_id: projectId },
     }),
   ["testiny-testruns"],
-  { revalidate: TESTINY_REVALIDATE_SECONDS },
+  { revalidate: TESTINY_REVALIDATE_SECONDS, tags: [TESTINY_TAG] },
 );
 
 export const listTestRuns = cache(() => readTestRuns(env.testinyProjectId));

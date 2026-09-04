@@ -2,6 +2,7 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
+import { LINEAR_TAG } from "@/lib/cache-tags";
 import { env } from "@/lib/env";
 import type { RoadmapTicket } from "@/lib/linear/types";
 
@@ -205,14 +206,14 @@ const cachedIssuesByLabelKey = unstable_cache(
     return readIssues(ISSUES_BY_LABEL_QUERY, labels, labels);
   },
   ["linear-issues-by-label"],
-  { revalidate: LINEAR_REVALIDATE_SECONDS },
+  { revalidate: LINEAR_REVALIDATE_SECONDS, tags: [LINEAR_TAG] },
 );
 
 const cachedIssuesByProjectKey = unstable_cache(
   async (projectKey: string) =>
     readIssues(ISSUES_BY_PROJECT_QUERY, projectKey.split("|"), null),
   ["linear-issues-by-project"],
-  { revalidate: LINEAR_REVALIDATE_SECONDS },
+  { revalidate: LINEAR_REVALIDATE_SECONDS, tags: [LINEAR_TAG] },
 );
 
 const issuesByProjectKey = cache((projectKey: string) =>
@@ -329,7 +330,7 @@ export async function fetchRoadmapIssues(): Promise<RoadmapTicket[]> {
 const cachedProjectNames = unstable_cache(
   readProjectNames,
   ["linear-project-names"],
-  { revalidate: LINEAR_REVALIDATE_SECONDS },
+  { revalidate: LINEAR_REVALIDATE_SECONDS, tags: [LINEAR_TAG] },
 );
 
 export const fetchProjectNames = cache(cachedProjectNames);

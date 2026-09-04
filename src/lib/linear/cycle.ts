@@ -2,6 +2,7 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
+import { LINEAR_TAG } from "@/lib/cache-tags";
 import { env } from "@/lib/env";
 import {
   LINEAR_REVALIDATE_SECONDS,
@@ -65,7 +66,11 @@ export interface ReleaseCycle {
 }
 
 const HISTORY_QUERY = /* GraphQL */ `
-  query TicketHistory($labels: [String!]!, $since: DateTimeOrDuration!, $after: String) {
+  query TicketHistory(
+    $labels: [String!]!
+    $since: DateTimeOrDuration!
+    $after: String
+  ) {
     issues(
       first: 50
       after: $after
@@ -210,7 +215,7 @@ async function readHistoryIssues(): Promise<HistoryIssue[]> {
 const cachedHistoryIssues = unstable_cache(
   readHistoryIssues,
   ["linear-bug-history"],
-  { revalidate: LINEAR_REVALIDATE_SECONDS },
+  { revalidate: LINEAR_REVALIDATE_SECONDS, tags: [LINEAR_TAG] },
 );
 
 const fetchHistoryIssues = cache(cachedHistoryIssues);
@@ -250,10 +255,34 @@ function isBugTicket(issue: HistoryIssue): boolean {
 }
 
 const sampleCycles: StatusCycle[] = [
-  { status: "Todo", statusType: "unstarted", avgHours: 22, samples: 38, byPriority: [] },
-  { status: "In Progress", statusType: "started", avgHours: 14, samples: 41, byPriority: [] },
-  { status: "Ready for QA", statusType: "started", avgHours: 9, samples: 35, byPriority: [] },
-  { status: "Merged to dev", statusType: "started", avgHours: 6, samples: 29, byPriority: [] },
+  {
+    status: "Todo",
+    statusType: "unstarted",
+    avgHours: 22,
+    samples: 38,
+    byPriority: [],
+  },
+  {
+    status: "In Progress",
+    statusType: "started",
+    avgHours: 14,
+    samples: 41,
+    byPriority: [],
+  },
+  {
+    status: "Ready for QA",
+    statusType: "started",
+    avgHours: 9,
+    samples: 35,
+    byPriority: [],
+  },
+  {
+    status: "Merged to dev",
+    statusType: "started",
+    avgHours: 6,
+    samples: 29,
+    byPriority: [],
+  },
 ];
 
 interface StatusBucket {
@@ -329,7 +358,8 @@ export async function getBugCycleStats(): Promise<{
               (a, b) => b.hours - a.hours,
             );
             const totalHours = bugs.reduce((sum, b) => sum + b.hours, 0);
-            const samples = bucket.samplesByPriority.get(priority) ?? bugs.length;
+            const samples =
+              bucket.samplesByPriority.get(priority) ?? bugs.length;
             return {
               priority,
               avgHours: totalHours / Math.max(1, samples),
