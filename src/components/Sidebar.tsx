@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { signOutAction } from "@/lib/actions";
 import { Chevron } from "@/components/ui";
-import { DataTimestamp } from "@/components/AutoRefresh";
+import { DataTimestamp, RefreshDataButton } from "@/components/AutoRefresh";
 
 function LockIcon() {
   return (
@@ -200,7 +200,10 @@ export function Sidebar({
             </form>
           )}
         </div>
-        {dataAsOf && <DataTimestamp isoTime={dataAsOf} />}
+        <div className="flex flex-col items-start">
+          {dataAsOf && <DataTimestamp isoTime={dataAsOf} />}
+          <RefreshDataButton />
+        </div>
       </div>
     </aside>
   );

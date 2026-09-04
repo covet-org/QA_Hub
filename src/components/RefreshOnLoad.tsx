@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { refreshUpstreamData } from "@/lib/refresh-actions";
 
 /**
- * Makes a reload mean "go back to the source".
+ * Makes opening or reloading a page mean "go back to the source".
  *
  * Upstream reads are cached for five minutes so that moving between pages
  * does not re-query Linear and Testiny — without that the pages were slow
@@ -15,18 +15,26 @@ import { refreshUpstreamData } from "@/lib/refresh-actions";
  * dashboard that disagrees with the ticket you are looking at is worse
  * than a slow one.
  *
- * So: on a real reload (F5, Cmd-R, the address bar — not a click through
- * the app) the caches are dropped and the page re-renders. The first paint
- * still comes from cache, so the page appears immediately and the fresh
- * numbers swap in a moment later; the alternative, blocking the render on
- * a full round of API calls, is the slowness this was fixing.
+ * So: on any full document load — F5, Cmd-R, a bookmark, the address bar,
+ * or arriving from Linear in a new tab — the caches are dropped and the
+ * page re-renders. Soft navigation between pages is left alone, which is
+ * the case the caches exist for.
+ *
+ * "reload" alone was too narrow, and narrow in the way that mattered:
+ * someone who changes a Testiny result and then opens the hub is on a
+ * "navigate", so nothing was revalidated and the page could be five
+ * minutes behind the tab they just came from.
+ *
+ * The first paint still comes from cache, so the page appears immediately
+ * and the fresh numbers swap in a moment later; blocking the render on a
+ * full round of API calls is the slowness this was built on top of.
  *
  * `router.refresh()` rather than another reload: it re-runs the server
  * components while keeping client state, so filters and open panels
  * survive. And it does not remount this component, which is what stops
  * the two from looping.
  */
-export function RefreshOnReload() {
+export function RefreshOnLoad() {
   const router = useRouter();
   const started = useRef(false);
 
@@ -36,9 +44,10 @@ export function RefreshOnReload() {
     const [entry] = performance.getEntriesByType(
       "navigation",
     ) as PerformanceNavigationTiming[];
-    // Only a genuine reload. A soft navigation is exactly the case the
-    // caches exist for, and "prerender" is not a viewer at all.
-    if (entry?.type !== "reload") return;
+    // A document the viewer actually asked for. "back_forward" is excluded
+    // because the browser is restoring a page from history rather than
+    // asking for it, and "prerender" is not a viewer at all.
+    if (entry?.type !== "reload" && entry?.type !== "navigate") return;
 
     started.current = true;
     void refreshUpstreamData()

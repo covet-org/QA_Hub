@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { refreshUpstreamData } from "@/lib/refresh-actions";
@@ -89,5 +89,39 @@ export function DataTimestamp({ isoTime }: { isoTime: string }) {
     >
       Data as of {label} · auto-refreshes
     </p>
+  );
+}
+
+/**
+ * Pull new data now, without reloading the page.
+ *
+ * Sits beside the timestamp because that is where the question "is this
+ * current?" gets asked. Automatic revalidation on page load covers the
+ * common case, but a viewer who has just changed something in Linear or
+ * Testiny and is already looking at the hub should not have to guess how
+ * the browser classified their navigation.
+ *
+ * router.refresh() keeps client state, so filters and open panels survive
+ * — which is the whole reason this is a button and not a reload link.
+ */
+export function RefreshDataButton() {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={() =>
+        startTransition(async () => {
+          await refreshUpstreamData();
+          router.refresh();
+        })
+      }
+      className="mt-1 text-[10px] text-brand-100/60 underline-offset-2 transition-colors hover:text-white hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-60"
+      title="Re-read Linear and Testiny now, keeping your filters"
+    >
+      {pending ? "Refreshing…" : "Refresh now"}
+    </button>
   );
 }
