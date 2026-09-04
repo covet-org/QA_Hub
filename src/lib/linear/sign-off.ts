@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 
+import { LINEAR_TAG } from "@/lib/cache-tags";
 import { env } from "@/lib/env";
 import { LINEAR_REVALIDATE_SECONDS, LinearError } from "@/lib/linear/client";
 import {
@@ -156,6 +157,7 @@ async function readSignOff(): Promise<SignOffSnapshot> {
 
 const cachedSignOff = unstable_cache(readSignOff, ["linear-sign-off"], {
   revalidate: LINEAR_REVALIDATE_SECONDS,
+  tags: [LINEAR_TAG],
 });
 
 export const getSignOffSnapshot = cache(cachedSignOff);

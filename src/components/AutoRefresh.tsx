@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
+import { refreshUpstreamData } from "@/lib/refresh-actions";
+
 /** How often the numbers on screen go back to the source. */
 export const REFRESH_INTERVAL_MS = 30 * 60 * 1000;
 
@@ -42,7 +44,12 @@ export function AutoRefresh({
       if (document.visibilityState !== "visible") return;
       if (Date.now() - lastRefresh.current < intervalMs) return;
       lastRefresh.current = Date.now();
-      router.refresh();
+      // Drop the upstream caches first. router.refresh() alone re-renders
+      // against them, so a tab left open could sit a cache window behind
+      // on top of this interval — and the tooltip below promises otherwise.
+      void refreshUpstreamData()
+        .then(() => router.refresh())
+        .catch(() => router.refresh());
     };
 
     const timer = setInterval(maybeRefresh, TICK_MS);
@@ -78,7 +85,7 @@ export function DataTimestamp({ isoTime }: { isoTime: string }) {
     <p
       suppressHydrationWarning
       className="mt-2 text-[10px] text-brand-100/45"
-      title="These numbers refresh themselves every 30 minutes"
+      title="These numbers go back to Linear and Testiny every 30 minutes, and whenever you reload the page"
     >
       Data as of {label} · auto-refreshes
     </p>

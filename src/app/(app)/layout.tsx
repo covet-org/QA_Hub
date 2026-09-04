@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
+import { RefreshOnReload } from "@/components/RefreshOnReload";
 import { Sidebar, type PreparedNavSection } from "@/components/Sidebar";
 import { navigation } from "@/config/navigation";
 import { allowedHrefs, getViewer, type Viewer } from "@/lib/viewer";
@@ -37,6 +38,7 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-screen">
       <AutoRefresh />
+      <RefreshOnReload />
       <Sidebar
         sections={prepareSections(viewer)}
         userLabel={viewer.name}
