@@ -36,7 +36,15 @@ export const navigation: NavSection[] = [
   {
     title: "QA",
     items: [
-      { label: "Home", href: "/", minRole: "viewer" },
+      {
+        label: "Home",
+        href: "/",
+        minRole: "viewer",
+        children: [
+          { label: "Overview", href: "/" },
+          { label: "Release metrics", href: "/release-metrics" },
+        ],
+      },
       {
         label: "Roadmap",
         href: "/roadmap",

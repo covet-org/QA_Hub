@@ -1,8 +1,5 @@
 import { Suspense } from "react";
 import { AllocationBar } from "@/components/AllocationBar";
-import { CycleTimeCard } from "@/components/CycleTimeCard";
-import { ReleaseCycleCards } from "@/components/ReleaseCycleCards";
-import { ReleaseDurationsCard } from "@/components/ReleaseDurationsCard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import { overallEffortSplit } from "@/content/initiatives";
 import { BugTrendChart } from "@/components/BugTrendChart";
@@ -15,11 +12,7 @@ import {
 import { getBugTrends, getCsBugTrends } from "@/lib/bugs";
 import { getReleaseContent } from "@/lib/release-content";
 import { versionRank } from "@/lib/release-utils";
-import { getBugCycleStats, getReleaseCycleStats } from "@/lib/linear/cycle";
-import {
-  getReleaseDurations,
-  getRunSummariesByState,
-} from "@/lib/testiny/queries";
+import { getRunSummariesByState } from "@/lib/testiny/queries";
 import { allowedHrefs, requireAccess } from "@/lib/viewer";
 import { slugify } from "@/lib/slug";
 import { DEFAULT_RELEASES_SHOWN } from "@/lib/release-window";
@@ -44,31 +37,19 @@ interface HomePageProps {
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const [
-    viewer,
-    activeRunsResult,
-    durations,
-    cycleStats,
-    releaseCycles,
-    trends,
-    csBugs,
-    releaseContent,
-    { denied },
-  ] = await Promise.all([
-    requireAccess("/"),
-    getRunSummariesByState("active"),
-    getReleaseDurations(),
-    getBugCycleStats(),
-    getReleaseCycleStats(),
-    getBugTrends(),
-    // Same CS tickets the CS bug board reads and the same Testiny runs
-    // the release testing card reads — both already cached.
-    getCsBugTrends(),
-    // Same release content the Releases page uses; the underlying reads
-    // are shared with the bug trends above via the request cache.
-    getReleaseContent(),
-    searchParams,
-  ]);
+  const [viewer, activeRunsResult, trends, csBugs, releaseContent, { denied }] =
+    await Promise.all([
+      requireAccess("/"),
+      getRunSummariesByState("active"),
+      getBugTrends(),
+      // Same CS tickets the CS bug board reads and the same Testiny runs
+      // the release testing card reads — both already cached.
+      getCsBugTrends(),
+      // Same release content the Releases page uses; the underlying reads
+      // are shared with the bug trends above via the request cache.
+      getReleaseContent(),
+      searchParams,
+    ]);
 
   const split = overallEffortSplit();
   const activeRuns = activeRunsResult.runs.length;
@@ -307,13 +288,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             </Suspense>
           </CardBody>
         </Card>
-
-        <div className="grid items-start gap-4 lg:grid-cols-2">
-          <ReleaseDurationsCard releases={durations.releases} />
-          <CycleTimeCard cycles={cycleStats.cycles} />
-        </div>
-
-        <ReleaseCycleCards releases={releaseCycles.releases} />
       </PageShell>
     </div>
   );

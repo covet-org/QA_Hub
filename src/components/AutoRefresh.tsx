@@ -5,8 +5,14 @@ import { useRouter } from "next/navigation";
 
 import { refreshEverything, refreshUpstreamData } from "@/lib/refresh-actions";
 
-/** How often the numbers on screen go back to the source. */
-export const REFRESH_INTERVAL_MS = 30 * 60 * 1000;
+/**
+ * How often the numbers on screen go back to the source.
+ *
+ * Five minutes, matching the cache window it clears: a shorter tick would
+ * re-render against data that cannot have changed, and a longer one lets
+ * an open tab drift further behind than the cache ever would.
+ */
+export const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 /** How often we check whether that interval has elapsed. */
 const TICK_MS = 60 * 1000;
@@ -85,7 +91,7 @@ export function DataTimestamp({ isoTime }: { isoTime: string }) {
     <p
       suppressHydrationWarning
       className="mt-2 text-[10px] text-brand-100/45"
-      title="These numbers go back to Linear and Testiny every 30 minutes, and whenever you reload the page"
+      title="These numbers go back to Linear and Testiny every 5 minutes, and whenever you reload the page"
     >
       Data as of {label} · auto-refreshes
     </p>
