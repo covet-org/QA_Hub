@@ -1,100 +1,37 @@
 import { RunsBoard } from "@/app/(app)/releases/RunsBoard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
-import {
-  fetchArchivedReleaseProjectMoves,
-  fetchReleaseProjectMoves,
-  type ReleaseProjectMoves,
-} from "@/lib/linear/releases";
-import { isRegressionRun, releaseOfRun } from "@/lib/release-progression";
-import { buildReleaseTimeline } from "@/lib/release-timeline";
-import { versionRank } from "@/lib/release-utils";
-import {
-  getCounterpartRunSummaries,
-  getRegressionCloseByRelease,
-  getRunSummariesByState,
-} from "@/lib/testiny/queries";
+import { getReleaseBoardData } from "@/lib/release-board";
+import { getReleasesByState } from "@/lib/testiny/queries";
 import { requireAccess } from "@/lib/viewer";
 import { PageHeader, PageShell } from "@/components/ui";
 
 /**
  * Shared server view for the Active / Closed release pages.
  *
- * Deliberately fetches ONLY the Testiny run summaries. Per-release
- * stories and bugs (which cost a full Linear roadmap + bugs pull) load
- * from a server action when a viewer expands a release — see
- * lib/release-actions.ts.
+ * Opens on the newest release rather than the whole board. Loading every
+ * closed release means reading each run's case results and each release
+ * project's issue history before anything renders at all — a dozen
+ * releases of work to look at one. The rest load when a viewer picks them
+ * in the filter.
+ *
+ * Active loads whole: it is one or two releases in flight, and splitting
+ * it would add a round trip to save nothing.
+ *
+ * Per-release stories and bugs stay on their own lazy path — see
+ * lib/release-actions.ts — and cost nothing until a release is expanded.
  */
 export async function RunsView({ state }: { state: "active" | "closed" }) {
   await requireAccess("/releases");
-  const { isSample, runs } = await getRunSummariesByState(state);
   const isActive = state === "active";
 
-  /**
-   * One timeline per release on this page, dated against the real process:
-   * dev testing opens when the previous release's regression run closes,
-   * sandbox testing opens when the first issue is moved into the release
-   * project and closes with the sandbox run, and regression is bracketed by
-   * its run being created and closed. Every step is something this team
-   * does, which is why the pipeline's staging and release dates are no
-   * longer read here. All cached; the counterpart lookup adds a results
-   * call only when a release's other phase lives on the opposite board.
-   */
-  const releases = [
-    ...new Set(
-      runs.map((r) => releaseOfRun(r.title)).filter((v): v is string => !!v),
-    ),
-  ];
-  const [counterparts, moves, regressionCloses] = await Promise.all([
-    getCounterpartRunSummaries(releases, state),
-    // Scoped to the releases on this page: the arrivals query reads issue
-    // history, so it is the one expensive read here and there is no
-    // reason to ask about releases nobody is looking at.
-    //
-    // On the Closed board that is still a dozen projects, but every one of
-    // them has shipped and none of their history can change — so it is
-    // read from the archive, which is kept for a day and survives the
-    // page-load refresh.
-    (isActive ? fetchReleaseProjectMoves : fetchArchivedReleaseProjectMoves)(
-      releases.map((r) => `${r} Release`),
-    ).catch((): ReleaseProjectMoves => ({
-      arrivals: {},
-      descopesByFeature: {},
-    })),
-    getRegressionCloseByRelease().catch((): Record<string, string> => ({})),
-  ]);
-  /**
-   * The release before this one, by version rather than by date: the
-   * regression run that gates a release's dev phase belongs to the version
-   * immediately below it, and close stamps are too unreliable to order by.
-   */
-  const closedReleases = Object.keys(regressionCloses).sort(
-    (a, b) => (versionRank(b) ?? 0) - (versionRank(a) ?? 0),
-  );
-  const previousOf = (release: string): string | null => {
-    const rank = versionRank(release) ?? 0;
-    return closedReleases.find((r) => (versionRank(r) ?? 0) < rank) ?? null;
-  };
-
-  const timelines = Object.fromEntries(
-    releases.map((release) => {
-      const forRelease = [...runs, ...counterparts].filter(
-        (r) => releaseOfRun(r.title) === release,
-      );
-      const previous = previousOf(release);
-      return [
-        release,
-        buildReleaseTimeline({
-          release,
-          dev: forRelease.find((r) => !isRegressionRun(r.title)) ?? null,
-          regression: forRelease.find((r) => isRegressionRun(r.title)) ?? null,
-          previousRelease: previous,
-          previousRegressionClosedAt: previous
-            ? (regressionCloses[previous] ?? null)
-            : null,
-          issueArrivedAt: moves.arrivals[release] ?? null,
-        }),
-      ];
-    }),
+  // Cheap: titles off the cached run list, no results behind it. The board
+  // needs every release to build its filter even though it has data for
+  // one — a filter that hides what you have not opened looks broken.
+  const releases = await getReleasesByState(state);
+  const initial = isActive ? releases : releases.slice(0, 1);
+  const { runs, timelines, isSample } = await getReleaseBoardData(
+    state,
+    initial,
   );
 
   return (
@@ -105,7 +42,7 @@ export async function RunsView({ state }: { state: "active" | "closed" }) {
         description={
           isActive
             ? "Test runs currently in execution — feature testing and regression for the releases in flight, live from Testiny."
-            : "Completed test runs from past releases — the execution record per release, live from Testiny."
+            : "Completed test runs from past releases — the execution record per release, live from Testiny. Opens on the newest; pick another release to load it."
         }
         footnote="Testiny · QA CoVet"
       />
@@ -113,8 +50,11 @@ export async function RunsView({ state }: { state: "active" | "closed" }) {
         {isSample && <SampleDataNotice />}
 
         <RunsBoard
-          runs={runs}
-          timelines={timelines}
+          state={state}
+          initialRuns={runs}
+          initialTimelines={timelines}
+          allReleases={releases}
+          loadedReleases={initial}
           emptyLabel={`No ${isActive ? "active" : "closed"} test runs.`}
         />
       </PageShell>

@@ -607,3 +607,84 @@ export async function getStoryTestProgress(
     return {};
   }
 }
+
+/**
+ * Which releases have runs in this state, newest first.
+ *
+ * Deliberately cheap: it reads the cached run list and looks at titles,
+ * with no results call behind it. The board needs the full set to build
+ * its filter even when it has only loaded one release worth of data —
+ * a filter that hides the releases you have not opened yet is a filter
+ * that looks broken.
+ */
+export async function getReleasesByState(
+  state: "active" | "closed",
+): Promise<string[]> {
+  const wantClosed = state === "closed";
+  if (!testinyConfigured()) {
+    return [
+      ...new Set(
+        sampleSnapshot.runs
+          .filter((r) => r.isClosed === wantClosed)
+          .map((r) => releaseOfRun(r.title))
+          .filter((v): v is string => !!v),
+      ),
+    ].sort((a, b) => (versionRank(b) ?? 0) - (versionRank(a) ?? 0));
+  }
+
+  try {
+    const runs = await listTestRuns();
+    return [
+      ...new Set(
+        runs
+          .filter((r) => r.is_closed === wantClosed && r.title)
+          .map((r) => releaseOfRun(r.title))
+          .filter((v): v is string => !!v),
+      ),
+    ].sort((a, b) => (versionRank(b) ?? 0) - (versionRank(a) ?? 0));
+  } catch (error) {
+    if (!(error instanceof TestinyError)) throw error;
+    console.warn(`Release list unavailable: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Run summaries for the given releases only.
+ *
+ * The expensive half — every case result in every run — so it is asked
+ * for one release at a time rather than for a whole board. The Closed
+ * board has runs going back a dozen releases and opens on the newest.
+ */
+export async function getRunSummariesForReleases(
+  state: "active" | "closed",
+  releases: string[],
+): Promise<RunsByState> {
+  const wantClosed = state === "closed";
+  const wanted = new Set(releases);
+  const inScope = (title: string | undefined) => {
+    const release = title ? releaseOfRun(title) : null;
+    return release !== null && wanted.has(release);
+  };
+
+  if (!testinyConfigured()) {
+    return {
+      isSample: true,
+      runs: sampleSnapshot.runs.filter(
+        (r) => r.isClosed === wantClosed && inScope(r.title),
+      ),
+    };
+  }
+
+  try {
+    const runs = await listTestRuns();
+    const selected = runs
+      .filter((r) => r.is_closed === wantClosed && inScope(r.title))
+      .sort((a, b) => b.id - a.id);
+    return { isSample: false, runs: await summarizeRunsWithResults(selected) };
+  } catch (error) {
+    if (!(error instanceof TestinyError)) throw error;
+    console.warn(`Run summaries unavailable: ${error.message}`);
+    return { isSample: true, runs: [] };
+  }
+}
