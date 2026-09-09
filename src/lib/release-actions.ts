@@ -6,6 +6,10 @@ import {
   getStoryDescopes,
   type ReleaseContent,
 } from "@/lib/release-content";
+import {
+  getReleaseBoardData,
+  type ReleaseBoardData,
+} from "@/lib/release-board";
 import { getStoryTestProgress } from "@/lib/testiny/queries";
 import { requireAccess } from "@/lib/viewer";
 
@@ -75,4 +79,22 @@ export async function loadReleaseContent(
       tests: tests[story.id.toUpperCase()],
     })),
   };
+}
+
+/**
+ * Runs and timelines for releases the board has not loaded yet.
+ *
+ * The Closed board opens on the newest release, because loading a
+ * dozen means reading every case result and every project's issue
+ * history before anything appears. Picking an older release in the
+ * filter is the ask, and this answers it.
+ *
+ * Access is re-checked: a server action is a public endpoint.
+ */
+export async function loadReleaseBoardData(
+  state: "active" | "closed",
+  releases: string[],
+): Promise<ReleaseBoardData> {
+  await requireAccess("/releases");
+  return getReleaseBoardData(state, releases);
 }
