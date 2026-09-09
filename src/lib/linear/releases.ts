@@ -3,7 +3,11 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 
-import { LINEAR_TAG } from "@/lib/cache-tags";
+import {
+  ARCHIVE_REVALIDATE_SECONDS,
+  ARCHIVE_TAG,
+  LINEAR_TAG,
+} from "@/lib/cache-tags";
 import { env } from "@/lib/env";
 import { LINEAR_REVALIDATE_SECONDS, LinearError } from "@/lib/linear/client";
 import {
@@ -313,4 +317,26 @@ const cachedReleaseProjectMoves = unstable_cache(
  */
 export const fetchReleaseProjectMoves = cache((projectNames: string[]) =>
   cachedReleaseProjectMoves([...projectNames].sort().join("|")),
+);
+
+const cachedArchivedReleaseProjectMoves = unstable_cache(
+  readReleaseProjectMoves,
+  ["linear-release-project-moves-archive"],
+  { revalidate: ARCHIVE_REVALIDATE_SECONDS, tags: [ARCHIVE_TAG] },
+);
+
+/**
+ * The same read, for releases that have shipped.
+ *
+ * The Closed board asks about every release with a closed run — a dozen or
+ * more projects — and issue history is the slowest call in the app. None
+ * of it can change: those releases are done, and an issue moved out of
+ * 3.28 today would not alter when 3.28's first issue arrived.
+ *
+ * So it lives under the archive tag: a day rather than five minutes, and
+ * untouched by the page-load refresh. "Refresh now" still clears it.
+ */
+export const fetchArchivedReleaseProjectMoves = cache(
+  (projectNames: string[]) =>
+    cachedArchivedReleaseProjectMoves([...projectNames].sort().join("|")),
 );

@@ -1,6 +1,7 @@
 import { RunsBoard } from "@/app/(app)/releases/RunsBoard";
 import { SampleDataNotice } from "@/components/SampleDataNotice";
 import {
+  fetchArchivedReleaseProjectMoves,
   fetchReleaseProjectMoves,
   type ReleaseProjectMoves,
 } from "@/lib/linear/releases";
@@ -48,9 +49,17 @@ export async function RunsView({ state }: { state: "active" | "closed" }) {
     // Scoped to the releases on this page: the arrivals query reads issue
     // history, so it is the one expensive read here and there is no
     // reason to ask about releases nobody is looking at.
-    fetchReleaseProjectMoves(releases.map((r) => `${r} Release`)).catch(
-      (): ReleaseProjectMoves => ({ arrivals: {}, descopesByFeature: {} }),
-    ),
+    //
+    // On the Closed board that is still a dozen projects, but every one of
+    // them has shipped and none of their history can change — so it is
+    // read from the archive, which is kept for a day and survives the
+    // page-load refresh.
+    (isActive ? fetchReleaseProjectMoves : fetchArchivedReleaseProjectMoves)(
+      releases.map((r) => `${r} Release`),
+    ).catch((): ReleaseProjectMoves => ({
+      arrivals: {},
+      descopesByFeature: {},
+    })),
     getRegressionCloseByRelease().catch((): Record<string, string> => ({})),
   ]);
   /**

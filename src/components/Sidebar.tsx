@@ -88,9 +88,8 @@ function NavGroup({
               <li key={child.href}>
                 <Link
                   href={child.href}
-                  // See the note on the top-level links: prefetching these
-                  // would run each page's Linear/Testiny queries unbidden.
-                  prefetch={false}
+                  // Default prefetch, not off — see the note on the
+                  // top-level links.
                   className={`flex items-center justify-between gap-2 rounded-md py-1.5 pr-3 pl-7 text-xs transition-colors ${
                     active
                       ? "bg-white/10 font-medium text-white shadow-[inset_2px_0_0_0_var(--color-accent-400)]"
@@ -147,13 +146,22 @@ export function Sidebar({
                       <Link
                         href={item.href}
                         /**
-                         * No prefetch. The sidebar is always on screen, so
-                         * Next would prefetch every route on every page
+                         * Prefetch left at its default, which changed
+                         * meaning when loading.tsx arrived.
+                         *
+                         * It used to be off for a good reason: the sidebar
+                         * is always on screen, so Next would prefetch every
+                         * route on every page
                          * load — running each page's server component and
                          * firing its Linear/Testiny queries for pages
-                         * nobody opened. Data is fetched on navigation.
+                         * nobody opened.
+                         *
+                         * With a loading boundary in place, a prefetch
+                         * stops at that boundary — it fetches the static
+                         * shell and none of the data — so the concern is
+                         * gone and hovering a link now makes the
+                         * navigation itself instant.
                          */
-                        prefetch={false}
                         className={`flex items-center justify-between rounded-md px-3 py-1.5 text-xs transition-colors ${
                           active
                             ? "bg-white/10 font-medium text-white shadow-[inset_2px_0_0_0_var(--color-accent-400)]"
