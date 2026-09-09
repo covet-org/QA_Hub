@@ -10,7 +10,7 @@ import {
   pickReleaseProgression,
 } from "@/lib/release-progression";
 import { getBugTrends, getCsBugTrends } from "@/lib/bugs";
-import { getReleaseContent } from "@/lib/release-content";
+import { getReleaseContent, getReleaseVersions } from "@/lib/release-content";
 import { versionRank } from "@/lib/release-utils";
 import { getRunSummariesByState } from "@/lib/testiny/queries";
 import { allowedHrefs, requireAccess } from "@/lib/viewer";
@@ -37,19 +37,25 @@ interface HomePageProps {
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const [viewer, activeRunsResult, trends, csBugs, releaseContent, { denied }] =
-    await Promise.all([
-      requireAccess("/"),
-      getRunSummariesByState("active"),
-      getBugTrends(),
-      // Same CS tickets the CS bug board reads and the same Testiny runs
-      // the release testing card reads — both already cached.
-      getCsBugTrends(),
-      // Same release content the Releases page uses; the underlying reads
-      // are shared with the bug trends above via the request cache.
-      getReleaseContent(),
-      searchParams,
-    ]);
+  const [
+    viewer,
+    activeRunsResult,
+    trends,
+    csBugs,
+    releaseVersions,
+    { denied },
+  ] = await Promise.all([
+    requireAccess("/"),
+    getRunSummariesByState("active"),
+    getBugTrends(),
+    // Same CS tickets the CS bug board reads and the same Testiny runs
+    // the release testing card reads — both already cached.
+    getCsBugTrends(),
+    // Same release content the Releases page uses; the underlying reads
+    // are shared with the bug trends above via the request cache.
+    getReleaseVersions(),
+    searchParams,
+  ]);
 
   const split = overallEffortSplit();
   const activeRuns = activeRunsResult.runs.length;
@@ -80,12 +86,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   // instead put an unreleased 3.37 — with nothing in it — above the 3.36
   // the chart was showing.
   const trendOrder = new Map(trends.map((t, i) => [t.release, i]));
-  const featureGroups = Object.entries(releaseContent)
-    .map(([release, content]) => ({
-      release,
-      rank: versionRank(release) ?? 0,
-      stories: content.stories,
-    }))
+  // Every release, ordered as the card will show them — then content for
+  // the two that are actually on screen. Home used to build all thirty to
+  // render two, and the rest sat behind "+ More" unread.
+  const orderedReleases = releaseVersions
+    .map((release) => ({ release, rank: versionRank(release) ?? 0 }))
     .sort((a, b) => {
       const ai = trendOrder.get(a.release);
       const bi = trendOrder.get(b.release);
@@ -95,7 +100,16 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       if (ai !== undefined) return -1;
       if (bi !== undefined) return 1;
       return b.rank - a.rank;
-    });
+    })
+    .map((entry) => entry.release);
+
+  const openingReleases = orderedReleases.slice(0, DEFAULT_RELEASES_SHOWN);
+  const releaseContent = await getReleaseContent(openingReleases);
+  const featureGroups = orderedReleases.map((release) => ({
+    release,
+    rank: versionRank(release) ?? 0,
+    stories: releaseContent[release]?.stories ?? [],
+  }));
 
   // What each card is showing: the same slice its "+ More" hides, so a
   // click lands on the releases the reader was just looking at.
@@ -103,7 +117,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     releases.slice(0, DEFAULT_RELEASES_SHOWN);
   const trendReleases = shownIn(trends.map((t) => t.release));
   const csReleases = shownIn(csBugs.trends.map((t) => t.release));
-  const featureReleases = shownIn(featureGroups.map((g) => g.release));
+  const featureReleases = shownIn(orderedReleases);
   const activeRunVersions = [
     ...new Set(
       activeRunsResult.runs
@@ -283,8 +297,18 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 streams in behind it. It costs a Linear issue-history read,
                 the slowest call in the app, and awaiting it here is what
                 made Home visibly slower. */}
-            <Suspense fallback={<ReleaseFeatures groups={featureGroups} />}>
-              <ReleaseFeaturesWithDescopes groups={featureGroups} />
+            <Suspense
+              fallback={
+                <ReleaseFeatures
+                  groups={featureGroups}
+                  loadedReleases={openingReleases}
+                />
+              }
+            >
+              <ReleaseFeaturesWithDescopes
+                groups={featureGroups}
+                loadedReleases={openingReleases}
+              />
             </Suspense>
           </CardBody>
         </Card>

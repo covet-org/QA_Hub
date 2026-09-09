@@ -17,6 +17,7 @@ import {
 } from "@/lib/linear/client";
 import type { RoadmapTicket } from "@/lib/linear/types";
 import { byPriority } from "@/lib/priority";
+import { versionRank } from "@/lib/release-utils";
 import { getRoadmapSnapshot } from "@/lib/roadmap";
 import { getCoverageIndex } from "@/lib/testiny/coverage";
 
@@ -97,9 +98,21 @@ const versionOf = (name: string): string | null =>
  * (roadmap tickets) and bugs, keyed by version string ("3.32").
  * Built from the roadmap and bug snapshots so it reuses their caches.
  */
-export async function getReleaseContent(): Promise<
-  Record<string, ReleaseContent>
-> {
+export async function getReleaseContent(
+  /**
+   * Versions to build, e.g. ["3.37", "3.36"]. Omit for every release.
+   *
+   * Scoped because the cost is per release: each one pulls its project's
+   * issues out of Linear. Home shows two and used to fetch thirty, and
+   * expanding one release on the Releases page fetched the other
+   * twenty-nine with it.
+   */
+  only?: string[],
+): Promise<Record<string, ReleaseContent>> {
+  const wanted = only ? new Set(only) : null;
+  const inScope = (version: string | null): version is string =>
+    version !== null && (wanted === null || wanted.has(version));
+
   const [roadmap, bugs] = await Promise.all([
     getRoadmapSnapshot(),
     getBugsSnapshot("product"),
@@ -118,7 +131,7 @@ export async function getReleaseContent(): Promise<
         .filter((g) => g.isRelease)
         .map((g) => g.name),
     ),
-  ];
+  ].filter((name) => inScope(versionOf(name)));
 
   let projectIssues: RoadmapTicket[] = [];
   if (releaseNames.length > 0 && linearConfigured()) {
@@ -138,6 +151,7 @@ export async function getReleaseContent(): Promise<
 
   const seen = new Set<string>();
   const addStory = (version: string, story: ReleaseStory): void => {
+    if (!inScope(version)) return;
     const key = `${version}:${story.id}`;
     if (seen.has(key)) return;
     seen.add(key);
@@ -245,7 +259,7 @@ export async function getReleaseContent(): Promise<
   for (const group of bugs.groups) {
     if (!group.isRelease) continue;
     const version = versionOf(group.name);
-    if (!version) continue;
+    if (!inScope(version)) continue;
     bucket(version).bugs = group.tickets
       .filter((t) => isReleaseBug(t.allLabels ?? t.labels, labelRules()))
       .map((t) => ({
@@ -281,13 +295,14 @@ export async function getReleaseContent(): Promise<
  * A Linear failure returns an empty map, so the surfaces lose the history
  * and nothing else.
  */
-export async function getStoryDescopes(): Promise<
-  Record<string, FeatureDescope<ReleaseBug>[]>
-> {
+export async function getStoryDescopes(
+  /** Same scope as the content it annotates. */
+  only?: string[],
+): Promise<Record<string, FeatureDescope<ReleaseBug>[]>> {
   if (!linearConfigured()) return {};
 
   const [content, bugs] = await Promise.all([
-    getReleaseContent(),
+    getReleaseContent(only),
     getBugsSnapshot("product"),
   ]);
   const releaseNames = Object.keys(content).map((v) => `${v} Release`);
@@ -328,4 +343,28 @@ export async function getStoryDescopes(): Promise<
     console.warn(`Descope history unavailable: ${error.message}`);
   }
   return out;
+}
+
+/**
+ * Every release version, newest first.
+ *
+ * Reads only the roadmap and bug snapshots, which every caller has
+ * already fetched — no per-release work. Home needs the full list to
+ * offer “+ More” while holding content for two of them, and a list
+ * that hides the releases you have not loaded looks like data loss.
+ */
+export async function getReleaseVersions(): Promise<string[]> {
+  const [roadmap, bugs] = await Promise.all([
+    getRoadmapSnapshot(),
+    getBugsSnapshot("product"),
+  ]);
+
+  return [
+    ...new Set(
+      [...roadmap.groups, ...bugs.groups]
+        .filter((g) => g.isRelease)
+        .map((g) => versionOf(g.name))
+        .filter((v): v is string => v !== null),
+    ),
+  ].sort((a, b) => (versionRank(b) ?? 0) - (versionRank(a) ?? 0));
 }

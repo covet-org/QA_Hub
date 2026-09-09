@@ -17,9 +17,21 @@ import { getStoryDescopes } from "@/lib/release-content";
  */
 export async function ReleaseFeaturesWithDescopes({
   groups,
+  loadedReleases,
 }: {
   groups: ReleaseFeatureGroup[];
+  /** The releases whose content is on the page; the rest load on reveal. */
+  loadedReleases: string[];
 }) {
-  const descopes = await getStoryDescopes();
-  return <ReleaseFeatures groups={groups} descopes={descopes} />;
+  // Scoped to the releases actually rendered. Asking for every release's
+  // descope history to annotate two of them was the same over-fetch the
+  // content read just stopped doing.
+  const descopes = await getStoryDescopes(loadedReleases);
+  return (
+    <ReleaseFeatures
+      groups={groups}
+      descopes={descopes}
+      loadedReleases={loadedReleases}
+    />
+  );
 }

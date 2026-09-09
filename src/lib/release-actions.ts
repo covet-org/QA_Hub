@@ -1,10 +1,13 @@
 "use server";
 
 import { getDescopeSnapshot, type DescopeEvent } from "@/lib/linear/descope";
+import type { FeatureDescope } from "@/lib/descope-history";
 import {
   getReleaseContent,
   getStoryDescopes,
+  type ReleaseBug,
   type ReleaseContent,
+  type ReleaseStory,
 } from "@/lib/release-content";
 import {
   getReleaseBoardData,
@@ -60,9 +63,11 @@ export async function loadReleaseContent(
   version: string,
 ): Promise<ReleaseContent | null> {
   await requireAccess("/releases");
+  // Scoped to the one release being opened. This used to build every
+  // release's content to read a single panel.
   const [byVersion, descopes, tests] = await Promise.all([
-    getReleaseContent(),
-    getStoryDescopes(),
+    getReleaseContent([version]),
+    getStoryDescopes([version]),
     getStoryTestProgress(version),
   ]);
   const content = byVersion[version];
@@ -97,4 +102,33 @@ export async function loadReleaseBoardData(
 ): Promise<ReleaseBoardData> {
   await requireAccess("/releases");
   return getReleaseBoardData(state, releases);
+}
+
+/**
+ * Stories and descope history for releases Home has not loaded yet.
+ *
+ * Home renders the last two releases and names the rest behind “+ More”.
+ * Revealing them asks for their content here rather than paying for
+ * thirty releases on a page that shows two.
+ */
+export async function loadReleaseFeatures(versions: string[]): Promise<{
+  stories: Record<string, ReleaseStory[]>;
+  descopes: Record<string, FeatureDescope<ReleaseBug>[]>;
+}> {
+  await requireAccess("/");
+  if (versions.length === 0) return { stories: {}, descopes: {} };
+
+  const [byVersion, descopes] = await Promise.all([
+    getReleaseContent(versions),
+    getStoryDescopes(versions),
+  ]);
+
+  const stories: Record<string, ReleaseStory[]> = {};
+  for (const version of versions) {
+    stories[version] = (byVersion[version]?.stories ?? []).map((story) => ({
+      ...story,
+      descopes: descopes[`${version}:${story.id}`] ?? [],
+    }));
+  }
+  return { stories, descopes };
 }
