@@ -196,8 +196,10 @@ async function readIssues(
 const ISSUES_BY_LABEL_QUERY = issuesQuery(
   "{ labels: { name: { in: $keys } } }",
 );
+// Cancelled work never shipped, so release content drops it anyway —
+// dropping it upstream saves carrying it here first.
 const ISSUES_BY_PROJECT_QUERY = issuesQuery(
-  "{ project: { name: { in: $keys } } }",
+  '{ project: { name: { in: $keys } }, state: { type: { neq: "canceled" } } }',
 );
 
 const cachedIssuesByLabelKey = unstable_cache(
@@ -245,7 +247,11 @@ export function fetchIssuesInProjects(
 
 const PROJECTS_QUERY = /* GraphQL */ `
   query Projects($after: String) {
-    projects(first: 100, after: $after) {
+    projects(
+      first: 100
+      after: $after
+      filter: { name: { contains: "Release" } }
+    ) {
       pageInfo {
         hasNextPage
         endCursor
@@ -268,11 +274,17 @@ interface ProjectsPage {
 }
 
 /**
- * Every Linear project name in the workspace (all pages).
+ * Release project names.
  *
- * Paginated, and on the path of Home, the roadmap and both bug boards — so
- * it is cached across requests below. The `next: { revalidate }` on the
- * fetch does nothing: Linear's API is POST-only and Next caches GETs.
+ * Filtered upstream to names containing "Release". The only caller keeps
+ * the ones matching /^N.N Release$/ and discards the rest, and this
+ * workspace is mostly sales and partner projects — Cornell, IDEXX, Zoetis,
+ * a hundred more — so paging the lot to keep thirty was most of the cost
+ * of a query that sits on Home, the roadmap and all three bug boards.
+ *
+ * "Archive - Releases" still comes back and is still discarded by the
+ * caller's stricter test; the filter narrows the read, it does not decide
+ * what counts as a release.
  */
 async function readProjectNames(): Promise<string[]> {
   const apiKey = env.linearApiKey;

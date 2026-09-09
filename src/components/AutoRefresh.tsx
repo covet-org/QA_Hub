@@ -3,7 +3,7 @@
 import { useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { refreshUpstreamData } from "@/lib/refresh-actions";
+import { refreshEverything, refreshUpstreamData } from "@/lib/refresh-actions";
 
 /** How often the numbers on screen go back to the source. */
 export const REFRESH_INTERVAL_MS = 30 * 60 * 1000;
@@ -114,12 +114,14 @@ export function RefreshDataButton() {
       disabled={pending}
       onClick={() =>
         startTransition(async () => {
-          await refreshUpstreamData();
+          // Everything, archive included: this is the button someone
+          // presses when the hub disagrees with what they are looking at.
+          await refreshEverything();
           router.refresh();
         })
       }
       className="mt-1 text-[10px] text-brand-100/60 underline-offset-2 transition-colors hover:text-white hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-60"
-      title="Re-read Linear and Testiny now, keeping your filters"
+      title="Re-read everything now, closed releases included, keeping your filters"
     >
       {pending ? "Refreshing…" : "Refresh now"}
     </button>
