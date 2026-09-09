@@ -11,11 +11,17 @@ export const metadata: Metadata = { title: "Roadmap" };
 export default async function RoadmapPage() {
   await requireAccess("/roadmap");
   const snapshot = await getRoadmapSnapshot();
-  // Awaited, unlike the tags alone would need: descoped tickets sort to
-  // the top of the board, and a list cannot be ordered by data that has
-  // not arrived. Cached with every other upstream read, so the wait lands
-  // on the first load in each five-minute window rather than every visit.
-  const descopes = await getRoadmapDescopes(snapshot.groups.map((g) => g.name));
+  // Awaited, because descoped tickets sort to the top and a list cannot
+  // be ordered by data that has not arrived — but only for the group the
+  // board opens on. Reading issue history for every roadmap project meant
+  // waiting on the slowest call in the app for groups sitting behind a
+  // filter nobody had opened; the rest load when a viewer picks them.
+  const openingGroups = snapshot.groups.some(
+    (g) => g.name === env.roadmapDefaultGroup,
+  )
+    ? [env.roadmapDefaultGroup]
+    : snapshot.groups.map((g) => g.name);
+  const descopes = await getRoadmapDescopes(openingGroups);
   const missing = snapshot.totalTickets - snapshot.coveredTickets;
   const coveragePct =
     snapshot.totalTickets > 0
@@ -64,6 +70,7 @@ export default async function RoadmapPage() {
           groups={snapshot.groups}
           defaultGroup={env.roadmapDefaultGroup}
           descopes={descopes}
+          loadedGroups={openingGroups}
         />
       </PageShell>
     </div>
