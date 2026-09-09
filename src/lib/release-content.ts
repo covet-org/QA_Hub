@@ -2,7 +2,11 @@ import "server-only";
 
 import { getBugsSnapshot, isOpenStatus } from "@/lib/bugs";
 import { env } from "@/lib/env";
-import { isReleaseStory } from "@/lib/story-labels";
+import {
+  isReleaseBug,
+  isReleaseStory,
+  type LabelRules,
+} from "@/lib/story-labels";
 import type { StoryTestProgress } from "@/lib/story-tests";
 import { descopesForStory, type FeatureDescope } from "@/lib/descope-history";
 import { fetchReleaseProjectMoves } from "@/lib/linear/releases";
@@ -24,8 +28,12 @@ import { getCoverageIndex } from "@/lib/testiny/coverage";
  * roadmap already means exactly this by it) and the two bug labels are the
  * ones the bug boards are built from.
  */
-const storyLabels = () => env.roadmapLabels;
-const bugLabels = () => [env.bugLabel, env.csBugLabel];
+const labelRules = (): LabelRules => ({
+  storyLabels: env.roadmapLabels,
+  bugLabels: [env.bugLabel, env.csBugLabel],
+  excludeLabels: env.roadmapExcludeLabels,
+  requireStoryLabel: env.releaseRequireStoryLabel,
+});
 
 /** A roadmap ticket (user story) shown in a release's detail. */
 export interface ReleaseStory {
@@ -154,10 +162,11 @@ export async function getReleaseContent(): Promise<
     // allLabels is optional on the type (fixtures omit it), so fall back
     // to the display labels rather than treating a bug as a feature.
     const labels = ticket.allLabels ?? ticket.labels;
-    // A release project holds more than features: chores, spikes and
-    // container tickets live there too. Only labelled work is a story —
-    // without this every unlabelled ticket rendered as one.
-    if (!isReleaseStory(labels, storyLabels(), bugLabels())) continue;
+    // A release project holds QA's own process tickets too — "QA Test
+    // Design | COV-7309", "QA Review", "Gabriel review" — and those are
+    // not release content. Bugs are held back as well; they have their
+    // own list below.
+    if (!isReleaseStory(ticket.title, labels, labelRules())) continue;
     // Cancelled work never shipped, so it is not a feature of the release.
     if (ticket.statusType === "canceled") continue;
     candidates.push({
@@ -186,7 +195,7 @@ export async function getReleaseContent(): Promise<
       // These arrive already filtered by roadmap label, but the check is
       // repeated rather than assumed: two paths feeding one list must not
       // disagree about what belongs in it.
-      if (!isReleaseStory(t.allLabels ?? t.labels, storyLabels(), bugLabels()))
+      if (!isReleaseStory(t.title, t.allLabels ?? t.labels, labelRules()))
         continue;
       candidates.push({
         version,
@@ -237,17 +246,19 @@ export async function getReleaseContent(): Promise<
     if (!group.isRelease) continue;
     const version = versionOf(group.name);
     if (!version) continue;
-    bucket(version).bugs = group.tickets.map((t) => ({
-      id: t.id,
-      title: t.title,
-      url: t.url,
-      priorityName: t.priorityName ?? null,
-      status: t.status,
-      statusType: t.statusType,
-      assigneeName: t.assigneeName ?? null,
-      parentId: t.parentId ?? null,
-      createdAt: t.createdAt ?? null,
-    }));
+    bucket(version).bugs = group.tickets
+      .filter((t) => isReleaseBug(t.allLabels ?? t.labels, labelRules()))
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        url: t.url,
+        priorityName: t.priorityName ?? null,
+        status: t.status,
+        statusType: t.statusType,
+        assigneeName: t.assigneeName ?? null,
+        parentId: t.parentId ?? null,
+        createdAt: t.createdAt ?? null,
+      }));
   }
 
   return out;
