@@ -73,6 +73,17 @@ export const env = {
   get csBugLabel(): string {
     return process.env.QA_CS_BUG_LABEL ?? "CS Bug";
   },
+  /**
+   * Require a story label before release work counts as a story.
+   *
+   * Off by default, and that default is load-bearing: release projects
+   * hold REL-* tickets labelled "Bug", "3.37", "Sandbox" or nothing, and
+   * none carry the two feature labels — turning this on today empties the
+   * release panels. Flip it once release tickets are labelled.
+   */
+  get releaseRequireStoryLabel(): boolean {
+    return process.env.QA_RELEASE_REQUIRE_STORY_LABEL === "true";
+  },
   /** Linear label marking bugs found in regression. */
   get regressionBugLabel(): string {
     return process.env.QA_REGRESSION_BUG_LABEL ?? "Regression";
