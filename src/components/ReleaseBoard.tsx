@@ -6,6 +6,8 @@ import type {
   ReleaseGroup,
   RoadmapNode,
 } from "@/lib/linear/types";
+import { DescopeMark, DescopeProvider } from "@/components/DescopeMark";
+import type { RoadmapDescopeMap } from "@/lib/roadmap-descopes";
 import { useUrlFilter } from "@/lib/use-url-filter";
 import {
   Chevron,
@@ -139,6 +141,7 @@ function TicketRow({
       <Tag className={statusTone[ticket.statusType] ?? statusTone.backlog}>
         {ticket.status}
       </Tag>
+      <DescopeMark id={ticket.id} />
       <CoverageTag ticket={ticket} />
       <FolderHint ticket={ticket} />
     </li>
@@ -163,6 +166,7 @@ function ParentRow({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5 transition-colors hover:bg-surface-sunken">
         <TicketLink ticket={ticket} />
         <PriorityTag ticket={ticket} />
+        <DescopeMark id={ticket.id} />
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
@@ -281,8 +285,15 @@ function CollapsibleReleaseGroup({
 export function ReleaseBoard({
   groups,
   defaultGroup,
+  descopes,
 }: {
   groups: ReleaseGroup[];
+  /**
+   * Resolves to the descope history per ticket. A promise, not data: the
+   * issue-history read is the slowest call in the app, and the board
+   * renders without waiting for it — each tag suspends on its own.
+   */
+  descopes?: Promise<RoadmapDescopeMap>;
   /**
    * The one group the board opens on. Everything else is a click away —
    * opening on every project buried the squad's own work under releases
@@ -364,40 +375,42 @@ export function ReleaseBoard({
   }, [groups, coverage.selected, release.selected]);
 
   return (
-    <div>
-      <FilterBar>
-        <FilterGroup
-          label="Release"
-          options={releaseOptions}
-          selected={[...release.selected]}
-          onChange={release.set}
-          bulk
-        />
-        <FilterGroup
-          label="Test cases"
-          options={coverageOptions}
-          selected={[...coverage.selected]}
-          onChange={coverage.set}
-          bulk
-        />
-      </FilterBar>
-
-      <div className="mt-4 space-y-4">
-        {visible.map((group) => (
-          <CollapsibleReleaseGroup
-            key={group.name}
-            group={group}
-            expandParents={narrowed}
+    <DescopeProvider promise={descopes}>
+      <div>
+        <FilterBar>
+          <FilterGroup
+            label="Release"
+            options={releaseOptions}
+            selected={[...release.selected]}
+            onChange={release.set}
+            bulk
           />
-        ))}
-        {visible.length === 0 && (
-          <p className="rounded-xl bg-surface-card px-5 py-10 text-center text-[13px] text-slate-500 shadow-card ring-1 ring-hairline">
-            {release.selected.size === 0 || coverage.selected.size === 0
-              ? "Nothing selected — pick a release and a test-case state above."
-              : "No tickets match these filters."}
-          </p>
-        )}
+          <FilterGroup
+            label="Test cases"
+            options={coverageOptions}
+            selected={[...coverage.selected]}
+            onChange={coverage.set}
+            bulk
+          />
+        </FilterBar>
+
+        <div className="mt-4 space-y-4">
+          {visible.map((group) => (
+            <CollapsibleReleaseGroup
+              key={group.name}
+              group={group}
+              expandParents={narrowed}
+            />
+          ))}
+          {visible.length === 0 && (
+            <p className="rounded-xl bg-surface-card px-5 py-10 text-center text-[13px] text-slate-500 shadow-card ring-1 ring-hairline">
+              {release.selected.size === 0 || coverage.selected.size === 0
+                ? "Nothing selected — pick a release and a test-case state above."
+                : "No tickets match these filters."}
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </DescopeProvider>
   );
 }

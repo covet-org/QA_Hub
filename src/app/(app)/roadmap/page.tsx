@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import { RoadmapDescopes } from "@/components/RoadmapDescopes";
+import { getRoadmapDescopes } from "@/lib/roadmap-descopes";
 import { ReleaseBoard } from "@/components/ReleaseBoard";
 import { env } from "@/lib/env";
 import { getRoadmapSnapshot } from "@/lib/roadmap";
@@ -12,6 +11,10 @@ export const metadata: Metadata = { title: "Roadmap" };
 export default async function RoadmapPage() {
   await requireAccess("/roadmap");
   const snapshot = await getRoadmapSnapshot();
+  // Deliberately not awaited: handed to the board as a promise so the
+  // list renders now and each "descoped from" tag fills in when the
+  // issue-history read lands.
+  const descopes = getRoadmapDescopes(snapshot.groups.map((g) => g.name));
   const missing = snapshot.totalTickets - snapshot.coveredTickets;
   const coveragePct =
     snapshot.totalTickets > 0
@@ -56,17 +59,10 @@ export default async function RoadmapPage() {
           />
         </div>
 
-        {/* Above the board, and streamed: reading issue history is the
-            slowest call in the app, and the roadmap must not wait on it.
-            A section rather than a re-sort of the board, so nothing below
-            moves when it lands. */}
-        <Suspense fallback={null}>
-          <RoadmapDescopes groups={snapshot.groups} />
-        </Suspense>
-
         <ReleaseBoard
           groups={snapshot.groups}
           defaultGroup={env.roadmapDefaultGroup}
+          descopes={descopes}
         />
       </PageShell>
     </div>
