@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CoveredTicket,
   ReleaseGroup,
@@ -8,6 +8,7 @@ import type {
 } from "@/lib/linear/types";
 import { DescopeMark, DescopeProvider } from "@/components/DescopeMark";
 import { byDescopedThenPriority } from "@/lib/roadmap-order";
+import { loadRoadmapDescopes } from "@/lib/roadmap-actions";
 import type { RoadmapDescopeMap } from "@/lib/roadmap-descopes";
 import { useUrlFilter } from "@/lib/use-url-filter";
 import {
@@ -287,13 +288,21 @@ export function ReleaseBoard({
   groups,
   defaultGroup,
   descopes,
+  loadedGroups,
 }: {
   groups: ReleaseGroup[];
   /**
-   * Descope history per ticket id. Decides both the tag and the order:
-   * anything pushed out of a release before sorts to the top.
+   * Descope history per ticket id, for the groups loaded so far. Decides
+   * both the tag and the order: anything pushed out of a release before
+   * sorts to the top.
    */
   descopes?: RoadmapDescopeMap;
+  /**
+   * The groups that history covers. Others load when selected — reading
+   * it for every roadmap project is the slowest call in the app, and the
+   * board opens on one group.
+   */
+  loadedGroups?: string[];
   /**
    * The one group the board opens on. Everything else is a click away —
    * opening on every project buried the squad's own work under releases
@@ -313,6 +322,14 @@ export function ReleaseBoard({
     [defaultGroup, groupNames],
   );
   const release = useUrlFilter("release", groupNames, releaseDefaults);
+
+  const [history, setHistory] = useState<RoadmapDescopeMap>(descopes ?? {});
+  const [loadingGroups, setLoadingGroups] = useState<string[]>([]);
+  // Requested, not just loaded: two renders can ask for the same group
+  // before either returns, and fetching that history twice is the bug
+  // that makes a slow board slower.
+  const requested = useRef(new Set(loadedGroups ?? []));
+
   const coverage = useUrlFilter("coverage", COVERAGE_VALUES);
   // With one coverage box active the view is a hunt for those rows, so
   // parents open onto their matches instead of hiding them.
@@ -320,12 +337,18 @@ export function ReleaseBoard({
 
   const releaseOptions: FilterOption[] = useMemo(
     () =>
-      groups.map((group) => ({
-        value: group.name,
-        label: group.name.replace(/ Release$/, ""),
-        count: group.tickets.length,
-      })),
-    [groups],
+      groups.map((group) => {
+        const name = group.name.replace(/ Release$/, "");
+        return {
+          value: group.name,
+          // The tickets are already here; only the descope history is in
+          // flight, so the group is usable and the label says what is
+          // still arriving rather than blocking on it.
+          label: loadingGroups.includes(group.name) ? `${name} …` : name,
+          count: group.tickets.length,
+        };
+      }),
+    [groups, loadingGroups],
   );
 
   const coverageOptions: FilterOption[] = useMemo(() => {
@@ -346,9 +369,35 @@ export function ReleaseBoard({
   }, [groups, release.selected]);
 
   const wasDescoped = useCallback(
-    (id: string) => (descopes?.[id]?.length ?? 0) > 0,
-    [descopes],
+    (id: string) => (history[id]?.length ?? 0) > 0,
+    [history],
   );
+
+  // Driven by the selection rather than by the click, so a filtered URL
+  // pasted to a teammate loads the history for the groups it names.
+  const selectedGroupKey = [...release.selected].sort().join("|");
+  useEffect(() => {
+    const wanted = selectedGroupKey
+      .split("|")
+      .filter((name) => name && !requested.current.has(name));
+    if (wanted.length === 0) return;
+
+    for (const name of wanted) requested.current.add(name);
+    setLoadingGroups((current) => [...current, ...wanted]);
+
+    void loadRoadmapDescopes(wanted)
+      .then((more) => setHistory((current) => ({ ...current, ...more })))
+      .catch(() => {
+        // Forget it, so selecting the group again tries once more rather
+        // than leaving those rows unmarked for the rest of the visit.
+        for (const name of wanted) requested.current.delete(name);
+      })
+      .finally(() =>
+        setLoadingGroups((current) =>
+          current.filter((name) => !wanted.includes(name)),
+        ),
+      );
+  }, [selectedGroupKey]);
 
   const visible = useMemo<VisibleGroup[]>(() => {
     const matches = (t: CoveredTicket) =>
@@ -392,7 +441,7 @@ export function ReleaseBoard({
   }, [groups, coverage.selected, release.selected, wasDescoped]);
 
   return (
-    <DescopeProvider value={descopes}>
+    <DescopeProvider value={history}>
       <div>
         <FilterBar>
           <FilterGroup
