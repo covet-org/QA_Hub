@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { loadReleaseFeatures } from "@/lib/release-actions";
 import {
   DataRow,
   DEFAULT_RELEASES_SHOWN,
@@ -75,6 +78,7 @@ export type StoryDescopeMap = Record<
 export function ReleaseFeatures({
   groups,
   descopes = {},
+  loadedReleases,
 }: {
   groups: ReleaseFeatureGroup[];
   /**
@@ -82,13 +86,64 @@ export function ReleaseFeatures({
    * resolves, so the feature list is never waiting on it.
    */
   descopes?: StoryDescopeMap;
+  /**
+   * Releases whose stories are already here. The rest are named but empty
+   * until revealed — Home renders two and there are thirty.
+   */
+  loadedReleases?: string[];
 }) {
+  const [extra, setExtra] = useState<Record<string, ReleaseStory[]>>({});
+  const [extraDescopes, setExtraDescopes] = useState<StoryDescopeMap>({});
+  const [loading, setLoading] = useState<string[]>([]);
+  // Requested, not just loaded: revealing and hiding twice in quick
+  // succession would otherwise fetch the same releases again.
+  const requested = useRef(new Set(loadedReleases ?? []));
   const {
     visible: shown,
     expanded,
     hiddenCount,
     toggle,
   } = useRevealMore(groups, DEFAULT_RELEASES_SHOWN);
+
+  // Driven by what is on screen rather than by the click itself, so the
+  // rule holds however the list is revealed.
+  const shownKey = shown.map((g) => g.release).join("|");
+  useEffect(() => {
+    const wanted = shownKey
+      .split("|")
+      .filter((release) => release && !requested.current.has(release));
+    if (wanted.length === 0) return;
+
+    for (const release of wanted) requested.current.add(release);
+    setLoading((current) => [...current, ...wanted]);
+
+    void loadReleaseFeatures(wanted)
+      .then((data) => {
+        setExtra((current) => ({ ...current, ...data.stories }));
+        setExtraDescopes((current) => ({ ...current, ...data.descopes }));
+      })
+      .catch(() => {
+        // Forget it so a second reveal retries, rather than leaving the
+        // release stuck showing nothing.
+        for (const release of wanted) requested.current.delete(release);
+      })
+      .finally(() =>
+        setLoading((current) =>
+          current.filter((release) => !wanted.includes(release)),
+        ),
+      );
+  }, [shownKey]);
+
+  const allDescopes = useMemo(
+    () => ({ ...descopes, ...extraDescopes }),
+    [descopes, extraDescopes],
+  );
+
+  const storiesFor = useMemo(
+    () => (group: ReleaseFeatureGroup) =>
+      group.stories.length > 0 ? group.stories : (extra[group.release] ?? []),
+    [extra],
+  );
 
   if (groups.length === 0) {
     return <EmptyState>No releases found.</EmptyState>;
@@ -97,10 +152,10 @@ export function ReleaseFeatures({
   return (
     <div className="space-y-3">
       {shown.map((group, index) => {
-        const done = group.stories.filter(
-          (s) => s.statusType === "completed",
-        ).length;
-        const covered = group.stories.filter((s) => s.hasTestCases).length;
+        const stories = storiesFor(group);
+        const isLoading = loading.includes(group.release);
+        const done = stories.filter((s) => s.statusType === "completed").length;
+        const covered = stories.filter((s) => s.hasTestCases).length;
         return (
           <Disclosure
             key={group.release}
@@ -117,25 +172,35 @@ export function ReleaseFeatures({
             }
             summary={
               <span className="nums text-[11px] text-slate-500">
-                {group.stories.length === 0 ? (
+                {isLoading ? (
+                  "loading…"
+                ) : stories.length === 0 ? (
                   "no features recorded"
                 ) : (
                   <>
-                    {group.stories.length} feature
-                    {group.stories.length === 1 ? "" : "s"} · {done} done ·{" "}
-                    {covered} with test cases
+                    {stories.length} feature
+                    {stories.length === 1 ? "" : "s"} · {done} done · {covered}{" "}
+                    with test cases
                   </>
                 )}
               </span>
             }
           >
-            {group.stories.length === 0 && (
+            {isLoading && (
+              <p
+                role="status"
+                className="animate-pulse px-4 py-6 text-center text-[13px] text-slate-500"
+              >
+                Loading {group.release}…
+              </p>
+            )}
+            {stories.length === 0 && !isLoading && (
               <EmptyState>
                 Nothing but bugs recorded against {group.release} in Linear.
               </EmptyState>
             )}
             <ul className="divide-y divide-hairline">
-              {group.stories.map((story) => (
+              {stories.map((story) => (
                 <DataRow
                   key={story.id}
                   leading={<TicketLink id={story.id} url={story.url} />}
@@ -154,10 +219,14 @@ export function ReleaseFeatures({
                   title={story.title}
                   titleAttr={story.title}
                   below={
-                    descopeOf(descopes, group.release, story).length > 0 ? (
+                    descopeOf(allDescopes, group.release, story).length > 0 ? (
                       <div className="mt-1.5 pl-[4.5rem]">
                         <StoryDescopeHistory
-                          descopes={descopeOf(descopes, group.release, story)}
+                          descopes={descopeOf(
+                            allDescopes,
+                            group.release,
+                            story,
+                          )}
                         />
                       </div>
                     ) : undefined
@@ -165,7 +234,7 @@ export function ReleaseFeatures({
                   trailing={
                     <>
                       <DescopeTag
-                        descopes={descopeOf(descopes, group.release, story)}
+                        descopes={descopeOf(allDescopes, group.release, story)}
                       />
                       <Tag
                         className={
