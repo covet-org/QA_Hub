@@ -41,21 +41,29 @@ interface BugLike {
  * exit from the release being displayed is dropped too — a row saying
  * "3.36 was descoped from 3.36" reads as a bug in the dashboard even when
  * the underlying move is real.
+ *
+ * Pass a null version to keep every exit, which is what the roadmap wants:
+ * a ticket parked in a squad project is not "under" any release.
  */
 export function descopesForStory<TBug extends BugLike>(
   storyId: string,
-  version: string,
+  /**
+   * The release this story is being read under, so only earlier exits
+   * show. Null on the roadmap, where a ticket sits in a squad project and
+   * has no release to be earlier than.
+   */
+  version: string | null,
   events: DescopeEvent[] | undefined,
   bugs: TBug[],
 ): FeatureDescope<TBug>[] {
   if (!events || events.length === 0) return [];
-  const here = versionRank(version) ?? 0;
+  const here = version === null ? null : (versionRank(version) ?? 0);
 
   const mine = bugs.filter((b) => b.parentId === storyId);
 
   return (
     events
-      .filter((e) => (versionRank(e.fromRelease) ?? 0) < here)
+      .filter((e) => here === null || (versionRank(e.fromRelease) ?? 0) < here)
       // Most recent exit first: it is the one that explains where the feature
       // is now, and it is what the row's tag names. Sorted here rather than
       // trusted from the caller so the order is a property of this function.
