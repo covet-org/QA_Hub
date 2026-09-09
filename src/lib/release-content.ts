@@ -1,6 +1,8 @@
 import "server-only";
 
 import { getBugsSnapshot, isOpenStatus } from "@/lib/bugs";
+import { env } from "@/lib/env";
+import { isReleaseStory } from "@/lib/story-labels";
 import type { StoryTestProgress } from "@/lib/story-tests";
 import { descopesForStory, type FeatureDescope } from "@/lib/descope-history";
 import { fetchReleaseProjectMoves } from "@/lib/linear/releases";
@@ -14,8 +16,16 @@ import { byPriority } from "@/lib/priority";
 import { getRoadmapSnapshot } from "@/lib/roadmap";
 import { getCoverageIndex } from "@/lib/testiny/coverage";
 
-/** Bugs get their own list, so they are never counted as features. */
-const BUG_LABELS = new Set(["Bug", "CS Bug"]);
+/**
+ * A release lists features and bugs, nothing else.
+ *
+ * Read from the same settings the rest of the app uses, so the labels
+ * cannot drift apart: QA_ROADMAP_LABELS decides what a feature is (the
+ * roadmap already means exactly this by it) and the two bug labels are the
+ * ones the bug boards are built from.
+ */
+const storyLabels = () => env.roadmapLabels;
+const bugLabels = () => [env.bugLabel, env.csBugLabel];
 
 /** A roadmap ticket (user story) shown in a release's detail. */
 export interface ReleaseStory {
@@ -28,6 +38,8 @@ export interface ReleaseStory {
   labels: string[];
   status: string;
   statusType: string;
+  /** Linear assignee's full name, or null when nobody owns it. */
+  assigneeName: string | null;
   hasTestCases: boolean;
   /**
    * How far this story's cases got in the release's Dev/Sandbox run.
@@ -56,6 +68,8 @@ export interface ReleaseBug {
   priorityName: string | null;
   status: string;
   statusType: string;
+  /** Linear assignee's full name, or null when nobody owns it. */
+  assigneeName: string | null;
   /** Identifier of the parent user story, if the bug is a sub-issue. */
   parentId: string | null;
   /** When the bug was filed — what decides whether it predates a descope. */
@@ -140,7 +154,10 @@ export async function getReleaseContent(): Promise<
     // allLabels is optional on the type (fixtures omit it), so fall back
     // to the display labels rather than treating a bug as a feature.
     const labels = ticket.allLabels ?? ticket.labels;
-    if (labels.some((l) => BUG_LABELS.has(l))) continue;
+    // A release project holds more than features: chores, spikes and
+    // container tickets live there too. Only labelled work is a story —
+    // without this every unlabelled ticket rendered as one.
+    if (!isReleaseStory(labels, storyLabels(), bugLabels())) continue;
     // Cancelled work never shipped, so it is not a feature of the release.
     if (ticket.statusType === "canceled") continue;
     candidates.push({
@@ -154,6 +171,7 @@ export async function getReleaseContent(): Promise<
         priorityName: ticket.priorityName ?? null,
         status: ticket.status,
         statusType: ticket.statusType,
+        assigneeName: ticket.assigneeName ?? null,
         hasTestCases: hasCases(ticket.id),
       },
     });
@@ -165,6 +183,11 @@ export async function getReleaseContent(): Promise<
     const version = versionOf(group.name);
     if (!version) continue;
     for (const t of group.tickets) {
+      // These arrive already filtered by roadmap label, but the check is
+      // repeated rather than assumed: two paths feeding one list must not
+      // disagree about what belongs in it.
+      if (!isReleaseStory(t.allLabels ?? t.labels, storyLabels(), bugLabels()))
+        continue;
       candidates.push({
         version,
         parentId: t.parentId ?? null,
@@ -176,6 +199,7 @@ export async function getReleaseContent(): Promise<
           priorityName: t.priorityName ?? null,
           status: t.status,
           statusType: t.statusType,
+          assigneeName: t.assigneeName ?? null,
           hasTestCases: t.hasTestCases,
         },
       });
@@ -220,6 +244,7 @@ export async function getReleaseContent(): Promise<
       priorityName: t.priorityName ?? null,
       status: t.status,
       statusType: t.statusType,
+      assigneeName: t.assigneeName ?? null,
       parentId: t.parentId ?? null,
       createdAt: t.createdAt ?? null,
     }));
@@ -265,6 +290,7 @@ export async function getStoryDescopes(): Promise<
       priorityName: t.priorityName ?? null,
       status: t.status,
       statusType: t.statusType,
+      assigneeName: t.assigneeName ?? null,
       parentId: t.parentId ?? null,
       createdAt: t.createdAt ?? null,
     })),
