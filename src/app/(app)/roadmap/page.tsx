@@ -11,10 +11,11 @@ export const metadata: Metadata = { title: "Roadmap" };
 export default async function RoadmapPage() {
   await requireAccess("/roadmap");
   const snapshot = await getRoadmapSnapshot();
-  // Deliberately not awaited: handed to the board as a promise so the
-  // list renders now and each "descoped from" tag fills in when the
-  // issue-history read lands.
-  const descopes = getRoadmapDescopes(snapshot.groups.map((g) => g.name));
+  // Awaited, unlike the tags alone would need: descoped tickets sort to
+  // the top of the board, and a list cannot be ordered by data that has
+  // not arrived. Cached with every other upstream read, so the wait lands
+  // on the first load in each five-minute window rather than every visit.
+  const descopes = await getRoadmapDescopes(snapshot.groups.map((g) => g.name));
   const missing = snapshot.totalTickets - snapshot.coveredTickets;
   const coveragePct =
     snapshot.totalTickets > 0

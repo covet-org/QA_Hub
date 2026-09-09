@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type {
   CoveredTicket,
   ReleaseGroup,
   RoadmapNode,
 } from "@/lib/linear/types";
 import { DescopeMark, DescopeProvider } from "@/components/DescopeMark";
+import { byDescopedThenPriority } from "@/lib/roadmap-order";
 import type { RoadmapDescopeMap } from "@/lib/roadmap-descopes";
 import { useUrlFilter } from "@/lib/use-url-filter";
 import {
@@ -289,11 +290,10 @@ export function ReleaseBoard({
 }: {
   groups: ReleaseGroup[];
   /**
-   * Resolves to the descope history per ticket. A promise, not data: the
-   * issue-history read is the slowest call in the app, and the board
-   * renders without waiting for it — each tag suspends on its own.
+   * Descope history per ticket id. Decides both the tag and the order:
+   * anything pushed out of a release before sorts to the top.
    */
-  descopes?: Promise<RoadmapDescopeMap>;
+  descopes?: RoadmapDescopeMap;
   /**
    * The one group the board opens on. Everything else is a click away —
    * opening on every project buried the squad's own work under releases
@@ -345,6 +345,11 @@ export function ReleaseBoard({
     ];
   }, [groups, release.selected]);
 
+  const wasDescoped = useCallback(
+    (id: string) => (descopes?.[id]?.length ?? 0) > 0,
+    [descopes],
+  );
+
   const visible = useMemo<VisibleGroup[]>(() => {
     const matches = (t: CoveredTicket) =>
       coverage.selected.has(t.hasTestCases ? "has" : "none");
@@ -369,13 +374,25 @@ export function ReleaseBoard({
           covered += tallied.filter((t) => t.hasTestCases).length;
         }
 
+        // Anything pushed out of a release before goes to the top, and
+        // within that band the usual priority order applies. A ticket that
+        // has already slipped once is the one most likely to slip again,
+        // and on a flat list it was indistinguishable from work that has
+        // never been scheduled.
+        //
+        // Stable beneath the band: rows keep the order buildRoadmapNodes
+        // gave them — uncovered first, then priority, then id — so the
+        // untouched part of the list reads exactly as it did before.
+        const order = byDescopedThenPriority(wasDescoped);
+        rows.sort((x, y) => order(x.node.ticket, y.node.ticket));
+
         return { ...group, rows, counted, covered };
       })
       .filter((group) => group.rows.length > 0);
-  }, [groups, coverage.selected, release.selected]);
+  }, [groups, coverage.selected, release.selected, wasDescoped]);
 
   return (
-    <DescopeProvider promise={descopes}>
+    <DescopeProvider value={descopes}>
       <div>
         <FilterBar>
           <FilterGroup
