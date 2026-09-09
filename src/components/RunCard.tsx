@@ -67,6 +67,34 @@ const STATUS_TYPE_RANK: Record<string, number> = {
   canceled: 5,
 };
 
+/**
+ * Who owns this ticket in Linear.
+ *
+ * Unassigned is stated, not left blank. On a release board "nobody owns
+ * this" is a finding — it is the row that stalls — and an empty cell reads
+ * as a rendering gap rather than as an answer.
+ */
+function Assignee({ name }: { name: string | null }) {
+  if (!name) {
+    return (
+      <span
+        className="shrink-0 text-[11px] text-amber-700 italic"
+        title="No assignee in Linear"
+      >
+        Unassigned
+      </span>
+    );
+  }
+  return (
+    <span
+      className="shrink-0 truncate text-[11px] text-slate-500"
+      title={`Assigned to ${name} in Linear`}
+    >
+      {name}
+    </span>
+  );
+}
+
 function BugRow({ bug }: { bug: ReleaseBug }) {
   return (
     <li className="flex items-baseline gap-2 py-0.5">
@@ -77,6 +105,7 @@ function BugRow({ bug }: { bug: ReleaseBug }) {
       >
         {bug.title}
       </span>
+      <Assignee name={bug.assigneeName} />
     </li>
   );
 }
@@ -289,6 +318,7 @@ function StoryPanel({
               </Tag>
             ))}
           <DescopeTag descopes={descopes} />
+          <Assignee name={story.assigneeName} />
           <StoryTests tests={story.tests} />
           <span className="text-[11px] text-slate-400">
             {bugs.length} bug{bugs.length === 1 ? "" : "s"}
